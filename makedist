@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Make the distribution tar.gz file from the CVS exported version
+
+autoreconf -s -i
+./configure --mandir=/usr/share/man --prefix=/usr --with-pic
+fakeroot make dist
