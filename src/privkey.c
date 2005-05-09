@@ -359,16 +359,36 @@ gcry_error_t otrl_privkey_read_fingerprints(OtrlUserState us,
 	return err;
     }
     while(fgets(storeline, maxsize, storef)) {
-	char username[sizeof(storeline)];
-	char accountname[sizeof(storeline)];
-	char protocol[sizeof(storeline)];
-	char hex[sizeof(storeline)];
+	char *username;
+	char *accountname;
+	char *protocol;
+	char *hex;
+	char *tab;
+	char *eol;
 	int res, i, j;
 	/* Parse the line, which should be of the form:
 	 *    username\taccountname\tprotocol\t40_hex_nybbles\n          */
-	res = sscanf(storeline, "%s %s %s %s", username, accountname,
-		protocol, hex);
-	if (res != 4) continue;
+	username = storeline;
+	tab = strchr(username, '\t');
+	if (!tab) continue;
+	*tab = '\0';
+
+	accountname = tab + 1;
+	tab = strchr(accountname, '\t');
+	if (!tab) continue;
+	*tab = '\0';
+
+	protocol = tab + 1;
+	tab = strchr(protocol, '\t');
+	if (!tab) continue;
+	*tab = '\0';
+
+	hex = tab + 1;
+	eol = strchr(hex, '\r');
+	if (!eol) eol = strchr(hex, '\n');
+	if (!eol) continue;
+	*eol = '\0';
+
 	if (strlen(hex) != 40) continue;
 	for(j=0, i=0; i<40; i+=2) {
 	    fingerprint[j++] = (ctoh(hex[i]) << 4) + (ctoh(hex[i+1]));

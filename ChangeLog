@@ -1,3 +1,8 @@
+2005-05-09
+
+	* src/privkey.c (otrl_privkey_read_fingerprints): Allow fields,
+	particularly accountnames, to contain spaces.  Closes #1198379.
+
 2005-05-03
 
 	* README:
