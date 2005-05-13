@@ -1,3 +1,8 @@
+2005-05-13
+
+	* libotr.m4: Fixed a bug which made configure fail to find the
+	libotr header files if they weren't in the standard place.
+
 2005-05-09
 
 	* src/privkey.c (otrl_privkey_read_fingerprints): Allow fields,

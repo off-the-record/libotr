@@ -54,7 +54,6 @@ if test "$libotr_inc_prefix" != "" ; then
 	CFLAGS="$CFLAGS $LIBOTR_CFLAGS"
 fi
 AC_MSG_RESULT($LIBOTR_CFLAGS)
-CFLAGS="$libotr_save_CFLAGS"
 
 dnl add any special lib dirs
 AC_MSG_CHECKING(for libotr LIBS)
