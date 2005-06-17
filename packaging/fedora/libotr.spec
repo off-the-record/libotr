@@ -1,37 +1,17 @@
-Summary: Off-The-Record Messaging libraray and toolkit
+Summary: Off-The-Record Messaging library and toolkit
 Name: libotr
-%define majver 2
-%define minver 0.2
-Version: %{majver}.%{minver}
-%define debug_package %{nil}
-%define ourrelease 1
-Release: %{ourrelease}
-Source: http://www.cypherpunks.ca/otr/libotr-%{majver}.%{minver}.tar.gz
-BuildRoot: %{_tmppath}/%{name}-buildroot
-Url: http://www.cypherpunks.ca/otr/
-Vendor: Nikita Borisov and Ian Goldberg <otr@cypherpunks.ca>
-Packager: Paul Wouters <paul@cypherpunks.ca>
+Version: 2.0.2
+Release: 2%{?dist}
 License: GPL
 Group: Applications/Internet
-%define __spec_install_post /usr/lib/rpm/brp-compress || :
-
-%package toolkit
-Summary: the otr toolkit
-Group: Applications/Internet
-Provides: libotr
-Obsoletes: gaim-otr <= 1.0.2
+Source0: http://www.cypherpunks.ca/otr/%{name}-%{version}.tar.gz
+Url: http://www.cypherpunks.ca/otr/
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+Provides: libotr-toolkit = %{version}
+Obsoletes: libotr-toolkit
 BuildRequires: libgcrypt-devel >= 1.2.0, libgpg-error-devel 
-Requires: libgcrypt >= 1.2.0
-Release: %{ourrelease}
 
-%package devel
-Summary: the otr library and include files
-Group: Applications/Internet
-Release: %{ourrelease}
-Requires: libotr = 2.0.2
-
-
-%description toolkit
+%description
 
               Off-the-Record Messaging Library and Toolkit
                           v2.0.2,  3 May 2005
@@ -56,34 +36,36 @@ OTR allows you to have private conversations over IM by providing:
 For more information on Off-the-Record Messaging, see
 http://www.cypherpunks.ca/otr/
 
+%package devel
+Summary: Development library and include files for libotr
+Group: Applications/Internet
+Requires: %{name} = %{version}-%{release}
 
 %description devel
-              Off-the-Record Messaging Library and Toolkit
-			  v2.0.2,  3 May 2005
 
 The devel package contains the libotr library and the include files
 
-%description
-A dummy to satisfy rpm 
-
 %prep
-%setup -q -n libotr-%{majver}.%{minver}
+%setup -q
 
 %build
-%configure --with-pic --prefix=%{_prefix} --libdir=%{_libdir} --mandir=%{_mandir}
-%{__make} \
-	CFLAGS="${RPM_OPT_FLAGS}" \
-	all
+%configure --with-pic
+make %{?_smp_mflags} all
 
 %install
-rm -rf ${RPM_BUILD_ROOT}
-%{__make} \
-	DESTDIR=${RPM_BUILD_ROOT} \
+rm -rf $RPM_BUILD_ROOT
+make \
+	DESTDIR=$RPM_BUILD_ROOT \
 	LIBINSTDIR=%{_libdir} \
 	install
+rm -rf $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %clean
-rm -rf ${RPM_BUILD_ROOT}
+rm -rf $RPM_BUILD_ROOT
+
+%post -p /sbin/ldconfig
+
+%postun -p /sbin/ldconfig
 
 %files 
 %defattr(-,root,root)
@@ -96,12 +78,15 @@ rm -rf ${RPM_BUILD_ROOT}
 %doc README COPYING.LIB 
 %{_libdir}/libotr.so
 %{_libdir}/libotr.a
-%{_libdir}/libotr.la
+%dir %{_includedir}/libotr
 %{_includedir}/libotr/*
 %{_datadir}/aclocal/*
 
 
 %changelog
+* Fri Jun 17 2005 Tom "spot" Callaway <tcallawa@redhat.com>
+- reworked for Fedora Extras
+
 * Tue May  3 2005 Ian Goldberg <ian@cypherpunks.ca>
 - Bumped version number to 2.0.2
 * Wed Feb 16 2005 Ian Goldberg <ian@cypherpunks.ca>
