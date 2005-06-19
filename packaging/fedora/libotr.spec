@@ -1,9 +1,9 @@
 Summary: Off-The-Record Messaging library and toolkit
 Name: libotr
 Version: 2.0.2
-Release: 2%{?dist}
-License: GPL
-Group: Applications/Internet
+Release: 3%{?dist}
+License: GPL, LGPL
+Group: System Environment/Libraries
 Source0: http://www.cypherpunks.ca/otr/%{name}-%{version}.tar.gz
 Url: http://www.cypherpunks.ca/otr/
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -12,33 +12,14 @@ Obsoletes: libotr-toolkit
 BuildRequires: libgcrypt-devel >= 1.2.0, libgpg-error-devel 
 
 %description
-
-              Off-the-Record Messaging Library and Toolkit
-                          v2.0.2,  3 May 2005
-
+Off-the-Record Messaging Library and Toolkit
 This is a library and toolkit which implements Off-the-Record (OTR) Messaging.
-
-OTR allows you to have private conversations over IM by providing:
- - Encryption
-   - No one else can read your instant messages.
- - Authentication
-   - You are assured the correspondent is who you think it is.
- - Deniability
-   - The messages you send do _not_ have digital signatures that are
-     checkable by a third party.  Anyone can forge messages after a
-     conversation to make them look like they came from you.  However,
-     _during_ a conversation, your correspondent is assured the messages
-     he sees are authentic and unmodified.
- - Perfect forward secrecy
-   - If you lose control of your private keys, no previous conversation
-     is compromised.
-
-For more information on Off-the-Record Messaging, see
-http://www.cypherpunks.ca/otr/
+OTR allows you to have private conversations over IM by providing Encryption,
+Authentication, Deniability and Perfect forward secrecy.
 
 %package devel
 Summary: Development library and include files for libotr
-Group: Applications/Internet
+Group: Development/Libraries
 Requires: %{name} = %{version}-%{release}
 
 %description devel
@@ -75,7 +56,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %files devel
-%doc README COPYING.LIB 
+%defattr(-,root,root,-)
 %{_libdir}/libotr.so
 %{_libdir}/libotr.a
 %dir %{_includedir}/libotr
@@ -84,6 +65,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Sat Jun 19 2005 Paul Wouters <paul@cypherpunks.ca>
+- Fixed defattr, groups, description and duplicate files in devel
+
 * Fri Jun 17 2005 Tom "spot" Callaway <tcallawa@redhat.com>
 - reworked for Fedora Extras
 
