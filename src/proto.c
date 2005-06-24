@@ -672,10 +672,10 @@ gcry_error_t otrl_proto_accept_key_exchange(OtrlUserState us,
 		if (err) return err;
 	    }
 	    if (context->their_keyid > 0 &&
-		    (kem->keyid == context->their_keyid &&
+		    ((kem->keyid == context->their_keyid &&
 			!gcry_mpi_cmp(kem->dh_pubkey, context->their_y))
 		    || (kem->keyid == (context->their_keyid - 1) &&
-			!gcry_mpi_cmp(kem->dh_pubkey, context->their_old_y))) {
+			!gcry_mpi_cmp(kem->dh_pubkey, context->their_old_y)))) {
 		/* We've already seen this key of theirs, so all is
 		 * good. */
 		break;
@@ -704,6 +704,9 @@ gcry_error_t otrl_proto_accept_key_exchange(OtrlUserState us,
 		    &(context->our_old_dh_key), context->their_y);
 	    if (err) return err;
 	    context->state = CONN_CONNECTED;
+	    memmove(context->sessionid, context->sesskeys[1][0].dhsecureid,
+		    20);
+	    context->sessiondir = context->sesskeys[1][0].dir;
 	    context->active_fingerprint = fprint;
 	    context->generation++;
 	    context->lastmessage = savedmessage;

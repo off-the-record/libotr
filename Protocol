@@ -439,7 +439,7 @@ When you receive an OTR Data message:
 
 Calculating session keys:
     Given one of our DH key pairs, and one of his DH pubkeys, we
-    calculate a session id, two AES keys, and two MAC keys as follows:
+    calculate a DH secure id, two AES keys, and two MAC keys as follows:
 
     Let (our_x, our_y) be the private and public parts of our DH
     key pair.  Let their_y be his DH pubkey.
@@ -459,18 +459,29 @@ Calculating session keys:
     who is the "high" end can change every time a new DH pubkey is
     exchanged.
 
-    Calculate the session id as the SHA-1 hash of the (5+len)-byte value
+    Calculate the DH secure id as the SHA-1 hash of the (5+len)-byte value
     composed of the byte 0x00, followed by the (4+len) bytes of
-    secbytes.  When a new private connection is established, display
-    these 8 bytes to the user as two 4-byte (big-endian) values, in C
-    "%08x" format.  If we are the "low" end of the key exchange, display
-    the first 10 bytes in bold, and the second 10 bytes in non-bold.  If
-    we are the "high" end of the key exchange, display the first 10 bytes
-    in non-bold, and the second 10 bytes in bold.  This session id can be
-    used by the parties to verify (say, over the telephone, assuming the
-    parties recognize each others' voices) that there is no
-    man-in-the-middle by having each side read his bold part to the
-    other.
+    secbytes.
+    
+    When a new private connection is established, the "secure session
+    id" for the connection is set to be the DH secure id calculated in
+    this way.
+    
+    The secure session id should be displayed as two 10-byte
+    (big-endian) values, in C "%20x" format.  If we are the "low" end of
+    the key exchange, display the first 10 bytes in bold, and the second
+    10 bytes in non-bold.  If we are the "high" end of the key exchange,
+    display the first 10 bytes in non-bold, and the second 10 bytes in
+    bold.  This session id can be used by the parties to verify (say,
+    over the telephone, assuming the parties recognize each others'
+    voices) that there is no man-in-the-middle by having each side read
+    his bold part to the other.
+
+    To be clear, if the user requests to see the secure session id in
+    the middle of the conversation, the value displayed should be the
+    one calculated at the time the private connection was established
+    (the last Key Exchange Message that caused a rekeying), _not_ the DH
+    secure id calculated from DH keys in more recent Data Messages.
 
     Now set the values of "sendbyte" and "recvbyte" according to whether
     we are the "low" or the "high" end of the key exchange:

@@ -30,13 +30,17 @@ typedef enum {
 } ConnectionState;
 
 typedef struct fingerprint {
-    unsigned char *fingerprint;        /* The fingerprint, or NULL */
-    struct context *context;           /* The context to which we belong */
     struct fingerprint *next;          /* The next fingerprint in the list */
     struct fingerprint **tous;         /* A pointer to the pointer to us */
+    unsigned char *fingerprint;        /* The fingerprint, or NULL */
+    struct context *context;           /* The context to which we belong */
+    char *trust;                       /* The trust level of the fingerprint */
 } Fingerprint;
 
 typedef struct context {
+    struct context * next;             /* Linked list pointer */
+    struct context ** tous;            /* A pointer to the pointer to us */
+
     char * username;                   /* The user this context is for */
     char * accountname;                /* The username is relative to
 					  this account... */
@@ -61,6 +65,15 @@ typedef struct context {
     DH_sesskeys sesskeys[2][2];        /* sesskeys[i][j] are the session keys
 					  derived from DH key[our_keyid-i]
 					  and mpi Y[their_keyid-j] */
+
+    unsigned char sessionid[20];       /* The sessionid and direction */
+    SessionDirection sessiondir;       /* determined when this private
+					  connection was established. */
+
+    unsigned char *preshared_secret;   /* A secret you share with this
+					  user, in order to do
+					  authentication. */
+    size_t preshared_secret_len;       /* The length of the above secret. */
 
     /* saved mac keys to be revealed later */
     unsigned int numsavedkeys;
@@ -87,9 +100,6 @@ typedef struct context {
     void *app_data;
     /* A function to free the above data when we forget this context */
     void (*app_data_free)(void *);
-
-    struct context * next;             /* Linked list pointer */
-    struct context ** tous;            /* A pointer to the pointer to us */
 } ConnContext;
 
 #include "userstate.h"
@@ -111,6 +121,15 @@ ConnContext * otrl_context_find(OtrlUserState us, const char *user,
  * present. */
 Fingerprint *otrl_context_find_fingerprint(ConnContext *context,
 	unsigned char fingerprint[20], int add_if_missing, int *addedp);
+
+/* Set the trust level for a given fingerprint */
+void otrl_context_set_trust(Fingerprint *fprint, const char *trust);
+
+/* Set the preshared secret for a given fingerprint.  Note that this
+ * currently only stores the secret in the ConnContext structure, but
+ * doesn't yet do anything with it. */
+void otrl_context_set_preshared_secret(ConnContext *context,
+	unsigned char *secret, size_t secret_len);
 
 /* Force a context into the CONN_SETUP state (so that it only has local
  * DH keys). */

@@ -1,6 +1,6 @@
 Summary: Off-The-Record Messaging library and toolkit
 Name: libotr
-Version: 2.0.2
+Version: 3.0.0
 Release: 3%{?dist}
 License: GPL, LGPL
 Group: System Environment/Libraries

@@ -67,9 +67,8 @@ LIBOTR_LIBS="$LIBOTR_LIBS -lotr"
 LIBS="$LIBOTR_LIBS $LIBS"
 AC_MSG_RESULT($LIBOTR_LIBS)
 
-dnl Check for a working version of libasound that is of the right version.
-min_libotr_version=ifelse([$1], ,2.0.0,$1)
-AC_MSG_CHECKING(for libotr headers version >= $min_libotr_version)
+dnl Check for a working version of libotr that is of the right version.
+min_libotr_version=ifelse([$1], ,3.0.0,$1)
 no_libotr=""
     libotr_min_major_version=`echo $min_libotr_version | \
            sed 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\)/\1/'`
@@ -77,22 +76,20 @@ no_libotr=""
            sed 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\)/\2/'`
     libotr_min_sub_version=`echo $min_libotr_version | \
            sed 's/\([[0-9]]*\).\([[0-9]]*\).\([[0-9]]*\)/\3/'`
+AC_MSG_CHECKING(for libotr headers version $libotr_min_major_version.x >= $min_libotr_version)
 
 AC_LANG_SAVE
 AC_LANG_C
 AC_TRY_COMPILE([
-#include <libotr/proto.h>
+#include <stdlib.h>
 #include <libotr/version.h>
 ], [
-#  if(OTRL_VERSION_MAJOR > $libotr_min_major_version)
-  exit(0);
+#  if(OTRL_VERSION_MAJOR != $libotr_min_major_version)
+#    error not present
 #  else
-#    if(OTRL_VERSION_MAJOR < $libotr_min_major_version)
-#      error not present
-#    endif
 
 #    if(OTRL_VERSION_MINOR > $libotr_min_minor_version)
-  exit(0);
+       exit(0);
 #    else
 #      if(OTRL_VERSION_MINOR < $libotr_min_minor_version)
 #        error not present

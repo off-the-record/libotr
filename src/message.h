@@ -35,8 +35,6 @@ typedef enum {
 
 #define OTRL_POLICY_DEFAULT OTRL_POLICY_OPPORTUNISTIC
 
-typedef struct s_OTRConfirmResponse OTRConfirmResponse;
-
 typedef struct s_OtrlMessageAppOps {
     /* Return the OTR policy for the given context. */
     OtrlPolicy (*policy)(void *opdata, ConnContext *context);
@@ -86,20 +84,10 @@ typedef struct s_OtrlMessageAppOps {
     /* Deallocate a string allocated by protocol_name */
     void (*protocol_name_free)(void *opdata, const char *protocol_name);
 
-    /* Ask the user of the given accountname to confirm an unknown
-     * fingerprint (contained in kem) for the given username of the
-     * given protocol.  When the user has decided, call
-     * response_cb(us, ops, opdata, response_data, resp) where resp is 1
-     * to accept the fingerprint, 0 to reject it, and -1 if the user
-     * didn't make a choice (say, by destroying the dialog window).
-     * BE SURE to call response_cb no matter what happens. */
-    void (*confirm_fingerprint)(OtrlUserState us, void *opdata,
+    /* A new fingerprint for the given user has been received. */
+    void (*new_fingerprint)(OtrlUserState us, void *opdata,
 	    const char *accountname, const char *protocol,
-	    const char *username, OTRKeyExchangeMsg kem,
-	    void (*response_cb)(OtrlUserState us,
-		struct s_OtrlMessageAppOps *ops, void *opdata,
-		OTRConfirmResponse *response_data, int resp),
-	    OTRConfirmResponse *response_data);
+	    const char *username, OTRKeyExchangeMsg kem);
 
     /* The list of known fingerprints has changed.  Write them to disk. */
     void (*write_fingerprints)(void *opdata);

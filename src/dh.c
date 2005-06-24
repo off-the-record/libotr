@@ -135,7 +135,7 @@ gcry_error_t otrl_dh_session(DH_sesskeys *sess, DH_keypair *kp, gcry_mpi_t y)
 	return gcry_error(GPG_ERR_ENOMEM);
     }
     gabdata[0] = 0x00;
-    gcry_md_hash_buffer(GCRY_MD_SHA1, sess->sessionid, gabdata, gablen+5);
+    gcry_md_hash_buffer(GCRY_MD_SHA1, sess->dhsecureid, gabdata, gablen+5);
 
     /* Are we the "high" or "low" end of the connection? */
     if ( gcry_mpi_cmp(kp->pub, y) > 0 ) {
@@ -214,7 +214,7 @@ void otrl_dh_session_blank(DH_sesskeys *sess)
     sess->sendmac = NULL;
     sess->rcvenc = NULL;
     sess->rcvmac = NULL;
-    memset(sess->sessionid, 0, 20);
+    memset(sess->dhsecureid, 0, 20);
     memset(sess->sendctr, 0, 16);
     memset(sess->rcvctr, 0, 16);
     memset(sess->sendmackey, 0, 20);

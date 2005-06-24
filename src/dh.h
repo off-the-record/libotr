@@ -34,7 +34,10 @@ typedef enum {
 
 typedef struct {
     SessionDirection dir;
-    unsigned char sessionid[20];
+    unsigned char dhsecureid[20];  /* Don't display this value to the
+				      user when she asks to see the
+				      secure session id.  Display
+				      context->sessionid instead. */
     unsigned char sendctr[16];
     unsigned char rcvctr[16];
     gcry_cipher_hd_t sendenc;

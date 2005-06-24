@@ -37,11 +37,6 @@
  * resending in response to a rekey? */
 #define RESEND_INTERVAL 60
 
-struct s_OTRConfirmResponse {
-    OTRKeyExchangeMsg kem;
-    ConnContext *context;
-};
-
 /* Deallocate a message allocated by other otrl_message_* routines. */
 void otrl_message_free(char *message)
 {
@@ -342,16 +337,6 @@ static int process_kem(OtrlUserState us, OtrlMessageAppOps *ops, void *opdata,
     return retval;
 }
 
-static void process_confresp(OtrlUserState us, OtrlMessageAppOps *ops,
-	void *opdata, OTRConfirmResponse *confresp, int resp)
-{
-    if (resp == 1) {
-	process_kem(us, ops, opdata, confresp->context, NULL, confresp->kem);
-    }
-    otrl_proto_free_key_exchange(confresp->kem);
-    free(confresp);
-}
-
 /* Handle a message just received from the network.  It is safe to pass
  * all received messages to this routine.  add_appdata is a function
  * that will be called in the event that a new ConnContext is created.
@@ -522,23 +507,13 @@ int otrl_message_receiving(OtrlUserState us, OtrlMessageAppOps *ops,
 			    kem->key_fingerprint, 0, NULL);
 
 		    if (!found_print) {
-			/* Warn the user about the new fingerprint */
-			OTRConfirmResponse *confresp =
-			    malloc(sizeof(OTRConfirmResponse));
-			if (confresp) {
-			    confresp->kem = kem;
-			    confresp->context = context;
-			    if (ops->confirm_fingerprint) {
-				ops->confirm_fingerprint(us, opdata,
-					accountname, protocol, sender, kem,
-					process_confresp, confresp);
-			    } else {
-				process_confresp(us, ops, opdata, confresp,
-					-1);
-			    }
-			} else {
-			    otrl_proto_free_key_exchange(kem);
+			/* Inform the user of the new fingerprint */
+			if (ops->new_fingerprint) {
+			    ops->new_fingerprint(us, opdata,
+				    accountname, protocol, sender, kem);
 			}
+			process_kem(us, ops, opdata, context, NULL, kem);
+			otrl_proto_free_key_exchange(kem);
 		    } else {
 			time_t now;
 			int rekeyed = process_kem(us, ops, opdata,

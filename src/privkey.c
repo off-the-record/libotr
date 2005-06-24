@@ -363,9 +363,11 @@ gcry_error_t otrl_privkey_read_fingerprints(OtrlUserState us,
 	char *accountname;
 	char *protocol;
 	char *hex;
+	char *trust;
 	char *tab;
 	char *eol;
-	int res, i, j;
+	Fingerprint *fng;
+	int i, j;
 	/* Parse the line, which should be of the form:
 	 *    username\taccountname\tprotocol\t40_hex_nybbles\n          */
 	username = storeline;
@@ -384,10 +386,21 @@ gcry_error_t otrl_privkey_read_fingerprints(OtrlUserState us,
 	*tab = '\0';
 
 	hex = tab + 1;
-	eol = strchr(hex, '\r');
-	if (!eol) eol = strchr(hex, '\n');
-	if (!eol) continue;
-	*eol = '\0';
+	tab = strchr(hex, '\t');
+	if (!tab) {
+	    eol = strchr(hex, '\r');
+	    if (!eol) eol = strchr(hex, '\n');
+	    if (!eol) continue;
+	    *eol = '\0';
+	    trust = NULL;
+	} else {
+	    *tab = '\0';
+	    trust = tab + 1;
+	    eol = strchr(trust, '\r');
+	    if (!eol) eol = strchr(trust, '\n');
+	    if (!eol) continue;
+	    *eol = '\0';
+	}
 
 	if (strlen(hex) != 40) continue;
 	for(j=0, i=0; i<40; i+=2) {
@@ -397,7 +410,8 @@ gcry_error_t otrl_privkey_read_fingerprints(OtrlUserState us,
 	context = otrl_context_find(us, username, accountname, protocol,
 		1, NULL, add_app_data, data);
 	/* Add the fingerprint if not already there */
-	otrl_context_find_fingerprint(context, fingerprint, 1, NULL);
+	fng = otrl_context_find_fingerprint(context, fingerprint, 1, NULL);
+	otrl_context_set_trust(fng, trust);
     }
     fclose(storef);
 
@@ -425,9 +439,10 @@ gcry_error_t otrl_privkey_write_fingerprints(OtrlUserState us,
 	    int i;
 	    fprintf(storef, "%s\t%s\t%s\t", context->username,
 		    context->accountname, context->protocol);
-	    for(i=0;i<20;++i)
+	    for(i=0;i<20;++i) {
 		fprintf(storef, "%02x", fprint->fingerprint[i]);
-	    fprintf(storef, "\n");
+	    }
+	    fprintf(storef, "\t%s\n", fprint->trust ? fprint->trust : "");
 	}
     }
     fclose(storef);

@@ -1,3 +1,53 @@
+2005-06-24
+
+	* README:
+	* configure.ac:
+	* packaging/fedora/libotr.spec:
+	* src/version.h: Change version to 3.0.0
+
+	* Protocol: Clarify that, if the user requests to see the secure
+	session id in the middle of the conversation, the value
+	displayed should be the one calculated at the time the private
+	connection was established (the last Key Exchange Message that
+	caused a rekeying), _not_ the DH secure id calculated from DH
+	keys in more recent Data Messages.
+
+	* libotr.m4: Have the version check require an exact match on
+	the major version, since, for example, source that expects
+	libotr 2.0.0 won't work with libotr 3.0.0.
+
+	* libotr.m4: Add #include <stdlib.h> to the version test so that
+	it compiles cleanly with -Wall -Werror.
+
+	* src/proto.c:
+	* src/dh.h:
+	* src/dh.c:
+	* src/context.h:
+	* src/context.c: Save the secure session id so that it can be
+	displayed to the user upon request, instead of only when the
+	private session is initially set up.
+
+	* src/privkey.c:
+	* src/context.h:
+	* src/context.c: Allow the app to set a "trust level" for
+	fingerprints.  This is an arbitrary string, intended to indicate
+	whether (or possibly by what means) the user has verified that
+	this fingerprint is accurate.
+
+	* src/context.h:
+	* src/context.c: Allow the app to set an arbitrary binary
+	"preshared secret" for the ConnContext.  This is currently
+	unused, but in the future it would allow for users to exchange a
+	secret _before_ they generate their fingerprints.  [But the
+	protocol would have to be extended to support this.]
+
+	* src/message.h:
+	* src/message.c: Remove the "confirm_fingerprint" callback
+	which requires the user to acknowledge the new fingerprint
+	before it can be used.  Replace it with a "new_fingerprint"
+	callback which merely informs the user that a new fingerprint
+	has been received.
+
 2005-05-13
 
 	* libotr.m4: Fixed a bug which made configure fail to find the

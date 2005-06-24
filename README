@@ -1,5 +1,5 @@
 	      Off-the-Record Messaging Library and Toolkit
-			  v2.0.2,  3 May 2005
+			  v3.0.0, 24 Jun 2005
 
 This is a library and toolkit which implements Off-the-Record (OTR) Messaging.
 
@@ -73,12 +73,6 @@ The first parameter of every UI function is "void *opdata".  This is a
 pointer you pass to the library, and it will pass back (opaquely) to the
 UI functions when it calls them.  You can use this to keep track of
 state or any other information.
-
-NOTE: if you use automatic (stack) variables for the opdata, or if you
-use heap variables that may get free()d, be extra careful in the
-confirm_fingerprint function.  You need to make sure the opdata is not
-deallocated before the user chooses whether to accept the fingerprint or
-not.
 
 You will need to include proto.h and message.h, and you can find a list
 of the UI functions in message.h.

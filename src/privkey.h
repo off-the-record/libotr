@@ -23,13 +23,14 @@
 #include <gcrypt.h>
 
 typedef struct s_PrivKey {
+    struct s_PrivKey *next;
+    struct s_PrivKey **tous;
+
     char *accountname;
     char *protocol;
     gcry_sexp_t privkey;
     unsigned char *pubkey_data;
     size_t pubkey_datalen;
-    struct s_PrivKey *next;
-    struct s_PrivKey **tous;
 } PrivKey;
 
 #include "context.h"

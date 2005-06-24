@@ -61,7 +61,10 @@ static ConnContext * new_context(const char * user, const char * accountname,
     otrl_dh_session_blank(&(context->sesskeys[0][1]));
     otrl_dh_session_blank(&(context->sesskeys[1][0]));
     otrl_dh_session_blank(&(context->sesskeys[1][1]));
+    memset(context->sessionid, 0, 20);
     context->numsavedkeys = 0;
+    context->preshared_secret = NULL;
+    context->preshared_secret_len = 0;
     context->saved_mac_keys = NULL;
     context->generation = 0;
     context->lastsent = 0;
@@ -140,6 +143,7 @@ Fingerprint *otrl_context_find_fingerprint(ConnContext *context,
 	assert(f->fingerprint != NULL);
 	memmove(f->fingerprint, fingerprint, 20);
 	f->context = context;
+	f->trust = NULL;
 	f->next = context->fingerprint_root.next;
 	if (f->next) {
 	    f->next->tous = &(f->next);
@@ -149,6 +153,34 @@ Fingerprint *otrl_context_find_fingerprint(ConnContext *context,
 	return f;
     }
     return NULL;
+}
+
+/* Set the trust level for a given fingerprint */
+void otrl_context_set_trust(Fingerprint *fprint, const char *trust)
+{
+    if (fprint == NULL) return;
+
+    free(fprint->trust);
+    fprint->trust = trust ? strdup(trust) : NULL;
+}
+
+/* Set the preshared secret for a given fingerprint.  Note that this
+ * currently only stores the secret in the ConnContext structure, but
+ * doesn't yet do anything with it. */
+void otrl_context_set_preshared_secret(ConnContext *context,
+	unsigned char *secret, size_t secret_len)
+{
+    free(context->preshared_secret);
+    context->preshared_secret = NULL;
+    context->preshared_secret_len = 0;
+
+    if (secret_len) {
+	context->preshared_secret = malloc(secret_len);
+	if (context->preshared_secret) {
+	    memmove(context->preshared_secret, secret, secret_len);
+	    context->preshared_secret_len = secret_len;
+	}
+    }
 }
 
 /* Force a context into the CONN_SETUP state (so that it only has local
@@ -166,6 +198,10 @@ void otrl_context_force_setup(ConnContext *context)
     otrl_dh_session_free(&(context->sesskeys[0][1]));
     otrl_dh_session_free(&(context->sesskeys[1][0]));
     otrl_dh_session_free(&(context->sesskeys[1][1]));
+    memset(context->sessionid, 0, 20);
+    free(context->preshared_secret);
+    context->preshared_secret = NULL;
+    context->preshared_secret_len = 0;
     context->numsavedkeys = 0;
     free(context->saved_mac_keys);
     context->saved_mac_keys = NULL;
@@ -204,6 +240,7 @@ void otrl_context_forget_fingerprint(Fingerprint *fprint,
 	if (context->state != CONN_CONNECTED ||
 		context->active_fingerprint != fprint) {
 	    free(fprint->fingerprint);
+	    free(fprint->trust);
 	    *(fprint->tous) = fprint->next;
 	    if (fprint->next) {
 		fprint->next->tous = fprint->tous;

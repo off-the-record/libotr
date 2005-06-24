@@ -1,3 +1,17 @@
+24 Jun 2005:
+- Remove the "confirm_fingerprint" callback which requires the user to
+  acknowledge the new fingerprint before it can be used.  Replace it
+  with a "new_fingerprint" callback which merely informs the user that a
+  new fingerprint has been received.
+- Allow the app to set a "trust level" for fingerprints.  This is an
+  arbitrary string, intended to indicate whether (or possibly by what
+  means) the user has verified that this fingerprint is accurate.
+- Clarify that, if the user requests to see the secure session id in
+  the middle of the conversation, the value displayed should be the one
+  calculated at the time the private connection was established (the
+  last Key Exchange Message that caused a rekeying), _not_ the DH secure
+  id calculated from DH keys in more recent Data Messages.
+
 3 May 2005:
 - Released 2.0.2
 
