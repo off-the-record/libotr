@@ -8,7 +8,7 @@ Source0: http://www.cypherpunks.ca/otr/%{name}-%{version}.tar.gz
 Url: http://www.cypherpunks.ca/otr/
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Provides: libotr-toolkit = %{version}
-Obsoletes: libotr-toolkit
+Obsoletes: libotr-toolkit < %{version}
 BuildRequires: libgcrypt-devel >= 1.2.0, libgpg-error-devel 
 
 %description
@@ -20,7 +20,7 @@ Authentication, Deniability and Perfect forward secrecy.
 %package devel
 Summary: Development library and include files for libotr
 Group: Development/Libraries
-Requires: %{name} = %{version}-%{release}
+Requires: %{name} = %{version}-%{release}, libgcrypt-devel >= 1.2.0
 
 %description devel
 
@@ -50,13 +50,14 @@ rm -rf $RPM_BUILD_ROOT
 
 %files 
 %defattr(-,root,root)
-%doc README COPYING COPYING.LIB Protocol
+%doc AUTHORS README COPYING COPYING.LIB News Protocol
 %{_libdir}/libotr.so.*
 %{_bindir}/*
 %{_mandir}/man1/*
 
 %files devel
 %defattr(-,root,root,-)
+%doc ChangeLog
 %{_libdir}/libotr.so
 %{_libdir}/libotr.a
 %dir %{_includedir}/libotr
