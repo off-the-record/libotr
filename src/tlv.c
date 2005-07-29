@@ -25,7 +25,7 @@
 
 /* Make a single TLV, copying the supplied data */
 OtrlTLV *otrl_tlv_new(unsigned short type, unsigned short len,
-	unsigned char *data)
+	const unsigned char *data)
 {
     OtrlTLV *tlv = malloc(sizeof(OtrlTLV));
     assert(tlv != NULL);
@@ -40,7 +40,7 @@ OtrlTLV *otrl_tlv_new(unsigned short type, unsigned short len,
 }
 
 /* Construct a chain of TLVs from the given data */
-OtrlTLV *otrl_tlv_parse(unsigned char *serialized, size_t seriallen)
+OtrlTLV *otrl_tlv_parse(const unsigned char *serialized, size_t seriallen)
 {
     OtrlTLV *tlv = NULL;
     OtrlTLV **tlvp = &tlv;

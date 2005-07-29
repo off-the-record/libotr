@@ -1,3 +1,8 @@
+2005-07-29
+
+	* src/tlv.h:
+	* src/tlv.c (otrl_tlv_new, otrl_tlv_parse): Add missing "const"s.
+
 2005-06-24
 
 	* README:

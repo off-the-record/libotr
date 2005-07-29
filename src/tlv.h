@@ -38,10 +38,10 @@ typedef struct s_OtrlTLV {
 
 /* Make a single TLV, copying the supplied data */
 OtrlTLV *otrl_tlv_new(unsigned short type, unsigned short len,
-	unsigned char *data);
+	const unsigned char *data);
 
 /* Construct a chain of TLVs from the given data */
-OtrlTLV *otrl_tlv_parse(unsigned char *serialized, size_t seriallen);
+OtrlTLV *otrl_tlv_parse(const unsigned char *serialized, size_t seriallen);
 
 /* Deallocate a chain of TLVs */
 void otrl_tlv_free(OtrlTLV *tlv);
