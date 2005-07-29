@@ -1,14 +1,30 @@
 2005-07-29
 
+	* src/message.h:
+	* src/message.c: Move ops to be the first param of
+	new_fingerprint, as it is with all the other callbacks.
+
+	* src/context.h:
+	* src/context.c (otrl_context_set_preshared_secret):
+	* src/dh.h:
+	* src/dh.c (otrl_dh_session, otrl_dh_cmpctr):
+	* src/message.h:
+	* src/message.c (otrl_message_sending, send_or_error, process_kem)
+	(otrl_message_receiving, otrl_message_disconnect):
+	* src/privkey.h:
+	* src/privkey.c (otrl_privkey_hash_to_human):
+	* src/proto.h:
+	* src/proto.c (otrl_proto_create_data):
 	* src/tlv.h:
-	* src/tlv.c (otrl_tlv_new, otrl_tlv_parse): Add missing "const"s.
+	* src/tlv.c (otrl_tlv_new, otrl_tlv_parse, otrl_tlv_seriallen)
+	(otrl_tlv_serialize): Add missing "const"s.
 
 2005-06-24
 
 	* README:
 	* configure.ac:
 	* packaging/fedora/libotr.spec:
-	* src/version.h: Change version to 3.0.0
+	* src/version.h: Change version to 3.0.0 (but don't yet release)
 
 	* Protocol: Clarify that, if the user requests to see the secure
 	session id in the middle of the conversation, the value

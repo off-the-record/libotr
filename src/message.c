@@ -63,8 +63,9 @@ void otrl_message_free(char *message)
  * should replace your message with the contents of *messagep, and
  * send that instead.  Call otrl_message_free(*messagep) when you're
  * done with it. */
-gcry_error_t otrl_message_sending(OtrlUserState us, OtrlMessageAppOps
-	*ops, void *opdata, const char *accountname, const char *protocol,
+gcry_error_t otrl_message_sending(OtrlUserState us,
+	const OtrlMessageAppOps *ops,
+	void *opdata, const char *accountname, const char *protocol,
 	const char *recipient, const char *message, OtrlTLV *tlvs,
 	char **messagep,
 	void (*add_appdata)(void *data, ConnContext *context),
@@ -239,7 +240,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us, OtrlMessageAppOps
 /* If err == 0, send the message to the given user.  Otherwise, display
  * an appripriate error dialog.  Return the value of err that was
  * passed. */
-static gcry_error_t send_or_error(OtrlMessageAppOps *ops, void *opdata,
+static gcry_error_t send_or_error(const OtrlMessageAppOps *ops, void *opdata,
 	gcry_error_t err, const char *accountname, const char *protocol,
 	const char *who, const char *msg)
 {
@@ -270,8 +271,9 @@ static gcry_error_t send_or_error(OtrlMessageAppOps *ops, void *opdata,
  * either we were in CONN_CONNECTED, and we're again in CONN_CONNECTED,
  * but with new keys, or else we weren't in CONN_CONNECTED before and
  * now we are. */
-static int process_kem(OtrlUserState us, OtrlMessageAppOps *ops, void *opdata,
-	ConnContext *context, Fingerprint *fprint, OTRKeyExchangeMsg kem)
+static int process_kem(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context, Fingerprint *fprint,
+	OTRKeyExchangeMsg kem)
 {
     gcry_error_t err;
     char *msgtosend;
@@ -361,7 +363,7 @@ static int process_kem(OtrlUserState us, OtrlMessageAppOps *ops, void *opdata,
  * If otrl_message_receiving returns 0 and *messagep is NULL, then this
  * was an ordinary, non-OTR message, which should just be delivered to
  * the user without modification. */
-int otrl_message_receiving(OtrlUserState us, OtrlMessageAppOps *ops,
+int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
 	const char *sender, const char *message, char **newmessagep,
 	OtrlTLV **tlvsp,
@@ -509,7 +511,7 @@ int otrl_message_receiving(OtrlUserState us, OtrlMessageAppOps *ops,
 		    if (!found_print) {
 			/* Inform the user of the new fingerprint */
 			if (ops->new_fingerprint) {
-			    ops->new_fingerprint(us, opdata,
+			    ops->new_fingerprint(opdata, us,
 				    accountname, protocol, sender, kem);
 			}
 			process_kem(us, ops, opdata, context, NULL, kem);
@@ -900,7 +902,7 @@ int otrl_message_receiving(OtrlUserState us, OtrlMessageAppOps *ops,
 /* Put a connection into the UNCONNECTED state, first sending the
  * other side a notice that we're doing so if we're currently CONNECTED,
  * and we think he's logged in. */
-void otrl_message_disconnect(OtrlUserState us, OtrlMessageAppOps *ops,
+void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
 	const char *username)
 {

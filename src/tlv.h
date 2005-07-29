@@ -47,14 +47,15 @@ OtrlTLV *otrl_tlv_parse(const unsigned char *serialized, size_t seriallen);
 void otrl_tlv_free(OtrlTLV *tlv);
 
 /* Find the serialized length of a chain of TLVs */
-size_t otrl_tlv_seriallen(OtrlTLV *tlv);
+size_t otrl_tlv_seriallen(const OtrlTLV *tlv);
 
 /* Serialize a chain of TLVs.  The supplied buffer must already be large
  * enough. */
-void otrl_tlv_serialize(unsigned char *buf, OtrlTLV *tlv);
+void otrl_tlv_serialize(unsigned char *buf, const OtrlTLV *tlv);
 
 /* Return the first TLV with the given type in the chain, or NULL if one
- * isn't found.*/
+ * isn't found.  (The tlvs argument isn't const because the return type
+ * needs to be non-const.) */
 OtrlTLV *otrl_tlv_find(OtrlTLV *tlvs, unsigned short type);
 
 #endif

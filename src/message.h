@@ -85,7 +85,7 @@ typedef struct s_OtrlMessageAppOps {
     void (*protocol_name_free)(void *opdata, const char *protocol_name);
 
     /* A new fingerprint for the given user has been received. */
-    void (*new_fingerprint)(OtrlUserState us, void *opdata,
+    void (*new_fingerprint)(void *opdata, OtrlUserState us,
 	    const char *accountname, const char *protocol,
 	    const char *username, OTRKeyExchangeMsg kem);
 
@@ -131,8 +131,9 @@ void otrl_message_free(char *message);
  * should replace your message with the contents of *messagep, and
  * send that instead.  Call otrl_message_free(*messagep) when you're
  * done with it. */
-gcry_error_t otrl_message_sending(OtrlUserState us, OtrlMessageAppOps
-	*ops, void *opdata, const char *accountname, const char *protocol,
+gcry_error_t otrl_message_sending(OtrlUserState us,
+	const OtrlMessageAppOps *ops,
+	void *opdata, const char *accountname, const char *protocol,
 	const char *recipient, const char *message, OtrlTLV *tlvs,
 	char **messagep,
 	void (*add_appdata)(void *data, ConnContext *context),
@@ -162,7 +163,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us, OtrlMessageAppOps
  * If otrl_message_receiving returns 0 and *messagep is NULL, then this
  * was an ordinary, non-OTR message, which should just be delivered to
  * the user without modification. */
-int otrl_message_receiving(OtrlUserState us, OtrlMessageAppOps *ops,
+int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
 	const char *sender, const char *message, char **newmessagep,
 	OtrlTLV **tlvsp,
@@ -172,7 +173,7 @@ int otrl_message_receiving(OtrlUserState us, OtrlMessageAppOps *ops,
 /* Put a connection into the DISCONNECTED state, first sending the
  * other side a notice that we're doing so if we're currently CONNECTED,
  * and we think he's logged in. */
-void otrl_message_disconnect(OtrlUserState us, OtrlMessageAppOps *ops,
+void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
 	const char *username);
 

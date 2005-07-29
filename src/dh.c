@@ -94,7 +94,8 @@ gcry_error_t otrl_dh_gen_keypair(unsigned int groupid, DH_keypair *kp)
  * Construct session keys from a DH keypair and someone else's public
  * key.
  */
-gcry_error_t otrl_dh_session(DH_sesskeys *sess, DH_keypair *kp, gcry_mpi_t y)
+gcry_error_t otrl_dh_session(DH_sesskeys *sess, const DH_keypair *kp,
+	gcry_mpi_t y)
 {
     gcry_mpi_t gab;
     size_t gablen;
@@ -234,7 +235,7 @@ void otrl_dh_incctr(unsigned char *ctr)
 
 /* Compare two counter values (8 bytes each).  Return 0 if ctr1 == ctr2,
  * < 0 if ctr1 < ctr2 (as unsigned 64-bit values), > 0 if ctr1 > ctr2. */
-int otrl_dh_cmpctr(unsigned char *ctr1, unsigned char *ctr2)
+int otrl_dh_cmpctr(const unsigned char *ctr1, const unsigned char *ctr2)
 {
     int i;
     for (i=0;i<8;++i) {

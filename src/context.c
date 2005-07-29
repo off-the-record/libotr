@@ -168,7 +168,7 @@ void otrl_context_set_trust(Fingerprint *fprint, const char *trust)
  * currently only stores the secret in the ConnContext structure, but
  * doesn't yet do anything with it. */
 void otrl_context_set_preshared_secret(ConnContext *context,
-	unsigned char *secret, size_t secret_len)
+	const unsigned char *secret, size_t secret_len)
 {
     free(context->preshared_secret);
     context->preshared_secret = NULL;

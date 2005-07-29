@@ -722,7 +722,7 @@ gcry_error_t otrl_proto_accept_key_exchange(OtrlUserState us,
  * optional chain of TLVs.  A newly-allocated string will be returned in
  * *encmessagep. */
 gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
-	const char *msg, OtrlTLV *tlvs)
+	const char *msg, const OtrlTLV *tlvs)
 {
     size_t justmsglen = strlen(msg);
     size_t msglen = justmsglen + 1 + otrl_tlv_seriallen(tlvs);

@@ -123,7 +123,7 @@ gcry_error_t otrl_proto_accept_key_exchange(OtrlUserState us,
  * optional chain of TLVs.  A newly-allocated string will be returned in
  * *encmessagep. */
 gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
-	const char *msg, OtrlTLV *tlvs);
+	const char *msg, const OtrlTLV *tlvs);
 
 /* Accept an OTR Data Message in datamsg.  Decrypt it and put the
  * plaintext into *plaintextp, and any TLVs into tlvsp. */

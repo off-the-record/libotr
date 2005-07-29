@@ -37,7 +37,7 @@ typedef struct s_PrivKey {
 #include "userstate.h"
 
 /* Convert a 20-byte hash value to a 45-byte human-readable value */
-void otrl_privkey_hash_to_human(char human[45], unsigned char hash[20]);
+void otrl_privkey_hash_to_human(char human[45], const unsigned char hash[20]);
 
 /* Calculate a human-readable hash of our DSA public key.  Return it in
  * the passed fingerprint buffer.  Return NULL on error, or a pointer to

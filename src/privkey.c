@@ -31,7 +31,7 @@
 #include "privkey.h"
 
 /* Convert a 20-byte hash value to a 45-byte human-readable value */
-void otrl_privkey_hash_to_human(char human[45], unsigned char hash[20])
+void otrl_privkey_hash_to_human(char human[45], const unsigned char hash[20])
 {
     int word, byte;
     char *p = human;
