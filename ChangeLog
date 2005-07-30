@@ -17,7 +17,7 @@
 	* src/proto.c (otrl_proto_create_data):
 	* src/tlv.h:
 	* src/tlv.c (otrl_tlv_new, otrl_tlv_parse, otrl_tlv_seriallen)
-	(otrl_tlv_serialize): Add missing "const"s.
+	(otrl_tlv_serialize): Add missing "const"s.  (Closes #1243963)
 
 2005-06-24
 
