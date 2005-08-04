@@ -63,7 +63,7 @@ static void *otrl_mem_malloc(size_t n)
     ((size_t *)p)[1] = OTRL_MEM_MAGIC;
 #endif
 
-    return (p + header_size);
+    return (void *)((char *)p + header_size);
 }
 
 static int otrl_mem_is_secure(const void *p)
@@ -73,7 +73,7 @@ static int otrl_mem_is_secure(const void *p)
 
 static void otrl_mem_free(void *p)
 {
-    void *real_p = p - header_size;
+    void *real_p = (void *)((char *)p - header_size);
     size_t n = ((size_t *)real_p)[0];
 #ifdef OTRL_MEM_MAGIC
     if (((size_t *)real_p)[1] != OTRL_MEM_MAGIC) {
@@ -100,7 +100,7 @@ static void *otrl_mem_realloc(void *p, size_t n)
 	otrl_mem_free(p);
 	return NULL;
     } else {
-	void *real_p = p - header_size;
+	void *real_p = (void *)((char *)p - header_size);
 	void *new_p;
 	size_t old_n = ((size_t *)real_p)[0];
 #ifdef OTRL_MEM_MAGIC
@@ -121,7 +121,7 @@ static void *otrl_mem_realloc(void *p, size_t n)
 
 	if (new_n < old_n) {
 	    /* Overwrite the space we're about to stop using */
-	    void *p = real_p + new_n;
+	    void *p = (void *)((char *)real_p + new_n);
 	    size_t excess = old_n - new_n;
 	    memset(p, 0xff, excess);
 	    memset(p, 0xaa, excess);
@@ -136,7 +136,7 @@ static void *otrl_mem_realloc(void *p, size_t n)
 	}
 
 	((size_t *)new_p)[0] = new_n;  /* Includes header size */
-	return (new_p + header_size);
+	return (void *)((char *)new_p + header_size);
     }
 }
 

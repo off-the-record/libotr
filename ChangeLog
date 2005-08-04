@@ -11,6 +11,8 @@
 	* src/message.c (otrl_message_receiving): Handle fragments in
 	received messages.
 
+	* src/mem.c: Don't do arithmetic on void pointers.
+
 2005-07-29
 
 	* src/message.h:
