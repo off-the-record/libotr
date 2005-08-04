@@ -45,6 +45,16 @@ typedef struct context {
     char * accountname;                /* The username is relative to
 					  this account... */
     char * protocol;                   /* ... and this protocol */
+
+    char *fragment;                    /* The part of the fragmented message
+					  we've seen so far */
+    size_t fragment_len;               /* The length of fragment */
+    unsigned short fragment_n;         /* The total number of fragments
+					  in this message */
+    unsigned short fragment_k;         /* The highest fragment number
+					  we've seen so far for this
+					  message */
+
     ConnectionState state;             /* The state of our connection to this
 					  user */
     Fingerprint fingerprint_root;      /* The root of a linked list of

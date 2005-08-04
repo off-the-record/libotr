@@ -1030,3 +1030,85 @@ err:
     free(rawmsg);
     return err;
 }
+
+/* Accumulate a potential fragment into the current context. */
+OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
+	ConnContext *context, const char *msg)
+{
+    OtrlFragmentResult res = OTRL_FRAGMENT_INCOMPLETE;
+    const char *tag;
+
+    tag = strstr(msg, "?OTR,");
+    if (tag) {
+	unsigned short n = 0, k = 0;
+	int start = 0, end = 0;
+
+	sscanf(tag, "?OTR,%hu,%hu,%n%*[^,],%n", &k, &n, &start, &end);
+	if (k > 0 && n > 0 && k <= n && start > 0 && end > 0 && start < end) {
+	    if (k == 1) {
+		int fraglen = end - start - 1;
+		free(context->fragment);
+		context->fragment = malloc(fraglen + 1);
+		if (fraglen + 1 > fraglen && context->fragment) {
+		    memmove(context->fragment, tag + start, fraglen);
+		    context->fragment_len = fraglen;
+		    context->fragment[context->fragment_len] = '\0';
+		    context->fragment_n = n;
+		    context->fragment_k = k;
+		} else {
+		    free(context->fragment);
+		    context->fragment = NULL;
+		    context->fragment_len = 0;
+		    context->fragment_n = 0;
+		    context->fragment_k = 0;
+		}
+	    } else if (n == context->fragment_n &&
+		    k == context->fragment_k + 1) {
+		int fraglen = end - start - 1;
+		char *newfrag = realloc(context->fragment,
+			context->fragment_len + fraglen + 1);
+		if (context->fragment_len + fraglen + 1 > fraglen && newfrag) {
+		    context->fragment = newfrag;
+		    memmove(context->fragment + context->fragment_len,
+			    tag + start, fraglen);
+		    context->fragment_len += fraglen;
+		    context->fragment[context->fragment_len] = '\0';
+		    context->fragment_k = k;
+		} else {
+		    free(context->fragment);
+		    context->fragment = NULL;
+		    context->fragment_len = 0;
+		    context->fragment_n = 0;
+		    context->fragment_k = 0;
+		}
+	    } else {
+		free(context->fragment);
+		context->fragment = NULL;
+		context->fragment_len = 0;
+		context->fragment_n = 0;
+		context->fragment_k = 0;
+	    }
+	}
+
+	if (context->fragment_n > 0 &&
+		context->fragment_n == context->fragment_k) {
+	    /* We've got a complete message */
+	    *unfragmessagep = context->fragment;
+	    context->fragment = NULL;
+	    context->fragment_len = 0;
+	    context->fragment_n = 0;
+	    context->fragment_k = 0;
+	    res = OTRL_FRAGMENT_COMPLETE;
+	}
+    } else {
+	/* Unfragmented message, so discard anyy fragment we may have */
+	free(context->fragment);
+	context->fragment = NULL;
+	context->fragment_len = 0;
+	context->fragment_n = 0;
+	context->fragment_k = 0;
+	res = OTRL_FRAGMENT_UNFRAGMENTED;
+    }
+
+    return res;
+}

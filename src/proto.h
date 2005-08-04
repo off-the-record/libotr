@@ -40,6 +40,12 @@ typedef enum {
     OTR_UNKNOWN
 } OTRMessageType;
 
+typedef enum {
+    OTRL_FRAGMENT_UNFRAGMENTED,
+    OTRL_FRAGMENT_INCOMPLETE,
+    OTRL_FRAGMENT_COMPLETE
+} OtrlFragmentResult;
+
 typedef struct s_OTRKeyExchangeMsg {
     gcry_sexp_t digest_sexp;              /* SHA-1 hash of the raw message,
 					     except for the DSA sig; used
@@ -129,5 +135,9 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
  * plaintext into *plaintextp, and any TLVs into tlvsp. */
 gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
 	ConnContext *context, const char *datamsg);
+
+/* Accumulate a potential fragment into the current context. */
+OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
+	ConnContext *context, const char *msg);
 
 #endif

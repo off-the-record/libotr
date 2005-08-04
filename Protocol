@@ -521,3 +521,105 @@ can modify an OTR message and still have it appear valid.  But since we
 don't reveal the MAC keys until their corresponding pubkeys are being
 discarded, there is no danger of us accepting a message as valid which
 uses a MAC key which has already been revealed.
+
+Fragments
+---------
+
+[Remember when reading this section that the network model assumes
+in-order delivery, but that some messages may not get delivered at all
+(for example, if the user disconnects).  And, of course, there's the
+possibility of an active attacker, who is allowed to perform a Denial of
+Service attack, but not to learn contents of messages.]
+
+Transmitting Fragments:
+
+    If you have information about the maximum size of message you are
+    able to send (the different IM networks have different limits), you
+    can fragment an OTR message as follows:
+
+    - Start with the OTR message as you would normally transmit it.  For
+      example, an OTR Data Message would start with "?OTR:AAED" and end
+      with ".".
+    - Break it up into sufficiently small pieces.  Let the number of
+      pieces be (n), and the pieces be piece[1],piece[2],...,piece[n].
+    - Transmit (n) messages with the following (printf-like) structure
+      (as k runs from 1 to n inclusive):
+
+	  "?OTR,%hu,%hu,%s," , k , n , piece[k]
+
+    - Note that k and n are unsigned short ints (2 bytes), and each has
+      a maximum value of 65535.  Also, each piece[k] must be non-empty.
+
+Receiving Fragments:
+
+    If you receive a message containing "?OTR," (note that you'll need
+    to check for this _before_ checking for any of the other "?OTR:"
+    markers):
+
+    - Parse it as the printf statement above into k, n, and piece.
+    - Let (K,N) be your currently stored fragment number, and F be your
+      currently stored fragment.  [If you have no currently stored
+      fragment, then K = N = 0 and F = "".]
+
+    - If k == 0 or n == 0 or k > n, discard this (illegal) fragment.
+
+    - If k == 1:
+      - Forget any stored fragment you may have
+      - Store (piece) as F.
+      - Store (k,n) as (K,N).
+
+    - If n == N and k == K+1:
+      - Append (piece) to F.
+      - Store (k,n) as (K,N).
+
+    - Otherwise:
+      - Forget any stored fragment you may have
+      - Store "" as F.
+      - Store (0,0) as (K,N).
+
+    After this, if N > 0 and K == N, treat F as the received message.
+
+    If you receive an unfragmented message, forget any stored fragment
+    you may have, store "" as F and store (0,0) as (K,N).
+
+Example:
+
+    Here is an OTR Key Exchange Message we would like to transmit over a
+    network with an unreasonably small maximum message size:
+
+	?OTR:AAEKAQAAAICGmmRMlmuq4gY7Ro0GiYAJKWwVZyITNyifFP9VRIVgyxxGxwV
+	bFjoGMhO9XE0xFisuO6M27DPkX7hCtIXZM2glDszmTklQO5hJPu0g/RgDZ84q0ee
+	Q5AvexW3Hmp/VHUPTpZfJPep/Ctiqn0oE2y/2yRPyYQjpZCL440sM5i7B1wAAABT
+	zzL9WbuaxOK8rfrtaw4Lx/iLxeQAAAIAWaGpchsVOV1D6xK5cS5QNANelTvyVHre
+	XPSRjU0NFKIHrNDiFwa8lXcIBH/E8MHoQDzw+J2AuU6MuICPT8GMJYBcSZq0OM7x
+	gmfNlt1viUXxJXbYRpD82ki7QsMA1I7aQo/OqMryKlW5W8UqEjVcCsTOjEyQphLY
+	ENG6St9+ivgAAAIBgUjzleG1+VYCXZszTj+x5gNNidVVNKI+MG5elHMcsg2Guef3
+	DBYEsor6YGeqJLAfhk28Tg7tktMQwGN5GXR1ZNkwkoFIOyVRq3lfabfHtsTp+Hkx
+	5e8OrhTZ1G+ScDeqYbbTtUj631LhXUoyp+7pllVtpyLgqk5z9JYu6Kw0ZkQAAAAE
+	AAADASZH/uq17EVRo6dBZIL12x9JLx4gpEjgovfNLoORa6E+sMMuG7Z+zfLQVodX
+	H5shi/dvPzwbVrA/Iw72XHSYtld8lK/FLtjsI5mzancvRAEs1ZDBoBJRLW1X54eF
+	HpN/peDi6fBbdXyGahWYyF9MCJxDFCRqAHvEMZbfdyEtkXbFUZM2lJM2SJJG9zGZ
+	LCvd2/gF/VOgMlvdus+8TFW0k7cBhAgm/rb+EUeovkWXy2BiVpInXKCCH+M6EVpU
+	YNG7BPtH44ABwUw6Y5n5sSb6dtout34NGz+dspXMajffkZxFOAcabRwKIpw==.
+
+    We could fragment this message into (for example) three pieces:
+
+	?OTR,1,3,?OTR:AAEKAQAAAICGmmRMlmuq4gY7Ro0GiYAJKWwVZyITNyifFP9VRI
+	VgyxxGxwVbFjoGMhO9XE0xFisuO6M27DPkX7hCtIXZM2glDszmTklQO5hJPu0g/R
+	gDZ84q0eeQ5AvexW3Hmp/VHUPTpZfJPep/Ctiqn0oE2y/2yRPyYQjpZCL440sM5i
+	7B1wAAABTzzL9WbuaxOK8rfrtaw4Lx/iLxeQAAAIAWaGpchsVOV1D6xK5cS5QNAN
+	elTvyVHreXPSRjU0NFKIHrNDiFwa8lXcIBH/E8MHoQDzw+J2AuU6MuICPT8GMJYB
+	cSZq0OM7xgmfNlt1viUXxJXbYRpD82ki7QsMA1I7aQo/OqMryKlW5W8UqEjVcCsT
+	OjEyQphLY,
+
+	?OTR,2,3,ENG6St9+ivgAAAIBgUjzleG1+VYCXZszTj+x5gNNidVVNKI+MG5elHM
+	csg2Guef3DBYEsor6YGeqJLAfhk28Tg7tktMQwGN5GXR1ZNkwkoFIOyVRq3lfabf
+	HtsTp+Hkx5e8OrhTZ1G+ScDeqYbbTtUj631LhXUoyp+7pllVtpyLgqk5z9JYu6Kw
+	0ZkQAAAAEAAADASZH/uq17EVRo6dBZIL12x9JLx4gpEjgovfNLoORa6E+sMMuG7Z
+	+zfLQVodXH5shi/dvPzwbVrA/Iw72XHSYtld8lK/FLtjsI5mzancvRAEs1ZDBoBJ
+	RLW1X54eFHpN/peDi6fBbdXyGahWYyF9MCJxDFCRqAHvEMZbfdyEtkXbFUZM2lJM
+	2SJJG9zGZ,
+
+	?OTR,3,3,LCvd2/gF/VOgMlvdus+8TFW0k7cBhAgm/rb+EUeovkWXy2BiVpInXKC
+	CH+M6EVpUYNG7BPtH44ABwUw6Y5n5sSb6dtout34NGz+dspXMajffkZxFOAcabRw
+	KIpw==.,

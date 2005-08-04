@@ -376,6 +376,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
     ConnectionState state;
     OtrlPolicy policy = OTRL_POLICY_DEFAULT;
     int ignore_message = -1;
+    int fragment_assembled = 0;
+    char *unfragmessage = NULL;
 
     if (!accountname || !protocol || !sender || !message || !newmessagep)
         return 0;
@@ -400,6 +402,22 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
     /* Should we go on at all? */
     if (policy == OTRL_POLICY_NEVER) {
         return 0;
+    }
+
+    /* See if we have a fragment */
+    switch(otrl_proto_fragment_accumulate(&unfragmessage, context, message)) {
+	case OTRL_FRAGMENT_UNFRAGMENTED:
+	    /* Do nothing */
+	    break;
+	case OTRL_FRAGMENT_INCOMPLETE:
+	    /* We've accumulated this fragment, but we don't have a
+	     * complete message yet */
+	    return 1;
+	case OTRL_FRAGMENT_COMPLETE:
+	    /* We've got a new complete message, in unfragmessage. */
+	    fragment_assembled = 1;
+	    message = unfragmessage;
+	    break;
     }
 
     /* What type of message is it?  Note that this just checks the
@@ -893,6 +911,12 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    }
 	    if (ignore_message == -1) ignore_message = 1;
 	    break;
+    }
+
+    /* If we reassembled a fragmented message, we need to free the
+     * allocated memory now. */
+    if (fragment_assembled) {
+	free(unfragmessage);
     }
 
     if (ignore_message == -1) ignore_message = 0;

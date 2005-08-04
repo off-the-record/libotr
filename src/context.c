@@ -41,6 +41,10 @@ static ConnContext * new_context(const char * user, const char * accountname,
     context->username = strdup(user);
     context->accountname = strdup(accountname);
     context->protocol = strdup(protocol);
+    context->fragment = NULL;
+    context->fragment_len = 0;
+    context->fragment_n = 0;
+    context->fragment_k = 0;
     context->state = CONN_UNCONNECTED;
     context->fingerprint_root.fingerprint = NULL;
     context->fingerprint_root.context = context;
@@ -188,6 +192,11 @@ void otrl_context_set_preshared_secret(ConnContext *context,
 void otrl_context_force_setup(ConnContext *context)
 {
     context->state = CONN_SETUP;
+    free(context->fragment);
+    context->fragment = NULL;
+    context->fragment_len = 0;
+    context->fragment_n = 0;
+    context->fragment_k = 0;
     context->active_fingerprint = NULL;
     context->their_keyid = 0;
     gcry_mpi_release(context->their_y);

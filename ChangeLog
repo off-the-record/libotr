@@ -1,3 +1,16 @@
+2005-08-04
+
+	* Protocol: Added section describing fragments.
+
+	* src/proto.h:
+	* src/proto.c (otrl_proto_fragment_accumulate): 
+	* src/context.h:
+	* src/context.c (new_context, otrl_context_force_setup): Keep
+	track of fragments in the ConnContext structure.
+
+	* src/message.c (otrl_message_receiving): Handle fragments in
+	received messages.
+
 2005-07-29
 
 	* src/message.h:
