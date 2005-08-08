@@ -77,7 +77,7 @@ static void parse(const char *msg)
 		unsigned int i = 0;
 		printf("\tRevealed MAC keys:\n");
 
-		while(len > 0) {
+		while(len > 19) {
 		    char title[20];
 		    sprintf(title, "\t\tKey %u", ++i);
 		    dump_data(stdout, title, mks, 20);

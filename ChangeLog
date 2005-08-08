@@ -1,3 +1,8 @@
+2005-08-08
+
+	* toolkit/otr_parse.c (parse): Ignore MACs that are too short,
+	rather than going into an infinite loop.
+
 2005-08-04
 
 	* Protocol: Added section describing fragments.
