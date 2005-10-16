@@ -30,15 +30,71 @@
 
 static void parse(const char *msg)
 {
-    OTRMessageType mtype = otrl_proto_message_type(msg);
+    OtrlMessageType mtype = otrl_proto_message_type(msg);
+    CommitMsg cmsg;
+    KeyMsg kmsg;
+    RevealSigMsg rmsg;
+    SignatureMsg smsg;
     KeyExchMsg keyexch;
     DataMsg datamsg;
 
     switch(mtype) {
-	case OTR_QUERY:
+	case OTRL_MSGTYPE_QUERY:
 	    printf("OTR Query:\n\t%s\n\n", msg);
 	    break;
-	case OTR_KEYEXCH:
+	case OTRL_MSGTYPE_DH_COMMIT:
+	    cmsg = parse_commit(msg);
+	    if (!cmsg) {
+		printf("Invalid D-H Commit Message\n\n");
+		break;
+	    }
+	    printf("D-H Commit Message:\n");
+	    dump_data(stdout, "\tEncrypted Key", cmsg->enckey,
+		    cmsg->enckeylen);
+	    dump_data(stdout, "\tHashed Key", cmsg->hashkey,
+		    cmsg->hashkeylen);
+	    printf("\n");
+	    free_commit(cmsg);
+	    break;
+	case OTRL_MSGTYPE_DH_KEY:
+	    kmsg = parse_key(msg);
+	    if (!kmsg) {
+		printf("Invalid D-H Key Message\n\n");
+		break;
+	    }
+	    printf("D-H Key Message:\n");
+	    dump_mpi(stdout, "\tD-H Key", kmsg->y);
+	    printf("\n");
+	    free_key(kmsg);
+	    break;
+	case OTRL_MSGTYPE_REVEALSIG:
+	    rmsg = parse_revealsig(msg);
+	    if (!rmsg) {
+		printf("Invalid Reveal Signature Message\n\n");
+		break;
+	    }
+	    printf("Reveal Signature Message:\n");
+	    dump_data(stdout, "\tKey", rmsg->key, rmsg->keylen);
+	    dump_data(stdout, "\tEncrypted Signature",
+		    rmsg->encsig, rmsg->encsiglen);
+	    dump_data(stdout, "\tMAC", rmsg->mac, 20);
+	    printf("\n");
+	    free_revealsig(rmsg);
+	    break;
+	case OTRL_MSGTYPE_SIGNATURE:
+	    smsg = parse_signature(msg);
+	    if (!smsg) {
+		printf("Invalid Signature Message\n\n");
+		break;
+	    }
+	    printf("Signature Message:\n");
+	    dump_data(stdout, "\tEncrypted Signature",
+		    smsg->encsig, smsg->encsiglen);
+	    dump_data(stdout, "\tMAC", smsg->mac, 20);
+	    printf("\n");
+	    free_signature(smsg);
+	    break;
+	case OTRL_MSGTYPE_V1_KEYEXCH:
 	    keyexch = parse_keyexch(msg);
 	    if (!keyexch) {
 		printf("Invalid Key Exchange Message\n\n");
@@ -57,7 +113,7 @@ static void parse(const char *msg)
 	    printf("\n");
 	    free_keyexch(keyexch);
 	    break;
-	case OTR_DATA:
+	case OTRL_MSGTYPE_DATA:
 	    datamsg = parse_datamsg(msg);
 	    if (!datamsg) {
 		printf("Invalid Data Message\n\n");
@@ -88,16 +144,16 @@ static void parse(const char *msg)
 	    printf("\n");
 	    free_datamsg(datamsg);
 	    break;
-	case OTR_ERROR:
+	case OTRL_MSGTYPE_ERROR:
 	    printf("OTR Error:\n\t%s\n\n", msg);
 	    break;
-	case OTR_TAGGEDPLAINTEXT:
+	case OTRL_MSGTYPE_TAGGEDPLAINTEXT:
 	    printf("Tagged plaintext message:\n\t%s\n\n", msg);
 	    break;
-	case OTR_NOTOTR:
+	case OTRL_MSGTYPE_NOTOTR:
 	    printf("Not an OTR message:\n\t%s\n\n", msg);
 	    break;
-	case OTR_UNKNOWN:
+	case OTRL_MSGTYPE_UNKNOWN:
 	    printf("Unrecognized OTR message:\n\t%s\n\n", msg);
 	    break;
     }

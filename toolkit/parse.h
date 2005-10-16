@@ -49,6 +49,35 @@ typedef struct s_DataMsg {
     unsigned char *macend;      /*   free() these. */
 } * DataMsg;
 
+typedef struct s_CommitMsg {
+    unsigned char *raw;         /* The base64-decoded data; must be free()d */
+    unsigned char *enckey;
+    size_t enckeylen;
+    unsigned char *hashkey;
+    size_t hashkeylen;
+} * CommitMsg;
+
+typedef struct s_KeyMsg {
+    unsigned char *raw;         /* The base64-decoded data; must be free()d */
+    gcry_mpi_t y;
+} * KeyMsg;
+
+typedef struct s_RevealSigMsg {
+    unsigned char *raw;         /* The base64-decoded data; must be free()d */
+    unsigned char *key;
+    size_t keylen;
+    unsigned char *encsig;
+    size_t encsiglen;
+    unsigned char mac[20];
+} * RevealSigMsg;
+
+typedef struct s_SignatureMsg {
+    unsigned char *raw;         /* The base64-decoded data; must be free()d */
+    unsigned char *encsig;
+    size_t encsiglen;
+    unsigned char mac[20];
+} * SignatureMsg;
+
 /* Dump an unsigned int to a FILE * */
 void dump_int(FILE *stream, const char *title, unsigned int val);
 
@@ -65,8 +94,33 @@ KeyExchMsg parse_keyexch(const char *msg);
 /* Deallocate a KeyExchMsg and all of the data it points to */
 void free_keyexch(KeyExchMsg keyexch);
 
+/* Parse a D-H Commit Message into a newly-allocated CommitMsg structure */
+CommitMsg parse_commit(const char *msg);
+
 /* Parse a Data Message into a newly-allocated DataMsg structure */
 DataMsg parse_datamsg(const char *msg);
+
+/* Deallocate a CommitMsg and all of the data it points to */
+void free_commit(CommitMsg cmsg);
+
+/* Parse a Reveal Signature Message into a newly-allocated RevealSigMsg
+ * structure */
+RevealSigMsg parse_revealsig(const char *msg);
+
+/* Deallocate a RevealSigMsg and all of the data it points to */
+void free_revealsig(RevealSigMsg rmsg);
+
+/* Parse a Signature Message into a newly-allocated SignatureMsg structure */
+SignatureMsg parse_signature(const char *msg);
+
+/* Deallocate a SignatureMsg and all of the data it points to */
+void free_signature(SignatureMsg smsg);
+
+/* Parse a D-H Key Message into a newly-allocated KeyMsg structure */
+KeyMsg parse_key(const char *msg);
+
+/* Deallocate a KeyMsg and all of the data it points to */
+void free_key(KeyMsg cmsg);
 
 /* Recalculate the MAC on the message, base64-encode the resulting MAC'd
  * message, and put on the appropriate header and footer.  Return a

@@ -20,20 +20,7 @@
 #ifndef __PRIVKEY_H__
 #define __PRIVKEY_H__
 
-#include <gcrypt.h>
-
-typedef struct s_PrivKey {
-    struct s_PrivKey *next;
-    struct s_PrivKey **tous;
-
-    char *accountname;
-    char *protocol;
-    gcry_sexp_t privkey;
-    unsigned char *pubkey_data;
-    size_t pubkey_datalen;
-} PrivKey;
-
-#include "context.h"
+#include "privkey-t.h"
 #include "userstate.h"
 
 /* Convert a 20-byte hash value to a 45-byte human-readable value */
@@ -69,13 +56,26 @@ gcry_error_t otrl_privkey_write_fingerprints(OtrlUserState us,
 
 /* Fetch the private key from the given OtrlUserState associated with
  * the given account */
-PrivKey *otrl_privkey_find(OtrlUserState us, const char *accountname,
+OtrlPrivKey *otrl_privkey_find(OtrlUserState us, const char *accountname,
 	const char *protocol);
 
 /* Forget a private key */
-void otrl_privkey_forget(PrivKey *privkey);
+void otrl_privkey_forget(OtrlPrivKey *privkey);
 
 /* Forget all private keys in a given OtrlUserState. */
 void otrl_privkey_forget_all(OtrlUserState us);
+
+/* Sign data using a private key.  The data must be small enough to be
+ * signed (i.e. already hashed, if necessary).  The signature will be
+ * returned in *sigp, which the caller must free().  Its length will be
+ * returned in *siglenp. */
+gcry_error_t otrl_privkey_sign(unsigned char **sigp, size_t *siglenp,
+	OtrlPrivKey *privkey, const unsigned char *data, size_t len);
+
+/* Verify a signature on data using a public key.  The data must be
+ * small enough to be signed (i.e. already hashed, if necessary). */
+gcry_error_t otrl_privkey_verify(const unsigned char *sigbuf, size_t siglen,
+	unsigned short pubkey_type, gcry_sexp_t pubs,
+	const unsigned char *data, size_t len);
 
 #endif

@@ -17,13 +17,23 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef __VERSION_H__
-#define __VERSION_H__
+#ifndef __PRIVKEY_T_H__
+#define __PRIVKEY_T_H__
 
-#define OTRL_VERSION "3.0.0 beta 1"
+#include <gcrypt.h>
 
-#define OTRL_VERSION_MAJOR 3
-#define OTRL_VERSION_MINOR 0
-#define OTRL_VERSION_SUB 0
+typedef struct s_OtrlPrivKey {
+    struct s_OtrlPrivKey *next;
+    struct s_OtrlPrivKey **tous;
+
+    char *accountname;
+    char *protocol;
+    unsigned short pubkey_type;
+    gcry_sexp_t privkey;
+    unsigned char *pubkey_data;
+    size_t pubkey_datalen;
+} OtrlPrivKey;
+
+#define OTRL_PUBKEY_TYPE_DSA 0x0000
 
 #endif

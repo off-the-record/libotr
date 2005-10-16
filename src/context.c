@@ -27,10 +27,6 @@
 /* libotr headers */
 #include "context.h"
 
-/* Strings describing the connection states */
-const char *otrl_context_statestr[] =
-    { "Not private", "Setting up", "Private" };
-
 /* Create a new connection context. */
 static ConnContext * new_context(const char * user, const char * accountname,
 	const char * protocol)
@@ -45,7 +41,8 @@ static ConnContext * new_context(const char * user, const char * accountname,
     context->fragment_len = 0;
     context->fragment_n = 0;
     context->fragment_k = 0;
-    context->state = CONN_UNCONNECTED;
+    context->msgstate = OTRL_MSGSTATE_PLAINTEXT;
+    otrl_auth_new(&(context->auth));
     context->fingerprint_root.fingerprint = NULL;
     context->fingerprint_root.context = context;
     context->fingerprint_root.next = NULL;
@@ -66,6 +63,7 @@ static ConnContext * new_context(const char * user, const char * accountname,
     otrl_dh_session_blank(&(context->sesskeys[1][0]));
     otrl_dh_session_blank(&(context->sesskeys[1][1]));
     memset(context->sessionid, 0, 20);
+    context->sessionid_len = 0;
     context->numsavedkeys = 0;
     context->preshared_secret = NULL;
     context->preshared_secret_len = 0;
@@ -187,11 +185,11 @@ void otrl_context_set_preshared_secret(ConnContext *context,
     }
 }
 
-/* Force a context into the CONN_SETUP state (so that it only has local
- * DH keys). */
-void otrl_context_force_setup(ConnContext *context)
+/* Force a context into the OTRL_MSGSTATE_FINISHED state. */
+void otrl_context_force_finished(ConnContext *context)
 {
-    context->state = CONN_SETUP;
+    context->msgstate = OTRL_MSGSTATE_FINISHED;
+    otrl_auth_clear(&(context->auth));
     free(context->fragment);
     context->fragment = NULL;
     context->fragment_len = 0;
@@ -203,11 +201,15 @@ void otrl_context_force_setup(ConnContext *context)
     context->their_y = NULL;
     gcry_mpi_release(context->their_old_y);
     context->their_old_y = NULL;
+    context->our_keyid = 0;
+    otrl_dh_keypair_free(&(context->our_dh_key));
+    otrl_dh_keypair_free(&(context->our_old_dh_key));
     otrl_dh_session_free(&(context->sesskeys[0][0]));
     otrl_dh_session_free(&(context->sesskeys[0][1]));
     otrl_dh_session_free(&(context->sesskeys[1][0]));
     otrl_dh_session_free(&(context->sesskeys[1][1]));
     memset(context->sessionid, 0, 20);
+    context->sessionid_len = 0;
     free(context->preshared_secret);
     context->preshared_secret = NULL;
     context->preshared_secret_len = 0;
@@ -219,34 +221,32 @@ void otrl_context_force_setup(ConnContext *context)
     context->may_retransmit = 0;
 }
 
-/* Force a context into the CONN_UNCONNECTED state. */
-void otrl_context_force_disconnect(ConnContext *context)
+/* Force a context into the OTRL_MSGSTATE_PLAINTEXT state. */
+void otrl_context_force_plaintext(ConnContext *context)
 {
-    /* First clean up everything we'd need to do for the SETUP state */
-    otrl_context_force_setup(context);
+    /* First clean up everything we'd need to do for the FINISHED state */
+    otrl_context_force_finished(context);
 
-    /* Now clean up our pubkeys, too */
-    context->state = CONN_UNCONNECTED;
-    context->our_keyid = 0;
-    otrl_dh_keypair_free(&(context->our_dh_key));
-    otrl_dh_keypair_free(&(context->our_old_dh_key));
+    /* And just set the state properly */
+    context->msgstate = OTRL_MSGSTATE_PLAINTEXT;
 }
 
 /* Forget a fingerprint (so long as it's not the active one.  If it's a
  * fingerprint_root, forget the whole context (as long as
- * and_maybe_context is set, and it's UNCONNECTED).  Also, if it's not
+ * and_maybe_context is set, and it's PLAINTEXT).  Also, if it's not
  * the fingerprint_root, but it's the only fingerprint, and we're
- * UNCONNECTED, forget the whole context if and_maybe_context is set. */
+ * PLAINTEXT, forget the whole context if and_maybe_context is set. */
 void otrl_context_forget_fingerprint(Fingerprint *fprint,
 	int and_maybe_context)
 {
     ConnContext *context = fprint->context;
     if (fprint == &(context->fingerprint_root)) {
-	if (context->state == CONN_UNCONNECTED && and_maybe_context) {
+	if (context->msgstate == OTRL_MSGSTATE_PLAINTEXT &&
+		and_maybe_context) {
 	    otrl_context_forget(context);
 	}
     } else {
-	if (context->state != CONN_CONNECTED ||
+	if (context->msgstate != OTRL_MSGSTATE_PLAINTEXT ||
 		context->active_fingerprint != fprint) {
 	    free(fprint->fingerprint);
 	    free(fprint->trust);
@@ -255,7 +255,7 @@ void otrl_context_forget_fingerprint(Fingerprint *fprint,
 		fprint->next->tous = fprint->tous;
 	    }
 	    free(fprint);
-	    if (context->state == CONN_UNCONNECTED &&
+	    if (context->msgstate == OTRL_MSGSTATE_PLAINTEXT &&
 		    context->fingerprint_root.next == NULL &&
 		    and_maybe_context) {
 		/* We just deleted the only fingerprint.  Forget the
@@ -266,14 +266,14 @@ void otrl_context_forget_fingerprint(Fingerprint *fprint,
     }
 }
 
-/* Forget a whole context, so long as it's UNCONNECTED. */
+/* Forget a whole context, so long as it's PLAINTEXT. */
 void otrl_context_forget(ConnContext *context)
 {
-    if (context->state != CONN_UNCONNECTED) return;
+    if (context->msgstate != OTRL_MSGSTATE_PLAINTEXT) return;
 
-    /* Just to be safe, force a disconnect.  This also frees any
+    /* Just to be safe, force to plaintext.  This also frees any
      * extraneous data lying around. */
-    otrl_context_force_disconnect(context);
+    otrl_context_force_plaintext(context);
 
     /* First free all the Fingerprints */
     while(context->fingerprint_root.next) {
@@ -302,12 +302,11 @@ void otrl_context_forget(ConnContext *context)
     free(context);
 }
 
-/* Forget all the contexts in a given OtrlUserState, forcing them to
- * UNCONNECTED. */
+/* Forget all the contexts in a given OtrlUserState. */
 void otrl_context_forget_all(OtrlUserState us)
 {
     while (us->context_root) {
-	otrl_context_force_disconnect(us->context_root);
+	otrl_context_force_plaintext(us->context_root);
 	otrl_context_forget(us->context_root);
     }
 }

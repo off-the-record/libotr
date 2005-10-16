@@ -27,8 +27,8 @@
 #include <gcrypt.h>
 
 /* libotr headers */
-#include "proto.h"
 #include "privkey.h"
+#include "serial.h"
 
 /* Convert a 20-byte hash value to a 45-byte human-readable value */
 void otrl_privkey_hash_to_human(char human[45], const unsigned char hash[20])
@@ -55,7 +55,7 @@ char *otrl_privkey_fingerprint(OtrlUserState us, char fingerprint[45],
 	const char *accountname, const char *protocol)
 {
     unsigned char hash[20];
-    PrivKey *p = otrl_privkey_find(us, accountname, protocol);
+    OtrlPrivKey *p = otrl_privkey_find(us, accountname, protocol);
 
     if (p) {
 	/* Calculate the hash */
@@ -69,6 +69,87 @@ char *otrl_privkey_fingerprint(OtrlUserState us, char fingerprint[45],
     }
 
     return fingerprint;
+}
+
+/* Create a public key block from a private key */
+static gcry_error_t make_pubkey(unsigned char **pubbufp, size_t *publenp,
+	gcry_sexp_t privkey)
+{
+    gcry_mpi_t p,q,g,y;
+    gcry_sexp_t dsas,ps,qs,gs,ys;
+    size_t np,nq,ng,ny;
+    enum gcry_mpi_format format = GCRYMPI_FMT_USG;
+    unsigned char *bufp;
+    size_t lenp;
+
+    *pubbufp = NULL;
+    *publenp = 0;
+
+    /* Extract the public parameters */
+    dsas = gcry_sexp_find_token(privkey, "dsa", 0);
+    if (dsas == NULL) {
+	return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
+    }
+    ps = gcry_sexp_find_token(dsas, "p", 0);
+    qs = gcry_sexp_find_token(dsas, "q", 0);
+    gs = gcry_sexp_find_token(dsas, "g", 0);
+    ys = gcry_sexp_find_token(dsas, "y", 0);
+    gcry_sexp_release(dsas);
+    if (!ps || !qs || !gs || !ys) {
+	gcry_sexp_release(ps);
+	gcry_sexp_release(qs);
+	gcry_sexp_release(gs);
+	gcry_sexp_release(ys);
+	return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
+    }
+    p = gcry_sexp_nth_mpi(ps, 1, GCRYMPI_FMT_USG);
+    gcry_sexp_release(ps);
+    q = gcry_sexp_nth_mpi(qs, 1, GCRYMPI_FMT_USG);
+    gcry_sexp_release(qs);
+    g = gcry_sexp_nth_mpi(gs, 1, GCRYMPI_FMT_USG);
+    gcry_sexp_release(gs);
+    y = gcry_sexp_nth_mpi(ys, 1, GCRYMPI_FMT_USG);
+    gcry_sexp_release(ys);
+    if (!p || !q || !g || !y) {
+	gcry_mpi_release(p);
+	gcry_mpi_release(q);
+	gcry_mpi_release(g);
+	gcry_mpi_release(y);
+	return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
+    }
+
+    *publenp = 0;
+    gcry_mpi_print(format, NULL, 0, &np, p);
+    *publenp += np + 4;
+    gcry_mpi_print(format, NULL, 0, &nq, q);
+    *publenp += nq + 4;
+    gcry_mpi_print(format, NULL, 0, &ng, g);
+    *publenp += ng + 4;
+    gcry_mpi_print(format, NULL, 0, &ny, y);
+    *publenp += ny + 4;
+
+    *pubbufp = malloc(*publenp);
+    if (*pubbufp == NULL) {
+	gcry_mpi_release(p);
+	gcry_mpi_release(q);
+	gcry_mpi_release(g);
+	gcry_mpi_release(y);
+	return gcry_error(GPG_ERR_ENOMEM);
+    }
+    bufp = *pubbufp;
+    lenp = *publenp;
+
+    write_mpi(p,np,"P");
+    write_mpi(q,nq,"Q");
+    write_mpi(g,ng,"G");
+    write_mpi(y,ny,"Y");
+
+    gcry_mpi_release(p);
+    gcry_mpi_release(q);
+    gcry_mpi_release(g);
+    gcry_mpi_release(y);
+
+    return gcry_error(GPG_ERR_NO_ERROR);
 }
 
 /* Read a sets of private DSA keys from a file on disk into the given
@@ -134,7 +215,7 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
 	gcry_sexp_t names, protos, privs;
 	char *name, *proto;
 	gcry_sexp_t accounts;
-	PrivKey *p;
+	OtrlPrivKey *p;
 	
 	/* Get the ith "account" S-exp */
 	accounts = gcry_sexp_nth(allkeys, i);
@@ -143,6 +224,7 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
 	token = gcry_sexp_nth_data(accounts, 0, &tokenlen);
 	if (tokenlen != 7 || strncmp(token, "account", 7)) {
 	    gcry_sexp_release(accounts);
+	    gcry_sexp_release(allkeys);
 	    return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
 	}
 	/* Extract the name, protocol, and privkey S-exps */
@@ -154,6 +236,7 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
 	    gcry_sexp_release(names);
 	    gcry_sexp_release(protos);
 	    gcry_sexp_release(privs);
+	    gcry_sexp_release(allkeys);
 	    return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
 	}
 	/* Extract the actual name and protocol */
@@ -162,6 +245,7 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
 	    gcry_sexp_release(names);
 	    gcry_sexp_release(protos);
 	    gcry_sexp_release(privs);
+	    gcry_sexp_release(allkeys);
 	    return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
 	}
 	name = malloc(tokenlen + 1);
@@ -169,6 +253,7 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
 	    gcry_sexp_release(names);
 	    gcry_sexp_release(protos);
 	    gcry_sexp_release(privs);
+	    gcry_sexp_release(allkeys);
 	    return gcry_error(GPG_ERR_ENOMEM);
 	}
 	memmove(name, token, tokenlen);
@@ -180,6 +265,7 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
 	    free(name);
 	    gcry_sexp_release(protos);
 	    gcry_sexp_release(privs);
+	    gcry_sexp_release(allkeys);
 	    return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
 	}
 	proto = malloc(tokenlen + 1);
@@ -187,24 +273,27 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
 	    free(name);
 	    gcry_sexp_release(protos);
 	    gcry_sexp_release(privs);
+	    gcry_sexp_release(allkeys);
 	    return gcry_error(GPG_ERR_ENOMEM);
 	}
 	memmove(proto, token, tokenlen);
 	proto[tokenlen] = '\0';
 	gcry_sexp_release(protos);
 
-	/* Make a new PrivKey entry */
+	/* Make a new OtrlPrivKey entry */
 	p = malloc(sizeof(*p));
 	if (!p) {
 	    free(name);
 	    free(proto);
 	    gcry_sexp_release(privs);
+	    gcry_sexp_release(allkeys);
 	    return gcry_error(GPG_ERR_ENOMEM);
 	}
 
 	/* Fill it in and link it up */
 	p->accountname = name;
 	p->protocol = proto;
+	p->pubkey_type = OTRL_PUBKEY_TYPE_DSA;
 	p->privkey = privs;
 	p->next = us->privkey_root;
 	if (p->next) {
@@ -212,13 +301,14 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
 	}
 	p->tous = &(us->privkey_root);
 	us->privkey_root = p;
-	err = otrl_proto_make_pubkey(&(p->pubkey_data), &(p->pubkey_datalen),
-	    p->privkey);
+	err = make_pubkey(&(p->pubkey_data), &(p->pubkey_datalen), p->privkey);
 	if (err) {
+	    gcry_sexp_release(allkeys);
 	    otrl_privkey_forget(p);
 	    return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
 	}
     }
+    gcry_sexp_release(allkeys);
 
     return gcry_error(GPG_ERR_NO_ERROR);
 }
@@ -279,7 +369,7 @@ gcry_error_t otrl_privkey_generate(OtrlUserState us, const char *filename,
     mode_t oldmask;
 #endif
     static const char *parmstr = "(genkey (dsa (nbits 4:1024)))";
-    PrivKey *p;
+    OtrlPrivKey *p;
 
     /* Create a DSA key */
     err = gcry_sexp_new(&parms, parmstr, strlen(parmstr), 0);
@@ -452,10 +542,10 @@ gcry_error_t otrl_privkey_write_fingerprints(OtrlUserState us,
 
 /* Fetch the private key from the given OtrlUserState associated with
  * the given account */
-PrivKey *otrl_privkey_find(OtrlUserState us, const char *accountname,
+OtrlPrivKey *otrl_privkey_find(OtrlUserState us, const char *accountname,
 	const char *protocol)
 {
-    PrivKey *p;
+    OtrlPrivKey *p;
     if (!accountname || !protocol) return NULL;
 
     for(p=us->privkey_root; p; p=p->next) {
@@ -468,7 +558,7 @@ PrivKey *otrl_privkey_find(OtrlUserState us, const char *accountname,
 }
 
 /* Forget a private key */
-void otrl_privkey_forget(PrivKey *privkey)
+void otrl_privkey_forget(OtrlPrivKey *privkey)
 {
     free(privkey->accountname);
     free(privkey->protocol);
@@ -491,4 +581,85 @@ void otrl_privkey_forget_all(OtrlUserState us)
     while (us->privkey_root) {
 	otrl_privkey_forget(us->privkey_root);
     }
+}
+
+/* Sign data using a private key.  The data must be small enough to be
+ * signed (i.e. already hashed, if necessary).  The signature will be
+ * returned in *sigp, which the caller must free().  Its length will be
+ * returned in *siglenp. */
+gcry_error_t otrl_privkey_sign(unsigned char **sigp, size_t *siglenp,
+	OtrlPrivKey *privkey, const unsigned char *data, size_t len)
+{
+    gcry_mpi_t r,s, datampi;
+    gcry_sexp_t dsas, rs, ss, sigs, datas;
+    size_t nr, ns;
+    const enum gcry_mpi_format format = GCRYMPI_FMT_USG;
+
+    if (privkey->pubkey_type != OTRL_PUBKEY_TYPE_DSA)
+	return gcry_error(GPG_ERR_INV_VALUE);
+
+    *sigp = malloc(40);
+    if (sigp == NULL) return gcry_error(GPG_ERR_ENOMEM);
+    *siglenp = 40;
+
+    if (len) {
+	gcry_mpi_scan(&datampi, GCRYMPI_FMT_USG, data, len, NULL);
+    } else {
+	datampi = gcry_mpi_set_ui(NULL, 0);
+    }
+    gcry_sexp_build(&datas, NULL, "(%m)", datampi);
+    gcry_mpi_release(datampi);
+    gcry_pk_sign(&sigs, datas, privkey->privkey);
+    gcry_sexp_release(datas);
+    dsas = gcry_sexp_find_token(sigs, "dsa", 0);
+    gcry_sexp_release(sigs);
+    rs = gcry_sexp_find_token(dsas, "r", 0);
+    ss = gcry_sexp_find_token(dsas, "s", 0);
+    gcry_sexp_release(dsas);
+    r = gcry_sexp_nth_mpi(rs, 1, GCRYMPI_FMT_USG);
+    gcry_sexp_release(rs);
+    s = gcry_sexp_nth_mpi(ss, 1, GCRYMPI_FMT_USG);
+    gcry_sexp_release(ss);
+    gcry_mpi_print(format, NULL, 0, &nr, r);
+    gcry_mpi_print(format, NULL, 0, &ns, s);
+    memset(*sigp, 0, 40);
+    gcry_mpi_print(format, (*sigp)+(20-nr), nr, NULL, r);
+    gcry_mpi_print(format, (*sigp)+20+(20-ns), ns, NULL, s);
+    gcry_mpi_release(r);
+    gcry_mpi_release(s);
+
+    return gcry_error(GPG_ERR_NO_ERROR);
+}
+
+/* Verify a signature on data using a public key.  The data must be
+ * small enough to be signed (i.e. already hashed, if necessary). */
+gcry_error_t otrl_privkey_verify(const unsigned char *sigbuf, size_t siglen,
+	unsigned short pubkey_type, gcry_sexp_t pubs,
+	const unsigned char *data, size_t len)
+{
+    gcry_error_t err;
+    gcry_mpi_t datampi,r,s;
+    gcry_sexp_t datas, sigs;
+
+    if (pubkey_type != OTRL_PUBKEY_TYPE_DSA || siglen != 40)
+	return gcry_error(GPG_ERR_INV_VALUE);
+
+    if (len) {
+	gcry_mpi_scan(&datampi, GCRYMPI_FMT_USG, data, len, NULL);
+    } else {
+	datampi = gcry_mpi_set_ui(NULL, 0);
+    }
+    gcry_sexp_build(&datas, NULL, "(%m)", datampi);
+    gcry_mpi_release(datampi);
+    gcry_mpi_scan(&r, GCRYMPI_FMT_USG, sigbuf, 20, NULL);
+    gcry_mpi_scan(&s, GCRYMPI_FMT_USG, sigbuf+20, 20, NULL);
+    gcry_sexp_build(&sigs, NULL, "(sig-val (dsa (r %m)(s %m)))", r, s);
+    gcry_mpi_release(r);
+    gcry_mpi_release(s);
+
+    err = gcry_pk_verify(sigs, datas, pubs);
+    gcry_sexp_release(datas);
+    gcry_sexp_release(sigs);
+
+    return err;
 }

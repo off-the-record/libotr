@@ -182,6 +182,192 @@ void free_keyexch(KeyExchMsg keyexch)
     free(keyexch);
 }
 
+/* Parse a D-H Commit Message into a newly-allocated CommitMsg structure */
+CommitMsg parse_commit(const char *msg)
+{
+    CommitMsg cmsg = NULL;
+    size_t lenp;
+    unsigned char *raw = decode(msg, &lenp);
+    unsigned char *bufp = raw;
+    if (!raw) goto inv;
+
+    cmsg = calloc(1, sizeof(struct s_CommitMsg));
+    if (!cmsg) {
+	free(raw);
+	goto inv;
+    }
+
+    cmsg->raw = raw;
+
+    require_len(3);
+    if (memcmp(bufp, "\x00\x02\x02", 3)) goto inv;
+    bufp += 3; lenp -= 3;
+
+    read_int(cmsg->enckeylen);
+    cmsg->enckey = malloc(cmsg->enckeylen);
+    if (!cmsg->enckey && cmsg->enckeylen > 0) goto inv;
+    read_raw(cmsg->enckey, cmsg->enckeylen);
+
+    read_int(cmsg->hashkeylen);
+    cmsg->hashkey = malloc(cmsg->hashkeylen);
+    if (!cmsg->hashkey && cmsg->hashkeylen > 0) goto inv;
+    read_raw(cmsg->hashkey, cmsg->hashkeylen);
+
+    if (lenp != 0) goto inv;
+
+    return cmsg;
+inv:
+    free_commit(cmsg);
+    return NULL;
+}
+
+/* Deallocate a CommitMsg and all of the data it points to */
+void free_commit(CommitMsg cmsg)
+{
+    if (!cmsg) return;
+    free(cmsg->raw);
+    free(cmsg->enckey);
+    free(cmsg->hashkey);
+    free(cmsg);
+}
+
+/* Parse a D-H Key Message into a newly-allocated KeyMsg structure */
+KeyMsg parse_key(const char *msg)
+{
+    KeyMsg kmsg = NULL;
+    size_t lenp;
+    unsigned char *raw = decode(msg, &lenp);
+    unsigned char *bufp = raw;
+    if (!raw) goto inv;
+
+    kmsg = calloc(1, sizeof(struct s_KeyMsg));
+    if (!kmsg) {
+	free(raw);
+	goto inv;
+    }
+
+    kmsg->raw = raw;
+
+    require_len(3);
+    if (memcmp(bufp, "\x00\x02\x0a", 3)) goto inv;
+    bufp += 3; lenp -= 3;
+
+    read_mpi(kmsg->y);
+
+    if (lenp != 0) goto inv;
+
+    return kmsg;
+inv:
+    free_key(kmsg);
+    return NULL;
+}
+
+/* Deallocate a KeyMsg and all of the data it points to */
+void free_key(KeyMsg kmsg)
+{
+    if (!kmsg) return;
+    free(kmsg->raw);
+    gcry_mpi_release(kmsg->y);
+    free(kmsg);
+}
+
+/* Parse a Reveal Signature Message into a newly-allocated RevealSigMsg
+ * structure */
+RevealSigMsg parse_revealsig(const char *msg)
+{
+    RevealSigMsg rmsg = NULL;
+    size_t lenp;
+    unsigned char *raw = decode(msg, &lenp);
+    unsigned char *bufp = raw;
+    if (!raw) goto inv;
+
+    rmsg = calloc(1, sizeof(struct s_RevealSigMsg));
+    if (!rmsg) {
+	free(raw);
+	goto inv;
+    }
+
+    rmsg->raw = raw;
+
+    require_len(3);
+    if (memcmp(bufp, "\x00\x02\x11", 3)) goto inv;
+    bufp += 3; lenp -= 3;
+
+    read_int(rmsg->keylen);
+    rmsg->key = malloc(rmsg->keylen);
+    if (!rmsg->key && rmsg->keylen > 0) goto inv;
+    read_raw(rmsg->key, rmsg->keylen);
+
+    read_int(rmsg->encsiglen);
+    rmsg->encsig = malloc(rmsg->encsiglen);
+    if (!rmsg->encsig && rmsg->encsiglen > 0) goto inv;
+    read_raw(rmsg->encsig, rmsg->encsiglen);
+
+    read_raw(rmsg->mac, 20);
+
+    if (lenp != 0) goto inv;
+
+    return rmsg;
+inv:
+    free_revealsig(rmsg);
+    return NULL;
+}
+
+/* Deallocate a RevealSigMsg and all of the data it points to */
+void free_revealsig(RevealSigMsg rmsg)
+{
+    if (!rmsg) return;
+    free(rmsg->raw);
+    free(rmsg->key);
+    free(rmsg->encsig);
+    free(rmsg);
+}
+
+/* Parse a Signature Message into a newly-allocated SignatureMsg structure */
+SignatureMsg parse_signature(const char *msg)
+{
+    SignatureMsg smsg = NULL;
+    size_t lenp;
+    unsigned char *raw = decode(msg, &lenp);
+    unsigned char *bufp = raw;
+    if (!raw) goto inv;
+
+    smsg = calloc(1, sizeof(struct s_SignatureMsg));
+    if (!smsg) {
+	free(raw);
+	goto inv;
+    }
+
+    smsg->raw = raw;
+
+    require_len(3);
+    if (memcmp(bufp, "\x00\x02\x12", 3)) goto inv;
+    bufp += 3; lenp -= 3;
+
+    read_int(smsg->encsiglen);
+    smsg->encsig = malloc(smsg->encsiglen);
+    if (!smsg->encsig && smsg->encsiglen > 0) goto inv;
+    read_raw(smsg->encsig, smsg->encsiglen);
+
+    read_raw(smsg->mac, 20);
+
+    if (lenp != 0) goto inv;
+
+    return smsg;
+inv:
+    free_signature(smsg);
+    return NULL;
+}
+
+/* Deallocate a SignatureMsg and all of the data it points to */
+void free_signature(SignatureMsg smsg)
+{
+    if (!smsg) return;
+    free(smsg->raw);
+    free(smsg->encsig);
+    free(smsg);
+}
+
 /* Parse a Data Message into a newly-allocated DataMsg structure */
 DataMsg parse_datamsg(const char *msg)
 {

@@ -179,7 +179,7 @@ Here are the six programs in the toolkit:
 
  - otr_parse
    - Parse OTR messages given on stdin, showing the values of all the
-     fields in OTR Key Exchange Messages and OTR Data Messages.
+     fields in OTR protocol messages.
 
  - otr_sesskeys our_privkey their_pubkey
    - Shows our public key, the session id, two AES and two MAC keys

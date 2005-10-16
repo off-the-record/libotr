@@ -23,11 +23,11 @@
 typedef struct s_OtrlUserState* OtrlUserState;
 
 #include "context.h"
-#include "privkey.h"
+#include "privkey-t.h"
 
 struct s_OtrlUserState {
     ConnContext *context_root;
-    PrivKey *privkey_root;
+    OtrlPrivKey *privkey_root;
 };
 
 /* Create a new OtrlUserState.  Most clients will only need one of

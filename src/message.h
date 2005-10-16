@@ -26,15 +26,6 @@ typedef enum {
     OTRL_NOTIFY_INFO
 } OtrlNotifyLevel;
 
-typedef enum {
-    OTRL_POLICY_OPPORTUNISTIC,
-    OTRL_POLICY_NEVER,
-    OTRL_POLICY_MANUAL,
-    OTRL_POLICY_ALWAYS
-} OtrlPolicy;
-
-#define OTRL_POLICY_DEFAULT OTRL_POLICY_OPPORTUNISTIC
-
 typedef struct s_OtrlMessageAppOps {
     /* Return the OTR policy for the given context. */
     OtrlPolicy (*policy)(void *opdata, ConnContext *context);
@@ -69,7 +60,8 @@ typedef struct s_OtrlMessageAppOps {
      * protocol / username conversation.  Return 0 if you are able to
      * successfully display it.  If you return non-0 (or if this
      * function is NULL), the control message will be displayed inline,
-     * as a received message. */
+     * as a received message, or else by using the above notify()
+     * callback. */
     int (*display_otr_message)(void *opdata, const char *accountname,
 	    const char *protocol, const char *username, const char *msg);
 
@@ -87,21 +79,25 @@ typedef struct s_OtrlMessageAppOps {
     /* A new fingerprint for the given user has been received. */
     void (*new_fingerprint)(void *opdata, OtrlUserState us,
 	    const char *accountname, const char *protocol,
-	    const char *username, OTRKeyExchangeMsg kem);
+	    const char *username, unsigned char fingerprint[20]);
 
     /* The list of known fingerprints has changed.  Write them to disk. */
     void (*write_fingerprints)(void *opdata);
 
-    /* A ConnContext has entered a secure state. */
-    void (*gone_secure)(void *opdata, ConnContext *context);
+    /* A ConnContext has entered a secure state.  protocol_version is
+     * the version of the OTR protocol used for the authentication. */
+    void (*gone_secure)(void *opdata, ConnContext *context,
+	    int protocol_version);
 
     /* A ConnContext has left a secure state. */
     void (*gone_insecure)(void *opdata, ConnContext *context);
 
-    /* A ConnContext has received a Key Exchange Message, which is the
-     * same as the one we already knew.  is_reply indicates whether the
-     * Key Exchange Message is a reply to one that we sent to them. */
-    void (*still_secure)(void *opdata, ConnContext *context, int is_reply);
+    /* We have completed an authentication, using the D-H keys we
+     * already knew.  is_reply indicates whether we initiated the AKE.
+     * protocol_version is the version of the OTR protocol used for the
+     * authentication. */
+    void (*still_secure)(void *opdata, ConnContext *context, int is_reply,
+	    int protocol_version);
 
     /* Log a message.  The passed message will end in "\n". */
     void (*log_message)(void *opdata, const char *message);
@@ -170,8 +166,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void (*add_appdata)(void *data, ConnContext *context),
 	void *data);
 
-/* Put a connection into the DISCONNECTED state, first sending the
- * other side a notice that we're doing so if we're currently CONNECTED,
+/* Put a connection into the PLAINTEXT state, first sending the
+ * other side a notice that we're doing so if we're currently ENCRYPTED,
  * and we think he's logged in. */
 void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,

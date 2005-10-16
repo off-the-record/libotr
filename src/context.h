@@ -20,14 +20,23 @@
 #ifndef __CONTEXT_H__
 #define __CONTEXT_H__
 
-#include "gcrypt.h"
+#include <gcrypt.h>
+
 #include "dh.h"
+#include "auth.h"
 
 typedef enum {
-    CONN_UNCONNECTED,
-    CONN_SETUP,
-    CONN_CONNECTED
-} ConnectionState;
+    OTRL_MSGSTATE_PLAINTEXT,           /* Not yet started an encrypted
+					  conversation */
+    OTRL_MSGSTATE_ENCRYPTED,           /* Currently in an encrypted
+					  conversation */
+    OTRL_MSGSTATE_FINISHED             /* The remote side has sent us a
+					  notification that he has ended
+					  his end of the encrypted
+					  conversation; prevent any
+					  further messages from being
+					  sent to him. */
+} OtrlMessageState;
 
 typedef struct fingerprint {
     struct fingerprint *next;          /* The next fingerprint in the list */
@@ -55,8 +64,11 @@ typedef struct context {
 					  we've seen so far for this
 					  message */
 
-    ConnectionState state;             /* The state of our connection to this
-					  user */
+    OtrlMessageState msgstate;         /* The state of message disposition
+					  with this user */
+    OtrlAuthInfo auth;                 /* The state of ongoing
+					  authentication with this user */
+
     Fingerprint fingerprint_root;      /* The root of a linked list of
 					  Fingerprints entries */
     Fingerprint *active_fingerprint;   /* Which fingerprint is in use now?
@@ -76,9 +88,9 @@ typedef struct context {
 					  derived from DH key[our_keyid-i]
 					  and mpi Y[their_keyid-j] */
 
-    unsigned char sessionid[20];       /* The sessionid and direction */
-    SessionDirection sessiondir;       /* determined when this private
-					  connection was established. */
+    unsigned char sessionid[20];       /* The sessionid and bold half */
+    size_t sessionid_len;              /* determined when this private */
+    OtrlSessionIdHalf sessionid_half;  /* connection was established. */
 
     unsigned char *preshared_secret;   /* A secret you share with this
 					  user, in order to do
@@ -114,9 +126,6 @@ typedef struct context {
 
 #include "userstate.h"
 
-/* Strings describing the connection states */
-extern const char *otrl_context_statestr[];
-
 /* Look up a connection context by name/account/protocol from the given
  * OtrlUserState.  If add_if_missing is true, allocate and return a new
  * context if one does not currently exist.  In that event, call
@@ -141,26 +150,24 @@ void otrl_context_set_trust(Fingerprint *fprint, const char *trust);
 void otrl_context_set_preshared_secret(ConnContext *context,
 	const unsigned char *secret, size_t secret_len);
 
-/* Force a context into the CONN_SETUP state (so that it only has local
- * DH keys). */
-void otrl_context_force_setup(ConnContext *context);
+/* Force a context into the OTRL_MSGSTATE_FINISHED state. */
+void otrl_context_force_finished(ConnContext *context);
 
-/* Force a context into the CONN_UNCONNECTED state. */
-void otrl_context_force_disconnect(ConnContext *context);
+/* Force a context into the OTRL_MSGSTATE_PLAINTEXT state. */
+void otrl_context_force_plaintext(ConnContext *context);
 
 /* Forget a fingerprint (so long as it's not the active one.  If it's a
  * fingerprint_root, forget the whole context (as long as
- * and_maybe_context is set, and it's UNCONNECTED).  Also, if it's not
+ * and_maybe_context is set, and it's PLAINTEXT).  Also, if it's not
  * the fingerprint_root, but it's the only fingerprint, and we're
- * UNCONNECTED, forget the whole context if and_maybe_context is set. */
+ * PLAINTEXT, forget the whole context if and_maybe_context is set. */
 void otrl_context_forget_fingerprint(Fingerprint *fprint,
 	int and_maybe_context);
 
-/* Forget a whole context, so long as it's UNCONNECTED. */
+/* Forget a whole context, so long as it's PLAINTEXT. */
 void otrl_context_forget(ConnContext *context);
 
-/* Forget all the contexts in a given OtrlUserState, forcing them to
- * UNCONNECTED. */
+/* Forget all the contexts in a given OtrlUserState. */
 void otrl_context_forget_all(OtrlUserState us);
 
 #endif

@@ -27,17 +27,13 @@ typedef struct {
     gcry_mpi_t priv, pub;
 } DH_keypair;
 
+/* Which half of the secure session id should be shown in bold? */
 typedef enum {
-    SESS_DIR_LOW,
-    SESS_DIR_HIGH
-} SessionDirection;
+    OTRL_SESSIONID_FIRST_HALF_BOLD,
+    OTRL_SESSIONID_SECOND_HALF_BOLD
+} OtrlSessionIdHalf;
 
 typedef struct {
-    SessionDirection dir;
-    unsigned char dhsecureid[20];  /* Don't display this value to the
-				      user when she asks to see the
-				      secure session id.  Display
-				      context->sessionid instead. */
     unsigned char sendctr[16];
     unsigned char rcvctr[16];
     gcry_cipher_hd_t sendenc;
@@ -57,6 +53,16 @@ typedef struct {
 void otrl_dh_init(void);
 
 /*
+ * Initialize the fields of a DH keypair.
+ */
+void otrl_dh_keypair_init(DH_keypair *kp);
+
+/*
+ * Copy a DH_keypair.
+ */
+void otrl_dh_keypair_copy(DH_keypair *dst, const DH_keypair *src);
+
+/*
  * Deallocate the contents of a DH_keypair (but not the DH_keypair
  * itself)
  */
@@ -73,6 +79,24 @@ gcry_error_t otrl_dh_gen_keypair(unsigned int groupid, DH_keypair *kp);
  */
 gcry_error_t otrl_dh_session(DH_sesskeys *sess, const DH_keypair *kp,
 	gcry_mpi_t y);
+
+/*
+ * Compute the secure session id, two encryption keys, and four MAC keys
+ * given our DH key and their DH public key.
+ */
+gcry_error_t otrl_dh_compute_v2_auth_keys(const DH_keypair *our_dh,
+	gcry_mpi_t their_pub, unsigned char *sessionid, size_t *sessionidlenp,
+	gcry_cipher_hd_t *enc_c, gcry_cipher_hd_t *enc_cp,
+	gcry_md_hd_t *mac_m1, gcry_md_hd_t *mac_m1p,
+	gcry_md_hd_t *mac_m2, gcry_md_hd_t *mac_m2p);
+
+/*
+ * Compute the secure session id, given our DH key and their DH public
+ * key.
+ */
+gcry_error_t otrl_dh_compute_v1_session_id(const DH_keypair *our_dh,
+	gcry_mpi_t their_pub, unsigned char *sessionid, size_t *sessionidlenp,
+	OtrlSessionIdHalf *halfp);
 
 /*
  * Deallocate the contents of a DH_sesskeys (but not the DH_sesskeys

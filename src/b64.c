@@ -56,6 +56,7 @@ VERSION HISTORY:
 
 /* system headers */
 #include <stdlib.h>
+#include <string.h>
 
 /* libotr headers */
 #include "b64.h"
@@ -184,4 +185,66 @@ size_t otrl_base64_decode(char *data, const unsigned char *base64data,
     /* Just discard any short block at the end. */
 
     return datalen;
+}
+
+/*
+ * Base64-encode a block of data, stick "?OTR:" and "." around it, and
+ * return the result, or NULL in the event of a memory error.  The
+ * caller must free() the return value.
+ */
+char *otrl_base64_otr_encode(const unsigned char *buf, size_t buflen)
+{
+    char *base64buf;
+    size_t base64len;
+
+    /* Make the base64-encoding. */
+    base64len = ((buflen + 2) / 3) * 4;
+    base64buf = malloc(5 + base64len + 1 + 1);
+    if (base64buf == NULL) {
+	return NULL;
+    }
+    memmove(base64buf, "?OTR:", 5);
+    otrl_base64_encode(base64buf+5, buf, buflen);
+    base64buf[5 + base64len] = '.';
+    base64buf[5 + base64len + 1] = '\0';
+
+    return base64buf;
+}
+
+/*
+ * Base64-decode the portion of the given message between "?OTR:" and
+ * ".".  Set *bufp to the decoded data, and set *lenp to its length.
+ * The caller must free() the result.  Return 0 on success, -1 on a
+ * memory error, or -2 on invalid input.
+ */
+int otrl_base64_otr_decode(const char *msg, unsigned char **bufp,
+	size_t *lenp)
+{
+    char *otrtag, *endtag;
+    size_t msglen, rawlen;
+    unsigned char *rawmsg;
+
+    otrtag = strstr(msg, "?OTR:");
+    if (!otrtag) {
+	return -2;
+    }
+    endtag = strchr(otrtag, '.');
+    if (endtag) {
+        msglen = endtag-otrtag;
+    } else {
+	return -2;
+    }
+
+    /* Base64-decode the message */
+    rawlen = ((msglen-5) / 4) * 3;   /* maximum possible */
+    rawmsg = malloc(rawlen);
+    if (!rawmsg && rawlen > 0) {
+	return -1;
+    }
+    rawlen = otrl_base64_decode(rawmsg, otrtag+5, msglen-5);  /* actual size */
+
+    *bufp = rawmsg;
+    *lenp = rawlen;
+
+    return 0;
 }

@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 	exit(1);
     }
     
-    if (otrl_proto_message_type(otrmsg) != OTR_DATA) {
+    if (otrl_proto_message_type(otrmsg) != OTRL_MSGTYPE_DATA) {
 	fprintf(stderr, "OTR Non-Data Message found on stdin.\n");
 	exit(1);
     }

@@ -35,64 +35,7 @@
 #include "mem.h"
 #include "version.h"
 #include "tlv.h"
-
-#undef DEBUG
-
-#ifdef DEBUG
-static void debug_data(const char *title, const unsigned char *data,
-	size_t len)
-{
-    size_t i;
-    fprintf(stderr, "%s: ", title);
-    for(i=0;i<len;++i) {
-	fprintf(stderr, "%02x", data[i]);
-    }
-    fprintf(stderr, "\n");
-}
-
-static void debug_int(const char *title, const unsigned char *data)
-{
-    unsigned int v =
-	(data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
-    fprintf(stderr, "%s: %u (0x%x)\n", title, v, v);
-}
-#else
-#define debug_data(t,b,l)
-#define debug_int(t,b)
-#endif
-
-#define write_int(x) do { \
-	bufp[0] = ((x) >> 24) & 0xff; \
-	bufp[1] = ((x) >> 16) & 0xff; \
-	bufp[2] = ((x) >> 8) & 0xff; \
-	bufp[3] = (x) & 0xff; \
-	bufp += 4; lenp -= 4; \
-    } while(0)
-
-#define write_mpi(x,nx,dx) do { \
-	write_int(nx); \
-	gcry_mpi_print(format, bufp, lenp, NULL, (x)); \
-	debug_data((dx), bufp, (nx)); \
-	bufp += (nx); lenp -= (nx); \
-    } while(0)
-
-#define require_len(l) do { \
-	if (lenp < (l)) goto invval; \
-    } while(0)
-
-#define read_int(x) do { \
-	require_len(4); \
-	(x) = (bufp[0] << 24) | (bufp[1] << 16) | (bufp[2] << 8) | bufp[3]; \
-	bufp += 4; lenp -= 4; \
-    } while(0)
-
-#define read_mpi(x) do { \
-	size_t mpilen; \
-	read_int(mpilen); \
-	require_len(mpilen); \
-	gcry_mpi_scan(&(x), GCRYMPI_FMT_USG, bufp, mpilen, NULL); \
-	bufp += mpilen; lenp -= mpilen; \
-    } while(0)
+#include "serial.h"
 
 /* Initialize the OTR library.  Pass the version of the API you are
  * using. */
@@ -121,87 +64,6 @@ void otrl_init(unsigned int ver_major, unsigned int ver_minor,
 const char *otrl_version(void)
 {
     return OTRL_VERSION;
-}
-
-/* Create a public key block from a private key */
-gcry_error_t otrl_proto_make_pubkey(unsigned char **pubbufp, size_t *publenp,
-	gcry_sexp_t privkey)
-{
-    gcry_mpi_t p,q,g,y;
-    gcry_sexp_t dsas,ps,qs,gs,ys;
-    size_t np,nq,ng,ny;
-    enum gcry_mpi_format format = GCRYMPI_FMT_USG;
-    unsigned char *bufp;
-    size_t lenp;
-
-    *pubbufp = NULL;
-    *publenp = 0;
-
-    /* Extract the public parameters */
-    dsas = gcry_sexp_find_token(privkey, "dsa", 0);
-    if (dsas == NULL) {
-	return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
-    }
-    ps = gcry_sexp_find_token(dsas, "p", 0);
-    qs = gcry_sexp_find_token(dsas, "q", 0);
-    gs = gcry_sexp_find_token(dsas, "g", 0);
-    ys = gcry_sexp_find_token(dsas, "y", 0);
-    gcry_sexp_release(dsas);
-    if (!ps || !qs || !gs || !ys) {
-	gcry_sexp_release(ps);
-	gcry_sexp_release(qs);
-	gcry_sexp_release(gs);
-	gcry_sexp_release(ys);
-	return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
-    }
-    p = gcry_sexp_nth_mpi(ps, 1, GCRYMPI_FMT_USG);
-    gcry_sexp_release(ps);
-    q = gcry_sexp_nth_mpi(qs, 1, GCRYMPI_FMT_USG);
-    gcry_sexp_release(qs);
-    g = gcry_sexp_nth_mpi(gs, 1, GCRYMPI_FMT_USG);
-    gcry_sexp_release(gs);
-    y = gcry_sexp_nth_mpi(ys, 1, GCRYMPI_FMT_USG);
-    gcry_sexp_release(ys);
-    if (!p || !q || !g || !y) {
-	gcry_mpi_release(p);
-	gcry_mpi_release(q);
-	gcry_mpi_release(g);
-	gcry_mpi_release(y);
-	return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
-    }
-
-    *publenp = 0;
-    gcry_mpi_print(format, NULL, 0, &np, p);
-    *publenp += np + 4;
-    gcry_mpi_print(format, NULL, 0, &nq, q);
-    *publenp += nq + 4;
-    gcry_mpi_print(format, NULL, 0, &ng, g);
-    *publenp += ng + 4;
-    gcry_mpi_print(format, NULL, 0, &ny, y);
-    *publenp += ny + 4;
-
-    *pubbufp = malloc(*publenp);
-    if (*pubbufp == NULL) {
-	gcry_mpi_release(p);
-	gcry_mpi_release(q);
-	gcry_mpi_release(g);
-	gcry_mpi_release(y);
-	return gcry_error(GPG_ERR_ENOMEM);
-    }
-    bufp = *pubbufp;
-    lenp = *publenp;
-
-    write_mpi(p,np,"P");
-    write_mpi(q,nq,"Q");
-    write_mpi(g,ng,"G");
-    write_mpi(y,ny,"Y");
-
-    gcry_mpi_release(p);
-    gcry_mpi_release(q);
-    gcry_mpi_release(g);
-    gcry_mpi_release(y);
-
-    return gcry_error(GPG_ERR_NO_ERROR);
 }
 
 /* Store some MAC keys to be revealed later */
@@ -322,400 +184,157 @@ static gcry_error_t rotate_y_keys(ConnContext *context, gcry_mpi_t new_y)
 /* Return a pointer to a newly-allocated OTR query message, customized
  * with our name.  The caller should free() the result when he's done
  * with it. */
-char *otrl_proto_default_query_msg(const char *ourname)
+char *otrl_proto_default_query_msg(const char *ourname, OtrlPolicy policy)
 {
     char *msg;
+    int v1_supported, v2_supported;
+    const char *version_tag;
     /* Don't use g_strdup_printf here, because someone (not us) is going
      * to free() the *message pointer, not g_free() it.  We can't
      * require that they g_free() it, because this pointer will probably
      * get passed to the main IM application for processing (and
      * free()ing). */
-    const char *format = "?OTR?\n<b>%s</b> has requested an "
+    const char *format = "?OTR%s\n<b>%s</b> has requested an "
 	    "<a href=\"http://www.cypherpunks.ca/otr/\">Off-the-Record "
 	    "private conversation</a>.  However, you do not have a plugin "
 	    "to support that.\nSee <a href=\"http://www.cypherpunks.ca/otr/\">"
 	    "http://www.cypherpunks.ca/otr/</a> for more information.";
 
-    /* Remove "%s", add '\0' */
-    msg = malloc(strlen(format) + strlen(ourname) - 1);
+    /* Figure out the version tag */
+    v1_supported = (policy & OTRL_POLICY_ALLOW_V1);
+    v2_supported = (policy & OTRL_POLICY_ALLOW_V2);
+    if (v1_supported) {
+	if (v2_supported) {
+	    version_tag = "?v2?";
+	} else {
+	    version_tag = "?";
+	}
+    } else {
+	if (v2_supported) {
+	    version_tag = "v2?";
+	} else {
+	    version_tag = "v?";
+	}
+    }
+
+    /* Remove two "%s", add '\0' */
+    msg = malloc(strlen(format) + strlen(version_tag) + strlen(ourname) - 3);
     if (!msg) return NULL;
-    sprintf(msg, format, ourname);
+    sprintf(msg, format, version_tag, ourname);
     return msg;
 }
 
+/* Return the best version of OTR support by both sides, given an OTR
+ * Query Message and the local policy. */
+unsigned int otrl_proto_query_bestversion(const char *querymsg,
+	OtrlPolicy policy)
+{
+    char *otrtag;
+    unsigned int query_versions = 0;
+
+    otrtag = strstr(querymsg, "?OTR");
+    otrtag += 4;
+    if (*otrtag == '?') {
+	query_versions = (1<<0);
+	++otrtag;
+    }
+    if (*otrtag == 'v') {
+	for(++otrtag; *otrtag && *otrtag != '?'; ++otrtag) {
+	    switch(*otrtag) {
+		case '2':
+		    query_versions |= (1<<1);
+		    break;
+	    }
+	}
+    }
+
+    if ((policy & OTRL_POLICY_ALLOW_V2) && (query_versions & (1<<1))) {
+	return 2;
+    }
+    if ((policy & OTRL_POLICY_ALLOW_V1) && (query_versions & (1<<0))) {
+	return 1;
+    }
+    return 0;
+}
+
+/* Locate any whitespace tag in this message, and return the best
+ * version of OTR support on both sides.  Set *starttagp and *endtagp to
+ * the start and end of the located tag, so that it can be snipped out. */
+unsigned int otrl_proto_whitespace_bestversion(const char *msg,
+	const char **starttagp, const char **endtagp, OtrlPolicy policy)
+{
+    const char *starttag, *endtag;
+    unsigned int query_versions = 0;
+
+    *starttagp = NULL;
+    *endtagp = NULL;
+
+    starttag = strstr(msg, OTRL_MESSAGE_TAG_BASE);
+    if (!starttag) return 0;
+
+    endtag = starttag + strlen(OTRL_MESSAGE_TAG_BASE);
+
+    /* Look for groups of 8 spaces and/or tabs */
+    while(1) {
+	int i;
+	int allwhite = 1;
+	for(i=0;i<8;++i) {
+	    if (endtag[i] != ' ' && endtag[i] != '\t') {
+		allwhite = 0;
+		break;
+	    }
+	}
+	if (allwhite) {
+	    if (!strncmp(endtag, OTRL_MESSAGE_TAG_V1, 8)) {
+		query_versions |= (1<<0);
+	    }
+	    if (!strncmp(endtag, OTRL_MESSAGE_TAG_V2, 8)) {
+		query_versions |= (1<<1);
+	    }
+	    endtag += 8;
+	} else {
+	    break;
+	}
+    }
+
+    *starttagp = starttag;
+    *endtagp = endtag;
+
+    if ((policy & OTRL_POLICY_ALLOW_V2) && (query_versions & (1<<1))) {
+	return 2;
+    }
+    if ((policy & OTRL_POLICY_ALLOW_V1) && (query_versions & (1<<0))) {
+	return 1;
+    }
+    return 0;
+}
+
 /* Return the Message type of the given message. */
-OTRMessageType otrl_proto_message_type(const char *message)
+OtrlMessageType otrl_proto_message_type(const char *message)
 {
     char *otrtag;
 
     otrtag = strstr(message, "?OTR");
 
     if (!otrtag) {
-	if (strstr(message, OTR_MESSAGE_TAG)) {
-	    return OTR_TAGGEDPLAINTEXT;
+	if (strstr(message, OTRL_MESSAGE_TAG_BASE)) {
+	    return OTRL_MSGTYPE_TAGGEDPLAINTEXT;
 	} else {
-	    return OTR_NOTOTR;
+	    return OTRL_MSGTYPE_NOTOTR;
 	}
     }
 
-    if (!strncmp(otrtag, "?OTR?", 5)) return OTR_QUERY;
-    if (!strncmp(otrtag, "?OTR:AAEK", 9)) return OTR_KEYEXCH;
-    if (!strncmp(otrtag, "?OTR:AAED", 9)) return OTR_DATA;
-    if (!strncmp(otrtag, "?OTR Error:", 11)) return OTR_ERROR;
+    if (!strncmp(otrtag, "?OTR?", 5)) return OTRL_MSGTYPE_QUERY;
+    if (!strncmp(otrtag, "?OTRv", 5)) return OTRL_MSGTYPE_QUERY;
+    if (!strncmp(otrtag, "?OTR:AAIC", 9)) return OTRL_MSGTYPE_DH_COMMIT;
+    if (!strncmp(otrtag, "?OTR:AAIK", 9)) return OTRL_MSGTYPE_DH_KEY;
+    if (!strncmp(otrtag, "?OTR:AAIR", 9)) return OTRL_MSGTYPE_REVEALSIG;
+    if (!strncmp(otrtag, "?OTR:AAIS", 9)) return OTRL_MSGTYPE_SIGNATURE;
+    if (!strncmp(otrtag, "?OTR:AAEK", 9)) return OTRL_MSGTYPE_V1_KEYEXCH;
+    if (!strncmp(otrtag, "?OTR:AAED", 9)) return OTRL_MSGTYPE_DATA;
+    if (!strncmp(otrtag, "?OTR Error:", 11)) return OTRL_MSGTYPE_ERROR;
 
-    return OTR_UNKNOWN;
-}
-
-/* Create a Key Exchange message for our correspondent.  If we need a
- * private key and don't have one, create_privkey will be called.  Use
- * the privkeys from the given OtrlUserState. */
-gcry_error_t otrl_proto_create_key_exchange(OtrlUserState us,
-	char **messagep, ConnContext *context, unsigned char is_reply,
-	void (*create_privkey)(void *create_privkey_data,
-	    const char *accountname, const char *protocol),
-	void *create_privkey_data)
-{
-    gcry_mpi_t r, s;
-    gcry_sexp_t dsas, rs, ss;
-    gcry_sexp_t sigs, hashs;
-    size_t nr, ns, buflen, lenp;
-    unsigned char *buf, *bufp;
-    enum gcry_mpi_format format = GCRYMPI_FMT_USG;
-    unsigned char digest[20];
-    gcry_mpi_t digestmpi;
-    char *base64buf;
-    size_t base64len;
-    size_t pubkeylen;
-    PrivKey *privkey =
-	otrl_privkey_find(us, context->accountname, context->protocol);
-
-    *messagep = NULL;
-
-    if (privkey == NULL) {
-	/* We've got no private key! */
-	if (create_privkey) {
-	    create_privkey(create_privkey_data, context->accountname,
-		    context->protocol);
-	    privkey =
-		otrl_privkey_find(us, context->accountname, context->protocol);
-	}
-    }
-    if (privkey == NULL) {
-	/* We've still got no private key! */
-	return gcry_error(GPG_ERR_UNUSABLE_SECKEY);
-    }
-    
-    /* Make sure we have two keys */
-    while (context->our_keyid < 2) {
-	rotate_dh_keys(context);
-    }
-
-    buflen = 3 + 1 + privkey->pubkey_datalen + 4 + 40;
-	/* header, is_reply, pubkey, keyid, sig */
-    gcry_mpi_print(format, NULL, 0, &pubkeylen, context->our_old_dh_key.pub);
-    buflen += pubkeylen + 4;
-    buf = malloc(buflen);
-    if (buf == NULL) {
-	return gcry_error(GPG_ERR_ENOMEM);
-    }
-    bufp = buf;
-    lenp = buflen;
-    memmove(bufp, "\x00\x01\x0a", 3);  /* header */
-    debug_data("Header", bufp, 3);
-    bufp += 3; lenp -= 3;
-
-    *bufp = is_reply;                  /* is_reply */
-    debug_data("Reply", bufp, 1);
-    bufp += 1; lenp -= 1;
-
-                                       /* DSA pubkey */
-    memmove(bufp, privkey->pubkey_data, privkey->pubkey_datalen);
-    debug_data("DSA key", bufp, privkey->pubkey_datalen);
-    bufp += privkey->pubkey_datalen; lenp -= privkey->pubkey_datalen;
-
-                                       /* keyid */
-    write_int(context->our_keyid - 1);
-    debug_int("Keyid", bufp - 4);
-
-                                       /* DH pubkey */
-    write_mpi(context->our_old_dh_key.pub, pubkeylen, "Pubkey");
-
-    /* Get a hash of the data to be signed */
-    gcry_md_hash_buffer(GCRY_MD_SHA1, digest, buf, bufp-buf);
-    gcry_mpi_scan(&digestmpi, GCRYMPI_FMT_USG, digest, 20, NULL);
-
-    /* Calculate the sig */
-    gcry_sexp_build(&hashs, NULL, "(%m)", digestmpi);
-    gcry_mpi_release(digestmpi);
-    gcry_pk_sign(&sigs, hashs, privkey->privkey);
-    gcry_sexp_release(hashs);
-    dsas = gcry_sexp_find_token(sigs, "dsa", 0);
-    gcry_sexp_release(sigs);
-    rs = gcry_sexp_find_token(dsas, "r", 0);
-    ss = gcry_sexp_find_token(dsas, "s", 0);
-    gcry_sexp_release(dsas);
-    r = gcry_sexp_nth_mpi(rs, 1, GCRYMPI_FMT_USG);
-    gcry_sexp_release(rs);
-    s = gcry_sexp_nth_mpi(ss, 1, GCRYMPI_FMT_USG);
-    gcry_sexp_release(ss);
-    gcry_mpi_print(format, NULL, 0, &nr, r);
-    gcry_mpi_print(format, NULL, 0, &ns, s);
-    memset(bufp, 0, 40);
-    gcry_mpi_print(format, bufp+(20-nr), lenp, NULL, r);
-    debug_data("R", bufp, 20);
-    bufp += 20; lenp -= 20;
-    gcry_mpi_print(format, bufp+(20-ns), lenp, NULL, s);
-    debug_data("S", bufp, 20);
-    bufp += 20; lenp -= 20;
-
-    assert(lenp == 0);
-
-    gcry_mpi_release(r);
-    gcry_mpi_release(s);
-
-    /* Make the base64-encoding. */
-    base64len = ((buflen + 2) / 3) * 4;
-    base64buf = malloc(5 + base64len + 1 + 1);
-    assert(base64buf != NULL);
-    memmove(base64buf, "?OTR:", 5);
-    otrl_base64_encode(base64buf+5, buf, buflen);
-    base64buf[5 + base64len] = '.';
-    base64buf[5 + base64len + 1] = '\0';
-
-    free(buf);
-
-    *messagep = base64buf;
-
-    return gcry_error(GPG_ERR_NO_ERROR);
-}
-
-/* Deallocate an OTRKeyExchangeMsg returned from proto_parse_key_exchange */
-void otrl_proto_free_key_exchange(OTRKeyExchangeMsg kem)
-{
-    if (!kem) return;
-    gcry_sexp_release(kem->digest_sexp);
-    gcry_sexp_release(kem->dsa_pubkey);
-    gcry_mpi_release(kem->dh_pubkey);
-    gcry_sexp_release(kem->dsa_sig);
-    free(kem);
-}
-
-/* Parse a purported Key Exchange message.  Possible error code portions
- * of the return value:
- *   GPG_ERR_NO_ERROR:      Success
- *   GPG_ERR_ENOMEM:        Out of memory condition
- *   GPG_ERR_INV_VALUE:     The message was not a well-formed Key Exchange
- *                          message
- *   GPG_ERR_BAD_SIGNATURE: The signature on the message didn't verify
- */
-gcry_error_t otrl_proto_parse_key_exchange(OTRKeyExchangeMsg *kemp,
-	const char *msg)
-{
-    char *otrtag, *endtag;
-    unsigned char *rawmsg, *bufp;
-    size_t msglen, rawlen, lenp;
-    gcry_mpi_t p,q,g,e,r,s;
-    unsigned char hash_of_msg[20];
-    gcry_mpi_t hashmpi;
-    const unsigned char *fingerprintstart, *fingerprintend;
-    const unsigned char *signaturestart, *signatureend;
-    OTRKeyExchangeMsg kem = calloc(1, sizeof(struct s_OTRKeyExchangeMsg));
-
-    if (!kem) {
-	*kemp = NULL;
-	return gcry_error(GPG_ERR_ENOMEM);
-    }
-
-    otrtag = strstr(msg, "?OTR:");
-    if (!otrtag) {
-	*kemp = NULL;
-	otrl_proto_free_key_exchange(kem);
-	return gcry_error(GPG_ERR_INV_VALUE);
-    }
-    endtag = strchr(otrtag, '.');
-    if (endtag) {
-	msglen = endtag-otrtag;
-    } else {
-	msglen = strlen(otrtag);
-    }
-
-    /* Base64-decode the message */
-    rawlen = ((msglen-5) / 4) * 3;   /* maximum possible */
-    rawmsg = malloc(rawlen);
-    if (!rawmsg && rawlen > 0) {
-	*kemp = NULL;
-	otrl_proto_free_key_exchange(kem);
-	return gcry_error(GPG_ERR_ENOMEM);
-    }
-    rawlen = otrl_base64_decode(rawmsg, otrtag+5, msglen-5);  /* actual size */
-
-    bufp = rawmsg;
-    lenp = rawlen;
-
-    signaturestart = bufp;
-
-    require_len(3);
-    if (memcmp(bufp, "\x00\x01\x0a", 3)) {
-	/* Invalid header */
-	goto invval;
-    }
-    bufp += 3; lenp -= 3;
-
-    require_len(1);
-    kem->is_reply = *bufp;
-    if (kem->is_reply != 0 && kem->is_reply != 1) {
-	/* Malformed is_reply field */
-	goto invval;
-    }
-    bufp += 1; lenp -= 1;
-
-    fingerprintstart = bufp;
-    /* Read the DSA public key and calculate its fingerprint. */
-    read_mpi(p);
-    read_mpi(q);
-    read_mpi(g);
-    read_mpi(e);
-    fingerprintend = bufp;
-    gcry_md_hash_buffer(GCRY_MD_SHA1, kem->key_fingerprint,
-	    fingerprintstart, fingerprintend-fingerprintstart);
-
-    /* Create the pubkey S-expression. */
-    gcry_sexp_build(&(kem->dsa_pubkey), NULL,
-	    "(public-key (dsa (p %m)(q %m)(g %m)(y %m)))",
-	    p, q, g, e);
-    gcry_mpi_release(p);
-    gcry_mpi_release(q);
-    gcry_mpi_release(g);
-    gcry_mpi_release(e);
-
-    /* Read the key id */
-    read_int(kem->keyid);
-    if (kem->keyid == 0) {
-	/* Not a legal value */
-	goto invval;
-    }
-
-    /* Read the DH public key */
-    read_mpi(kem->dh_pubkey);
-
-    /* Hash the message so we can check the signature */
-    signatureend = bufp;
-    gcry_md_hash_buffer(GCRY_MD_SHA1, hash_of_msg,
-	    signaturestart, signatureend-signaturestart);
-    /* Turn the hash into an mpi, then into a sexp */
-    gcry_mpi_scan(&hashmpi, GCRYMPI_FMT_USG, hash_of_msg, 20, NULL);
-    gcry_sexp_build(&(kem->digest_sexp), NULL, "(%m)", hashmpi);
-    gcry_mpi_release(hashmpi);
-
-    /* Read the signature */
-    require_len(40);
-    gcry_mpi_scan(&r, GCRYMPI_FMT_USG, bufp, 20, NULL);
-    gcry_mpi_scan(&s, GCRYMPI_FMT_USG, bufp+20, 20, NULL);
-    lenp -= 40;
-    gcry_sexp_build(&(kem->dsa_sig), NULL, "(sig-val (dsa (r %m)(s %m)))",
-	    r, s);
-    gcry_mpi_release(r);
-    gcry_mpi_release(s);
-
-    /* That should be everything */
-    if (lenp != 0) goto invval;
-
-    /* Verify the signature */
-    if (gcry_pk_verify(kem->dsa_sig, kem->digest_sexp, kem->dsa_pubkey)) {
-	/* It failed! */
-	otrl_proto_free_key_exchange(kem);
-	free(rawmsg);
-	*kemp = NULL;
-	return gcry_error(GPG_ERR_BAD_SIGNATURE);
-    }
-
-    free(rawmsg);
-    *kemp = kem;
-    return gcry_error(GPG_ERR_NO_ERROR);
-invval:
-    otrl_proto_free_key_exchange(kem);
-    free(rawmsg);
-    *kemp = NULL;
-    return gcry_error(GPG_ERR_INV_VALUE);
-}
-
-/* Deal with a Key Exchange Message once it's been received and passed
- * all the validity and UI ("accept this fingerprint?") tests.
- * context/fprint is the ConnContext and Fingerprint to which it
- * belongs.  Use the given OtrlUserState to look up any necessary
- * private keys.  It is the caller's responsibility to
- * otrl_proto_free_key_exchange(kem) when we're done.  If *messagep gets
- * set to non-NULL by this function, then it's a message that needs to
- * get sent to the correspondent.  If we need a private key and don't
- * have one, create_privkey will be called. */
-gcry_error_t otrl_proto_accept_key_exchange(OtrlUserState us,
-	ConnContext *context, Fingerprint *fprint, OTRKeyExchangeMsg kem,
-	char **messagep,
-	void (*create_privkey)(void *create_privkey_data,
-	    const char *accountname, const char *protocol),
-	void *create_privkey_data)
-{
-    gcry_error_t err;
-    char *savedmessage = context->lastmessage;
-    int savedmay_retransmit = context->may_retransmit;
-    time_t savedtime = context->lastsent;
-    ConnectionState state = context->state;
-    *messagep = NULL;
-    context->lastmessage = NULL;
-
-    switch(state) {
-	case CONN_CONNECTED:
-	    if (kem->is_reply == 0) {
-		/* Send a Key Exchange message to the correspondent */
-		err = otrl_proto_create_key_exchange(us, messagep, context, 1,
-			create_privkey, create_privkey_data);
-		if (err) return err;
-	    }
-	    if (context->their_keyid > 0 &&
-		    ((kem->keyid == context->their_keyid &&
-			!gcry_mpi_cmp(kem->dh_pubkey, context->their_y))
-		    || (kem->keyid == (context->their_keyid - 1) &&
-			!gcry_mpi_cmp(kem->dh_pubkey, context->their_old_y)))) {
-		/* We've already seen this key of theirs, so all is
-		 * good. */
-		break;
-	    }
-	    /* It's an entirely different session; our correspondent has
-	     * gone away and come back. */
-	    otrl_context_force_setup(context);
-
-	    /* FALLTHROUGH */
-	case CONN_UNCONNECTED:
-	case CONN_SETUP:
-	    if (state == CONN_UNCONNECTED ||
-		    (state == CONN_SETUP && kem->is_reply == 0)) {
-		/* Send a Key Exchange message to the correspondent */
-		err = otrl_proto_create_key_exchange(us, messagep, context, 1,
-			create_privkey, create_privkey_data);
-		if (err) return err;
-	    }
-	    context->their_keyid = kem->keyid;
-	    gcry_mpi_release(context->their_y);
-	    context->their_y = gcry_mpi_copy(kem->dh_pubkey);
-	    err = otrl_dh_session(&(context->sesskeys[0][0]),
-		    &(context->our_dh_key), context->their_y);
-	    if (err) return err;
-	    err = otrl_dh_session(&(context->sesskeys[1][0]),
-		    &(context->our_old_dh_key), context->their_y);
-	    if (err) return err;
-	    context->state = CONN_CONNECTED;
-	    memmove(context->sessionid, context->sesskeys[1][0].dhsecureid,
-		    20);
-	    context->sessiondir = context->sesskeys[1][0].dir;
-	    context->active_fingerprint = fprint;
-	    context->generation++;
-	    context->lastmessage = savedmessage;
-	    context->may_retransmit = savedmay_retransmit;
-	    context->lastsent = savedtime;
-	    break;
-    }
-
-    return gcry_error(GPG_ERR_NO_ERROR);
+    return OTRL_MSGTYPE_UNKNOWN;
 }
 
 /* Create an OTR Data message.  Pass the plaintext as msg, and an
@@ -741,7 +360,8 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     char *msgdup;
 
     /* Make sure we're actually supposed to be able to encrypt */
-    if (context->state != CONN_CONNECTED || context->their_keyid == 0) {
+    if (context->msgstate != OTRL_MSGSTATE_ENCRYPTED ||
+	    context->their_keyid == 0) {
 	return gcry_error(GPG_ERR_CONFLICT);
     }
 
@@ -1101,7 +721,7 @@ OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
 	    res = OTRL_FRAGMENT_COMPLETE;
 	}
     } else {
-	/* Unfragmented message, so discard anyy fragment we may have */
+	/* Unfragmented message, so discard any fragment we may have */
 	free(context->fragment);
 	context->fragment = NULL;
 	context->fragment_len = 0;
