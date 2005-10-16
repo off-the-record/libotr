@@ -1,3 +1,6 @@
+16 Oct 2005:
+- Major overhaul with implementation of version 2 of the protocol.
+
 24 Jun 2005:
 - Remove the "confirm_fingerprint" callback which requires the user to
   acknowledge the new fingerprint before it can be used.  Replace it

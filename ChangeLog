@@ -1,3 +1,7 @@
+2005-10-16
+
+	* Major overhaul with implementation of version 2 AKE.
+
 2005-08-08
 
 	* toolkit/otr_parse.c (parse): Ignore MACs that are too short,
