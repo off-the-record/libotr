@@ -92,6 +92,8 @@ typedef struct context {
     size_t sessionid_len;              /* determined when this private */
     OtrlSessionIdHalf sessionid_half;  /* connection was established. */
 
+    unsigned int protocol_version;     /* The version of OTR in use */
+
     unsigned char *preshared_secret;   /* A secret you share with this
 					  user, in order to do
 					  authentication. */

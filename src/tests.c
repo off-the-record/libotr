@@ -75,11 +75,10 @@ static int op_display_otr_message(void *opdata, const char *accountname,
     return -1;
 }
 
-static void op_gone_secure(void *opdata, ConnContext *context,
-	    int protocol_version)
+static void op_gone_secure(void *opdata, ConnContext *context)
 {
-    printf("SECURE (%d): %s / %s\n\n", protocol_version, context->accountname,
-	    context->username);
+    printf("SECURE (%d): %s / %s\n\n", context->protocol_version,
+	    context->accountname, context->username);
 }
 
 static void op_gone_insecure(void *opdata, ConnContext *context)
@@ -87,10 +86,9 @@ static void op_gone_insecure(void *opdata, ConnContext *context)
     printf("INSECURE: %s / %s\n\n", context->accountname, context->username);
 }
 
-static void op_still_secure(void *opdata, ConnContext *context, int is_reply,
-	    int protocol_version)
+static void op_still_secure(void *opdata, ConnContext *context, int is_reply)
 {
-    printf("REFRESH (%d/%d): %s / %s\n\n", is_reply, protocol_version,
+    printf("REFRESH (%d/%d): %s / %s\n\n", is_reply, context->protocol_version,
 	    context->accountname, context->username);
 }
 

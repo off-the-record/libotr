@@ -64,6 +64,7 @@ static ConnContext * new_context(const char * user, const char * accountname,
     otrl_dh_session_blank(&(context->sesskeys[1][1]));
     memset(context->sessionid, 0, 20);
     context->sessionid_len = 0;
+    context->protocol_version = 0;
     context->numsavedkeys = 0;
     context->preshared_secret = NULL;
     context->preshared_secret_len = 0;
@@ -213,6 +214,7 @@ void otrl_context_force_finished(ConnContext *context)
     free(context->preshared_secret);
     context->preshared_secret = NULL;
     context->preshared_secret_len = 0;
+    context->protocol_version = 0;
     context->numsavedkeys = 0;
     free(context->saved_mac_keys);
     context->saved_mac_keys = NULL;

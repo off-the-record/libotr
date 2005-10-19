@@ -361,8 +361,7 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
 	/* This is just a refresh of the existing session. */
 	if (edata->ops->still_secure) {
 	    edata->ops->still_secure(edata->opdata, edata->context,
-		    edata->context->auth.initiated,
-		    edata->context->auth.protocol_version);
+		    edata->context->auth.initiated);
 	}
 	edata->ignore_message = 1;
 	return gcry_error(GPG_ERR_NO_ERROR);
@@ -375,6 +374,8 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
 	edata->context->auth.secure_session_id_len;
     edata->context->sessionid_half =
 	edata->context->auth.session_id_half;
+    edata->context->protocol_version =
+	edata->context->auth.protocol_version;
 
     edata->context->their_keyid = edata->context->auth.their_keyid;
     gcry_mpi_release(edata->context->their_y);
@@ -412,8 +413,7 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
 	edata->ops->update_context_list(edata->opdata);
     }
     if (edata->ops->gone_secure) {
-	edata->ops->gone_secure(edata->opdata, edata->context,
-		edata->context->auth.protocol_version);
+	edata->ops->gone_secure(edata->opdata, edata->context);
     }
 
     edata->gone_encrypted = 1;

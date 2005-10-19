@@ -84,20 +84,15 @@ typedef struct s_OtrlMessageAppOps {
     /* The list of known fingerprints has changed.  Write them to disk. */
     void (*write_fingerprints)(void *opdata);
 
-    /* A ConnContext has entered a secure state.  protocol_version is
-     * the version of the OTR protocol used for the authentication. */
-    void (*gone_secure)(void *opdata, ConnContext *context,
-	    int protocol_version);
+    /* A ConnContext has entered a secure state. */
+    void (*gone_secure)(void *opdata, ConnContext *context);
 
     /* A ConnContext has left a secure state. */
     void (*gone_insecure)(void *opdata, ConnContext *context);
 
     /* We have completed an authentication, using the D-H keys we
-     * already knew.  is_reply indicates whether we initiated the AKE.
-     * protocol_version is the version of the OTR protocol used for the
-     * authentication. */
-    void (*still_secure)(void *opdata, ConnContext *context, int is_reply,
-	    int protocol_version);
+     * already knew.  is_reply indicates whether we initiated the AKE. */
+    void (*still_secure)(void *opdata, ConnContext *context, int is_reply);
 
     /* Log a message.  The passed message will end in "\n". */
     void (*log_message)(void *opdata, const char *message);

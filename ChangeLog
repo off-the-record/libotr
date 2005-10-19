@@ -1,5 +1,14 @@
 2005-10-19
 
+	* src/context.h:
+	* src/context.c: Added protocol_version as an explicit field in
+	the ConnContext.
+
+	* src/message.h:
+	* src/message.c: protocol_version no longer needs to be
+	explicitly passed to the gone_secure() and still_secure()
+	callbacks.
+
 	* packaging/fedora/libotr.spec: Patches from Paul
 
 	* src/proto.c (rotate_dh_keys): Avoid potential double
