@@ -165,7 +165,7 @@ void test(int vers, int both)
     dispatch();
 }
 
-static void test_unreadable(void)
+void test_unreadable(void)
 {
     ConnContext *bobcontext;
 
@@ -176,6 +176,36 @@ static void test_unreadable(void)
     otrl_context_force_plaintext(bobcontext);
     sending(ALICE, BOB, "unreadable text");
     dispatch();
+
+}
+
+void test_crash1(void)
+{
+    ConnContext *alicecontext, *bobcontext;
+
+    printf("\n\n*** Testing old double gcry_cipher_release case ***\n\n");
+
+    otrl_context_forget_all(us);
+    ALICEPOLICY = OTRL_POLICY_DEFAULT;
+    sending(ALICE, BOB, "?OTR?");
+    dispatch();
+
+    alicecontext = otrl_context_find(us, BOB, ALICE, PROTO, 0, NULL, NULL, NULL);
+    bobcontext = otrl_context_find(us, ALICE, BOB, PROTO, 0, NULL, NULL, NULL);
+
+    sending(ALICE, BOB, "Hi!"); dispatch();
+    sending(BOB, ALICE, "There!"); dispatch();
+    sending(ALICE, BOB, "You!"); dispatch();
+    otrl_context_force_plaintext(bobcontext);
+    sending(BOB, ALICE, "?OTR?"); dispatch();
+    sending(ALICE, BOB, "now."); dispatch();
+    printf("%d %p %p\n", alicecontext->our_keyid, alicecontext->their_y, alicecontext->their_old_y);
+    printf("%p %p %p %p\n",
+    alicecontext->sesskeys[0][0].sendenc,
+    alicecontext->sesskeys[0][1].sendenc,
+    alicecontext->sesskeys[1][0].sendenc,
+    alicecontext->sesskeys[1][1].sendenc);
+    sending(BOB, ALICE, "then."); dispatch();
 
 }
 
@@ -191,6 +221,7 @@ int main(int argc, char **argv)
     test(1,1);
     test(2,1);
     test_unreadable();
+    test_crash1();
 
 
     otrl_userstate_free(us);

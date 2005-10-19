@@ -9,6 +9,7 @@ Url: http://www.cypherpunks.ca/otr/
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Provides: libotr-toolkit = %{version}
 Obsoletes: libotr-toolkit < %{version}
+Requires: libgcrypt >= 1.2.0, libgpg-error
 BuildRequires: libgcrypt-devel >= 1.2.0, libgpg-error-devel 
 
 %description
@@ -30,6 +31,7 @@ The devel package contains the libotr library and the include files
 %setup -q
 
 %build
+
 %configure --with-pic
 make %{?_smp_mflags} all
 
@@ -50,7 +52,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files 
 %defattr(-,root,root)
-%doc AUTHORS README COPYING COPYING.LIB News Protocol
+%doc AUTHORS README COPYING COPYING.LIB NEWS Protocol*
 %{_libdir}/libotr.so.*
 %{_bindir}/*
 %{_mandir}/man1/*
@@ -66,6 +68,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Oct 17 2005 Paul Wouters <paul@cypherpunks.ca> 3.0.0
+- Minor change to allow for new documentation files. Fixed Requires:
+
 * Sat Jun 19 2005 Paul Wouters <paul@cypherpunks.ca>
 - Fixed defattr, groups, description and duplicate files in devel
 

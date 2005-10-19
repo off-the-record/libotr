@@ -136,11 +136,15 @@ static gcry_error_t rotate_dh_keys(ConnContext *context)
 	err = otrl_dh_session(&(context->sesskeys[0][0]),
 		&(context->our_dh_key), context->their_y);
 	if (err) return err;
+    } else {
+	otrl_dh_session_blank(&(context->sesskeys[0][0]));
     }
     if (context->their_old_y) {
 	err = otrl_dh_session(&(context->sesskeys[0][1]),
 		&(context->our_dh_key), context->their_old_y);
 	if (err) return err;
+    } else {
+	otrl_dh_session_blank(&(context->sesskeys[0][1]));
     }
     return gcry_error(GPG_ERR_NO_ERROR);
 }

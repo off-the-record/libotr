@@ -1,3 +1,12 @@
+2005-10-19
+
+	* packaging/fedora/libotr.spec: Patches from Paul
+
+	* src/proto.c (rotate_dh_keys): Avoid potential double
+	gcry_cipher_close().
+
+	* src/tests.c: Regression test for double gcry_cipher_close().
+
 2005-10-16
 
 	* Major overhaul with implementation of version 2 AKE.
