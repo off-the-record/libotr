@@ -2,7 +2,7 @@
 .\" First parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" other parameters are allowed: see man(7), man(1)
-.TH OTR_PARSE 1 "October 16, 2005"
+.TH OTR_PARSE 1 "October 27, 2005"
 .\" Please adjust this date whenever revising the manpage.
 .\"
 .\" Some roff macros, for reference:
@@ -33,7 +33,7 @@ otr_parse, otr_sesskeys, otr_mackey, otr_readforge, otr_modify, otr_remac \- Pro
 .I mackey old_text new_text offset
 .br
 .B otr_remac
-.I mackey snd_keyid rcv_keyid pubkey counter encdata revealed_mackeys
+.I mackey flags snd_keyid rcv_keyid pubkey counter encdata revealed_mackeys
 .SH DESCRIPTION
 Off-the-Record (OTR) Messaging allows you to have private conversations
 over IM by providing:
@@ -95,7 +95,7 @@ Here are the six programs in the toolkit:
      you can still forge messages of your choice using the
      otr_readforge command, above.
 
- - otr_remac mackey snd_keyid rcv_keyid pubkey counter encdata revealed_mackeys
+ - otr_remac mackey flags snd_keyid rcv_keyid pubkey counter encdata revealed_mackeys
    - Make a new OTR Data Message, with the given pieces (note that the
      data part is already encrypted).  MAC it with the given mackey.
 
