@@ -503,8 +503,8 @@ rotations.)</p>
 <dt>Message type (BYTE)</dt>
 <dd>The Data Message has type 0x03.</dd>
 <dt>Flags (BYTE)</dt>
-<dd>Flags for this message.  Usually you should set this to 0x00.  The
-only currently defined flag is:<dl>
+<dd>The bitwise-OR of the flags for this message.  Usually you should
+set this to 0x00.  The only currently defined flag is:<dl>
 <dt>IGNORE_UNREADABLE (0x01)</dt>
 <dd>If you receive a Data Message with this flag set, and you are unable
 to decrypt the message or verify the MAC (because, for example, you
