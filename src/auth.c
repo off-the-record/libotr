@@ -94,14 +94,11 @@ void otrl_auth_clear(OtrlAuthInfo *auth)
 }
 
 /*
- * Start a fresh AKE (version 2) using the given OtrlAuthInfo.  If
- * our_dh is NULL, generate a fresh DH keypair to use.  Otherwise, use a
- * copy of the one passed (with the given keyid).  If no error is
- * returned, the message to transmit will be contained in
- * auth->lastauthmsg.
+ * Start a fresh AKE (version 2) using the given OtrlAuthInfo.  Generate
+ * a fresh DH keypair to use.  If no error is returned, the message to
+ * transmit will be contained in auth->lastauthmsg.
  */
-gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth, DH_keypair *our_dh,
-	unsigned int our_keyid)
+gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth)
 {
     gcry_error_t err = gcry_error(GPG_ERR_NO_ERROR);
     const enum gcry_mpi_format format = GCRYMPI_FMT_USG;
@@ -115,14 +112,8 @@ gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth, DH_keypair *our_dh,
     otrl_auth_clear(auth);
     auth->initiated = 1;
 
-    /* Import the given DH keypair, or else create a fresh one */
-    if (our_dh) {
-	otrl_dh_keypair_copy(&(auth->our_dh), our_dh);
-	auth->our_keyid = our_keyid;
-    } else {
-	otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
-	auth->our_keyid = 1;
-    }
+    otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
+    auth->our_keyid = 1;
 
     /* Pick an encryption key */
     gcry_randomize(auth->r, 16, GCRY_STRONG_RANDOM);
@@ -243,11 +234,11 @@ memerr:
 
 /*
  * Handle an incoming D-H Commit Message.  If no error is returned, the
- * message to send will be left in auth->lastauthmsg.  If non-NULL, use
- * a copy of the given D-H keypair, with the given keyid.
+ * message to send will be left in auth->lastauthmsg.  Generate a fresh
+ * keypair to use.
  */
-gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth, const char *commitmsg,
-	DH_keypair *our_dh, unsigned int our_keyid)
+gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
+	const char *commitmsg)
 {
     gcry_error_t err = gcry_error(GPG_ERR_NO_ERROR);
     unsigned char *buf = NULL, *bufp = NULL, *encbuf = NULL;
@@ -293,13 +284,8 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth, const char *commitmsg,
 
 	    /* Store the incoming information */
 	    otrl_auth_clear(auth);
-	    if (our_dh) {
-		otrl_dh_keypair_copy(&(auth->our_dh), our_dh);
-		auth->our_keyid = our_keyid;
-	    } else {
-		otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
-		auth->our_keyid = 1;
-	    }
+	    otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
+	    auth->our_keyid = 1;
 	    auth->encgx = encbuf;
 	    encbuf = NULL;
 	    auth->encgx_len = enclen;
@@ -323,13 +309,8 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth, const char *commitmsg,
 	    } else {
 		/* Ours loses.  Use the incoming parameters instead. */
 		otrl_auth_clear(auth);
-		if (our_dh) {
-		    otrl_dh_keypair_copy(&(auth->our_dh), our_dh);
-		    auth->our_keyid = our_keyid;
-		} else {
-		    otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
-		    auth->our_keyid = 1;
-		}
+		otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
+		auth->our_keyid = 1;
 		auth->encgx = encbuf;
 		encbuf = NULL;
 		auth->encgx_len = enclen;

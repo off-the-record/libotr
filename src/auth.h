@@ -85,22 +85,19 @@ void otrl_auth_new(OtrlAuthInfo *auth);
 void otrl_auth_clear(OtrlAuthInfo *auth);
 
 /*
- * Start a fresh AKE (version 2) using the given OtrlAuthInfo.  If
- * our_dh is NULL, generate a fresh DH keypair to use.  Otherwise, use a
- * copy of the one passed (with the given keyid).  If no error is
- * returned, the message to transmit will be contained in
- * auth->lastauthmsg.
+ * Start a fresh AKE (version 2) using the given OtrlAuthInfo.  Generate
+ * a fresh DH keypair to use.  If no error is returned, the message to
+ * transmit will be contained in auth->lastauthmsg.
  */
-gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth, DH_keypair *our_dh,
-	unsigned int our_keyid);
+gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth);
 
 /*
  * Handle an incoming D-H Commit Message.  If no error is returned, the
- * message to send will be left in auth->lastauthmsg.  If non-NULL, use
- * a copy of the given D-H keypair, with the given keyid.
+ * message to send will be left in auth->lastauthmsg.  Generate a fresh
+ * keypair to use.
  */
-gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth, const char *commitmsg,
-	DH_keypair *our_dh, unsigned int our_keyid);
+gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
+	const char *commitmsg);
 
 /*
  * Handle an incoming D-H Key Message.  If no error is returned, and

@@ -336,6 +336,7 @@ OtrlMessageType otrl_proto_message_type(const char *message)
     if (!strncmp(otrtag, "?OTR:AAIS", 9)) return OTRL_MSGTYPE_SIGNATURE;
     if (!strncmp(otrtag, "?OTR:AAEK", 9)) return OTRL_MSGTYPE_V1_KEYEXCH;
     if (!strncmp(otrtag, "?OTR:AAED", 9)) return OTRL_MSGTYPE_DATA;
+    if (!strncmp(otrtag, "?OTR:AAID", 9)) return OTRL_MSGTYPE_DATA;
     if (!strncmp(otrtag, "?OTR Error:", 11)) return OTRL_MSGTYPE_ERROR;
 
     return OTRL_MSGTYPE_UNKNOWN;
@@ -345,7 +346,7 @@ OtrlMessageType otrl_proto_message_type(const char *message)
  * optional chain of TLVs.  A newly-allocated string will be returned in
  * *encmessagep. */
 gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
-	const char *msg, const OtrlTLV *tlvs)
+	const char *msg, const OtrlTLV *tlvs, unsigned char flags)
 {
     size_t justmsglen = strlen(msg);
     size_t msglen = justmsglen + 1 + otrl_tlv_seriallen(tlvs);
@@ -362,6 +363,7 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     char *msgbuf = NULL;
     enum gcry_mpi_format format = GCRYMPI_FMT_USG;
     char *msgdup;
+    int version = context->protocol_version;
 
     /* Make sure we're actually supposed to be able to encrypt */
     if (context->msgstate != OTRL_MSGSTATE_ENCRYPTED ||
@@ -381,7 +383,8 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
 
     /* Header, send keyid, recv keyid, counter, msg len, msg
      * len of revealed mac keys, revealed mac keys, MAC */
-    buflen = 3 + 4 + 4 + 8 + 4 + msglen + 4 + reveallen + 20;
+    buflen = 3 + (version == 2 ? 1 : 0) + 4 + 4 + 8 + 4 + msglen +
+	4 + reveallen + 20;
     gcry_mpi_print(format, NULL, 0, &pubkeylen, context->our_dh_key.pub);
     buflen += pubkeylen + 4;
     buf = malloc(buflen);
@@ -397,9 +400,17 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     otrl_tlv_serialize(msgbuf + justmsglen + 1, tlvs);
     bufp = buf;
     lenp = buflen;
-    memmove(bufp, "\x00\x01\x03", 3);  /* header */
+    if (version == 1) {
+	memmove(bufp, "\x00\x01\x03", 3);  /* header */
+    } else {
+	memmove(bufp, "\x00\x02\x03", 3);  /* header */
+    }
     debug_data("Header", bufp, 3);
     bufp += 3; lenp -= 3;
+    if (version == 2) {
+	bufp[0] = flags;
+	bufp += 1; lenp -= 1;
+    }
     write_int(context->our_keyid-1);                    /* sender keyid */
     debug_int("Sender keyid", bufp-4);
     write_int(context->their_keyid);                    /* recipient keyid */
@@ -488,10 +499,66 @@ err:
     return err;
 }
 
+/* Extract the flags from an otherwise unreadable Data Message. */
+gcry_error_t otrl_proto_data_read_flags(const char *datamsg,
+	unsigned char *flagsp)
+{
+    char *otrtag, *endtag;
+    unsigned char *rawmsg = NULL;
+    unsigned char *bufp;
+    size_t msglen, rawlen, lenp;
+    unsigned char version;
+
+    if (flagsp) *flagsp = 0;
+    otrtag = strstr(datamsg, "?OTR:");
+    if (!otrtag) {
+	goto invval;
+    }
+    endtag = strchr(otrtag, '.');
+    if (endtag) {
+	msglen = endtag-otrtag;
+    } else {
+	msglen = strlen(otrtag);
+    }
+
+    /* Base64-decode the message */
+    rawlen = ((msglen-5) / 4) * 3;   /* maximum possible */
+    rawmsg = malloc(rawlen);
+    if (!rawmsg && rawlen > 0) {
+	return gcry_error(GPG_ERR_ENOMEM);
+    }
+    rawlen = otrl_base64_decode(rawmsg, otrtag+5, msglen-5);  /* actual size */
+
+    bufp = rawmsg;
+    lenp = rawlen;
+
+    require_len(3);
+    if (memcmp(bufp, "\x00\x01\x03", 3) && memcmp(bufp, "\x00\x02\x03", 3)) {
+	/* Invalid header */
+	goto invval;
+    }
+    version = bufp[1];
+    bufp += 3; lenp -= 3;
+
+    if (version == 2) {
+	require_len(1);
+	if (flagsp) *flagsp = bufp[0];
+	bufp += 1; lenp -= 1;
+    }
+
+    free(rawmsg);
+    return gcry_error(GPG_ERR_NO_ERROR);
+
+invval:
+    free(rawmsg);
+    return gcry_error(GPG_ERR_INV_VALUE);
+}
+
 /* Accept an OTR Data Message in datamsg.  Decrypt it and put the
- * plaintext into *plaintextp, and any TLVs into tlvsp. */
+ * plaintext into *plaintextp, and any TLVs into tlvsp.  Put any
+ * received flags into *flagsp (if non-NULL). */
 gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
-	ConnContext *context, const char *datamsg)
+	ConnContext *context, const char *datamsg, unsigned char *flagsp)
 {
     char *otrtag, *endtag;
     gcry_error_t err;
@@ -507,9 +574,11 @@ gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
     unsigned char *nul = NULL;
     unsigned char givenmac[20];
     DH_sesskeys *sess;
+    unsigned char version;
 
     *plaintextp = NULL;
     *tlvsp = NULL;
+    if (flagsp) *flagsp = 0;
     otrtag = strstr(datamsg, "?OTR:");
     if (!otrtag) {
 	goto invval;
@@ -535,12 +604,18 @@ gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
 
     macstart = bufp;
     require_len(3);
-    if (memcmp(bufp, "\x00\x01\x03", 3)) {
+    if (memcmp(bufp, "\x00\x01\x03", 3) && memcmp(bufp, "\x00\x02\x03", 3)) {
 	/* Invalid header */
 	goto invval;
     }
+    version = bufp[1];
     bufp += 3; lenp -= 3;
 
+    if (version == 2) {
+	require_len(1);
+	if (flagsp) *flagsp = bufp[0];
+	bufp += 1; lenp -= 1;
+    }
     read_int(sender_keyid);
     read_int(recipient_keyid);
     read_mpi(sender_next_y);

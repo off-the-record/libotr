@@ -1,3 +1,21 @@
+2005-10-27
+
+	* src/auth.h:
+	* src/auth.c:
+	* src/message.c: Ensure version 2 AKEs are always done with
+	fresh D-H parameters.
+
+	* src/proto.h:
+	* src/proto.c:
+	* src/message.c: Add a "flags" field to the version 2 Data
+	Message, which can indicate that the Data Message should be
+	ignored if unreadable (as opposed to displaying an error).
+
+	* toolkit/parse.h:
+	* toolkit/parse.c:
+	* toolkit/otr_parse.c:
+	* toolkit/otr_remac.c: Deal with the new kind of Data Message.
+
 2005-10-19
 
 	* src/context.h:

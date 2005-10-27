@@ -188,7 +188,8 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 	    break;
 	case OTRL_MSGSTATE_ENCRYPTED:
 	    /* Create the new, encrypted message */
-	    err = otrl_proto_create_data(&msgtosend, context, message, tlvs);
+	    err = otrl_proto_create_data(&msgtosend, context, message, tlvs,
+		    0);
 	    if (!err) {
 		context->lastsent = time(NULL);
 		*messagep = msgtosend;
@@ -301,6 +302,7 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
     gcry_error_t err = gcry_error(GPG_ERR_NO_ERROR);
     Fingerprint *found_print = NULL;
     int fprint_added = 0;
+    OtrlMessageState oldstate = edata->context->msgstate;
 
     /* See if we're talking to ourselves */
     if (!gcry_mpi_cmp(auth->their_pub, auth->our_dh.pub)) {
@@ -412,8 +414,15 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
     if (edata->ops->update_context_list) {
 	edata->ops->update_context_list(edata->opdata);
     }
-    if (edata->ops->gone_secure) {
-	edata->ops->gone_secure(edata->opdata, edata->context);
+    if (oldstate == OTRL_MSGSTATE_ENCRYPTED) {
+	if (edata->ops->still_secure) {
+	    edata->ops->still_secure(edata->opdata, edata->context,
+		    edata->context->auth.initiated);
+	}
+    } else {
+	if (edata->ops->gone_secure) {
+	    edata->ops->gone_secure(edata->opdata, edata->context);
+	}
     }
 
     edata->gone_encrypted = 1;
@@ -438,7 +447,7 @@ static void maybe_resend(EncrData *edata)
 
 	/* Re-encrypt the message with the new keys */
 	err = otrl_proto_create_data(&resendmsg,
-		edata->context, edata->context->lastmessage, NULL);
+		edata->context, edata->context->lastmessage, NULL, 0);
 	if (!err) {
 	    const char *format = "<b>The last message "
 		"to %s was resent.</b>";
@@ -608,8 +617,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    /* Find the best version of OTR that we both speak */
 	    switch(otrl_proto_query_bestversion(message, policy)) {
 		case 2:
-		    err = otrl_auth_start_v2(&(context->auth), our_dh,
-			    our_keyid);
+		    err = otrl_auth_start_v2(&(context->auth));
 		    send_or_error_auth(ops, opdata, err, context);
 		    break;
 		case 1:
@@ -641,18 +649,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 
 	case OTRL_MSGTYPE_DH_COMMIT:
 	    if ((policy & OTRL_POLICY_ALLOW_V2)) {
-		/* See if we should use an existing DH keypair, or generate
-		 * a fresh one. */
-		if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED) {
-		    our_dh = &(context->our_old_dh_key);
-		    our_keyid = context->our_keyid - 1;
-		} else {
-		    our_dh = NULL;
-		    our_keyid = 0;
-		}
-
-		err = otrl_auth_handle_commit(&(context->auth), message,
-			our_dh, our_keyid);
+		err = otrl_auth_handle_commit(&(context->auth), message);
 		send_or_error_auth(ops, opdata, err, context);
 	    }
 
@@ -771,8 +768,17 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		char *plaintext;
 		char *buf;
 		char *format;
+		unsigned char flags;
 		case OTRL_MSGSTATE_PLAINTEXT:
 		case OTRL_MSGSTATE_FINISHED:
+		    /* See if we're supposed to ignore this message in
+		     * the event it's unreadable. */
+		    err = otrl_proto_data_read_flags(message, &flags);
+		    if ((flags & OTRL_MSGFLAGS_IGNORE_UNREADABLE)) {
+			edata.ignore_message = 1;
+			break;
+		    }
+
 		    /* Don't use g_strdup_printf here, because someone
 		     * (not us) is going to free() the *newmessagep pointer,
 		     * not g_free() it. */
@@ -813,10 +819,14 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 
 		case OTRL_MSGSTATE_ENCRYPTED:
 		    err = otrl_proto_accept_data(&plaintext, &tlvs, context,
-			    message);
+			    message, &flags);
 		    if (err) {
 			int is_conflict =
 			    (gpg_err_code(err) == GPG_ERR_CONFLICT);
+			if ((flags & OTRL_MSGFLAGS_IGNORE_UNREADABLE)) {
+			    edata.ignore_message = 1;
+			    break;
+			}
 			format = is_conflict ? "We received an unreadable "
 			    "encrypted messahe from %s." :
 			    "We received a malformed data message from %s.";
@@ -876,7 +886,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 
 			    /* Create the heartbeat message */
 			    err = otrl_proto_create_data(&heartbeat,
-				    context, "", NULL);
+				    context, "", NULL,
+				    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
 			    if (!err) {
 				/* Send it, and log a debug message */
 				if (ops->inject_message) {
@@ -974,7 +985,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    && (policy & OTRL_POLICY_WHITESPACE_START_AKE)) {
 		switch(bestversion) {
 		    case 2:
-			err = otrl_auth_start_v2(&(context->auth), NULL, 0);
+			err = otrl_auth_start_v2(&(context->auth));
 			send_or_error_auth(ops, opdata, err, context);
 			break;
 		    case 1:
@@ -1088,7 +1099,8 @@ void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    gcry_error_t err;
 	    OtrlTLV *tlv = otrl_tlv_new(OTRL_TLV_DISCONNECTED, 0, NULL);
 
-	    err = otrl_proto_create_data(&encmsg, context, "", tlv);
+	    err = otrl_proto_create_data(&encmsg, context, "", tlv,
+		    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
 	    if (!err) {
 		ops->inject_message(opdata, accountname, protocol,
 			username, encmsg);

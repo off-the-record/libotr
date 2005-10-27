@@ -204,7 +204,23 @@ void test_crash1(void)
     alicecontext->sesskeys[1][0].sendenc,
     alicecontext->sesskeys[1][1].sendenc);
     sending(BOB, ALICE, "then."); dispatch();
+}
 
+void test_refresh(void)
+{
+    printf("\n\n*** Testing refresh ***\n\n");
+
+    otrl_context_forget_all(us);
+    ALICEPOLICY = OTRL_POLICY_DEFAULT;
+    sending(ALICE, BOB, "?OTR?"); dispatch();
+
+    sending(ALICE, BOB, "Hi!"); dispatch();
+    sending(BOB, ALICE, "There!"); dispatch();
+    sending(ALICE, BOB, "You!"); dispatch();
+    sending(ALICE, BOB, "Guys!"); dispatch();
+    sending(BOB, ALICE, "?OTR?"); dispatch();
+    sending(ALICE, BOB, "Refreshed!"); dispatch();
+    sending(BOB, ALICE, "Also refreshed!"); dispatch();
 }
 
 int main(int argc, char **argv)
@@ -220,7 +236,7 @@ int main(int argc, char **argv)
     test(2,1);
     test_unreadable();
     test_crash1();
-
+    test_refresh();
 
     otrl_userstate_free(us);
 

@@ -31,8 +31,8 @@
 #define OTRL_MESSAGE_TAG_V1 " \t \t  \t "
 #define OTRL_MESSAGE_TAG_V2 "  \t\t  \t "
 
-    /* This is the bit sequence of the string "OTR", encoded in tabs and
-     * spaces. */
+/* The possible flags contained in a Data Message */
+#define OTRL_MSGFLAGS_IGNORE_UNREADABLE		0x01
 
 typedef unsigned int OtrlPolicy;
 
@@ -121,12 +121,17 @@ OtrlMessageType otrl_proto_message_type(const char *message);
  * optional chain of TLVs.  A newly-allocated string will be returned in
  * *encmessagep. */
 gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
-	const char *msg, const OtrlTLV *tlvs);
+	const char *msg, const OtrlTLV *tlvs, unsigned char flags);
+
+/* Extract the flags from an otherwise unreadable Data Message. */
+gcry_error_t otrl_proto_data_read_flags(const char *datamsg,
+	unsigned char *flagsp);
 
 /* Accept an OTR Data Message in datamsg.  Decrypt it and put the
- * plaintext into *plaintextp, and any TLVs into tlvsp. */
+ * plaintext into *plaintextp, and any TLVs into tlvsp.  Put any
+ * received flags into *flagsp (if non-NULL). */
 gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
-	ConnContext *context, const char *datamsg);
+	ConnContext *context, const char *datamsg, unsigned char *flagsp);
 
 /* Accumulate a potential fragment into the current context. */
 OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,

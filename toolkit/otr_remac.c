@@ -30,8 +30,8 @@
 
 static void usage(const char *progname)
 {
-    fprintf(stderr, "Usage: %s mackey snd_keyid rcp_keyid pubkey counter "
-	    "encdata revealed_mackeys\n"
+    fprintf(stderr, "Usage: %s mackey flags snd_keyid rcp_keyid pubkey "
+	    "counter encdata revealed_mackeys\n"
 "Make a new Data message, with the given pieces (note that the\n"
 "data part is already encrypted).  MAC it with the given mackey.\n"
 "mackey, pubkey, counter, encdata, and revealed_mackeys are given\n"
@@ -44,6 +44,7 @@ int main(int argc, char **argv)
     unsigned char *mackey;
     size_t mackeylen;
     unsigned int snd_keyid, rcp_keyid;
+    int flags;
     unsigned char *pubkey;
     size_t pubkeylen;
     gcry_mpi_t pubv;
@@ -55,7 +56,7 @@ int main(int argc, char **argv)
     size_t mackeyslen;
     char *newdatamsg;
 
-    if (argc != 8) {
+    if (argc != 9) {
 	usage(argv[0]);
     }
 
@@ -69,24 +70,29 @@ int main(int argc, char **argv)
 	usage(argv[0]);
     }
 
-    if (sscanf(argv[2], "%u", &snd_keyid) != 1) {
+    if (sscanf(argv[2], "%d", &flags) != 1) {
+	fprintf(stderr, "Unparseable flags given.\n");
+	usage(argv[0]);
+    }
+
+    if (sscanf(argv[3], "%u", &snd_keyid) != 1) {
 	fprintf(stderr, "Unparseable snd_keyid given.\n");
 	usage(argv[0]);
     }
 
-    if (sscanf(argv[3], "%u", &rcp_keyid) != 1) {
+    if (sscanf(argv[4], "%u", &rcp_keyid) != 1) {
 	fprintf(stderr, "Unparseable rcp_keyid given.\n");
 	usage(argv[0]);
     }
 
-    argv_to_buf(&pubkey, &pubkeylen, argv[4]);
+    argv_to_buf(&pubkey, &pubkeylen, argv[5]);
     if (!pubkey) {
 	usage(argv[0]);
     }
     gcry_mpi_scan(&pubv, GCRYMPI_FMT_USG, pubkey, pubkeylen, NULL);
     free(pubkey);
     
-    argv_to_buf(&ctr, &ctrlen, argv[5]);
+    argv_to_buf(&ctr, &ctrlen, argv[6]);
     if (!ctr) {
 	usage(argv[0]);
     }
@@ -96,18 +102,18 @@ int main(int argc, char **argv)
 	usage(argv[0]);
     }
 
-    argv_to_buf(&encdata, &encdatalen, argv[6]);
+    argv_to_buf(&encdata, &encdatalen, argv[7]);
     if (!encdata) {
 	usage(argv[0]);
     }
 
-    argv_to_buf(&mackeys, &mackeyslen, argv[7]);
+    argv_to_buf(&mackeys, &mackeyslen, argv[8]);
     if (!mackeys) {
 	usage(argv[0]);
     }
 
-    newdatamsg = assemble_datamsg(mackey, snd_keyid, rcp_keyid, pubv, ctr,
-	    encdata, encdatalen, mackeys, mackeyslen);
+    newdatamsg = assemble_datamsg(mackey, flags, snd_keyid, rcp_keyid,
+	    pubv, ctr, encdata, encdatalen, mackeys, mackeyslen);
     printf("%s\n", newdatamsg);
     free(newdatamsg);
 

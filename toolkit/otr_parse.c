@@ -120,6 +120,9 @@ static void parse(const char *msg)
 		break;
 	    }
 	    printf("Data Message:\n");
+	    if (datamsg->flags >= 0) {
+		dump_int(stdout, "\tFlags", datamsg->flags);
+	    }
 	    dump_int(stdout, "\tSender keyid", datamsg->sender_keyid);
 	    dump_int(stdout, "\tRcpt keyid", datamsg->rcpt_keyid);
 	    dump_mpi(stdout, "\tDH y", datamsg->y);

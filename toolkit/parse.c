@@ -375,6 +375,7 @@ DataMsg parse_datamsg(const char *msg)
     size_t lenp;
     unsigned char *raw = decode(msg, &lenp);
     unsigned char *bufp = raw;
+    unsigned char version;
     if (!raw) goto inv;
 
     datam = calloc(1, sizeof(struct s_DataMsg));
@@ -388,9 +389,18 @@ DataMsg parse_datamsg(const char *msg)
     datam->macstart = bufp;
 
     require_len(3);
-    if (memcmp(bufp, "\x00\x01\x03", 3)) goto inv;
+    if (memcmp(bufp, "\x00\x01\x03", 3) && memcmp(bufp, "\x00\x02\x03", 3))
+	goto inv;
+    version = bufp[1];
     bufp += 3; lenp -= 3;
 
+    if (version == 2) {
+	require_len(1);
+	datam->flags = bufp[0];
+	bufp += 1; lenp -= 1;
+    } else {
+	datam->flags = -1;
+    }
     read_int(datam->sender_keyid);
     read_int(datam->rcpt_keyid);
     read_mpi(datam->y);
@@ -425,11 +435,12 @@ char *remac_datamsg(DataMsg datamsg, unsigned char mackey[20])
     size_t base64len;
     char *outmsg;
     unsigned char *raw, *bufp;
+    unsigned char version = (datamsg->flags >= 0 ? 2 : 1);
     
     /* Calculate the size of the message that will result */
     gcry_mpi_print(GCRYMPI_FMT_USG, NULL, 0, &ylen, datamsg->y);
-    rawlen = 3 + 4 + 4 + 4 + ylen + 8 + 4 + datamsg->encmsglen + 20 +
-	4 + datamsg->mackeyslen;
+    rawlen = 3 + (version == 2 ? 1 : 0) + 4 + 4 + 4 + ylen + 8 + 4 +
+	datamsg->encmsglen + 20 + 4 + datamsg->mackeyslen;
 
     /* Construct the new raw message (note that some of the pieces may
      * have been altered, so we construct it from scratch). */
@@ -446,8 +457,16 @@ char *remac_datamsg(DataMsg datamsg, unsigned char mackey[20])
     datamsg->raw = raw;
     datamsg->rawlen = rawlen;
 
-    memmove(bufp, "\x00\x01\x03", 3);
+    if (version == 1) {
+	memmove(bufp, "\x00\x01\x03", 3);
+    } else {
+	memmove(bufp, "\x00\x02\x03", 3);
+    }
     bufp += 3; lenp -= 3;
+    if (version == 2) {
+	bufp[0] = datamsg->flags;
+	bufp += 1; lenp -= 1;
+    }
     write_int(datamsg->sender_keyid);
     write_int(datamsg->rcpt_keyid);
     write_mpi(datamsg->y, ylen);
@@ -481,14 +500,15 @@ char *remac_datamsg(DataMsg datamsg, unsigned char mackey[20])
 
 /* Assemble a new Data Message from its pieces.  Return a
  * newly-allocated string containing the base64 representation. */
-char *assemble_datamsg(unsigned char mackey[20], unsigned int sender_keyid,
-	unsigned int rcpt_keyid, gcry_mpi_t y, unsigned char ctr[8],
-	unsigned char *encmsg, size_t encmsglen, unsigned char *mackeys,
-	size_t mackeyslen)
+char *assemble_datamsg(unsigned char mackey[20], int flags,
+	unsigned int sender_keyid, unsigned int rcpt_keyid, gcry_mpi_t y,
+	unsigned char ctr[8], unsigned char *encmsg, size_t encmsglen,
+	unsigned char *mackeys, size_t mackeyslen)
 {
     DataMsg datam = calloc(1, sizeof(struct s_DataMsg));
     char *newmsg = NULL;
     if (!datam) goto inv;
+    datam->flags = flags;
     datam->sender_keyid = sender_keyid;
     datam->rcpt_keyid = rcpt_keyid;
     datam->y = gcry_mpi_copy(y);

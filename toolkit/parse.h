@@ -36,6 +36,7 @@ typedef struct s_KeyExchMsg {
 typedef struct s_DataMsg {
     unsigned char *raw;         /* The base64-decoded data; must be free()d */
     size_t rawlen;
+    int flags;
     unsigned int sender_keyid;
     unsigned int rcpt_keyid;
     gcry_mpi_t y;
@@ -130,10 +131,10 @@ char *remac_datamsg(DataMsg datamsg, unsigned char mackey[20]);
 
 /* Assemble a new Data Message from its pieces.  Return a
  * newly-allocated string containing the base64 representation. */
-char *assemble_datamsg(unsigned char mackey[20], unsigned int sender_keyid,
-	unsigned int rcpt_keyid, gcry_mpi_t y, unsigned char ctr[8],
-	unsigned char *encmsg, size_t encmsglen, unsigned char *mackeys,
-	size_t mackeyslen);
+char *assemble_datamsg(unsigned char mackey[20], int flags,
+	unsigned int sender_keyid, unsigned int rcpt_keyid, gcry_mpi_t y,
+	unsigned char ctr[8], unsigned char *encmsg, size_t encmsglen,
+	unsigned char *mackeys, size_t mackeyslen);
 
 /* Deallocate a DataMsg and all of the data it points to */
 void free_datamsg(DataMsg datamsg);
