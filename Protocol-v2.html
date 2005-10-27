@@ -11,7 +11,7 @@ PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 </style>
 </head><body>
 <h1>Off-the-Record Messaging Protocol version 2</h1>
-<h1>DRAFT 2005101601</h1>
+<h1>DRAFT 2005102701</h1>
 <p>This document describes version 2 of the Off-the-Record Messaging
 protocol.  The main changes over version 1 include:</p>
 <ul>
@@ -499,10 +499,18 @@ rotations.)</p>
 <p>Data Message format:</p>
 <dl>
 <dt>Protocol version (SHORT)</dt>
-<dd>This message has not changed since OTR version 1, so this value
-should be 0x0001.</dd>
+<dd>The version number of this protocol is 0x0002.</dd>
 <dt>Message type (BYTE)</dt>
 <dd>The Data Message has type 0x03.</dd>
+<dt>Flags (BYTE)</dt>
+<dd>Flags for this message.  Usually you should set this to 0x00.  The
+only currently defined flag is:<dl>
+<dt>IGNORE_UNREADABLE (0x01)</dt>
+<dd>If you receive a Data Message with this flag set, and you are unable
+to decrypt the message or verify the MAC (because, for example, you
+don't have the right keys), just ignore the message instead of producing
+some kind of error or notification to the user.</dd>
+</dl></dd>
 <dt>Sender keyid (INT)</dt>
 <dd>Must be strictly greater than 0, and increment by 1 with each key
 change</dd>
@@ -1161,7 +1169,8 @@ non-empty) to the user.</li>
 <li>Update the D-H encryption keys, if necessary.</li>
 <li>If you have not sent a message to this correspondent in some
 (configurable) time, send a "heartbeat" message, consisting of a Data
-Message encoding an empty plaintext.</li>
+Message encoding an empty plaintext.  The heartbeat message should have
+the IGNORE_UNREADABLE flag set.</li>
 <li>If the received message contains a TLV type 1, forget all encryption
 keys for this correspondent, and transition msgstate to
 MSGSTATE_FINISHED.</li>
