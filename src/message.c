@@ -303,6 +303,7 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
     Fingerprint *found_print = NULL;
     int fprint_added = 0;
     OtrlMessageState oldstate = edata->context->msgstate;
+    Fingerprint *oldprint = edata->context->active_fingerprint;
 
     /* See if we're talking to ourselves */
     if (!gcry_mpi_cmp(auth->their_pub, auth->our_dh.pub)) {
@@ -346,6 +347,7 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
 
     /* Is this a new session or just a refresh of an existing one? */
     if (edata->context->msgstate == OTRL_MSGSTATE_ENCRYPTED &&
+	    oldprint == found_print &&
 	    edata->context->our_keyid - 1 == edata->context->auth.our_keyid &&
 	    !gcry_mpi_cmp(edata->context->our_old_dh_key.pub,
 		edata->context->auth.our_dh.pub) &&
@@ -414,7 +416,7 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
     if (edata->ops->update_context_list) {
 	edata->ops->update_context_list(edata->opdata);
     }
-    if (oldstate == OTRL_MSGSTATE_ENCRYPTED) {
+    if (oldstate == OTRL_MSGSTATE_ENCRYPTED && oldprint == found_print) {
 	if (edata->ops->still_secure) {
 	    edata->ops->still_secure(edata->opdata, edata->context,
 		    edata->context->auth.initiated);

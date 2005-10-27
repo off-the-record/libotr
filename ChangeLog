@@ -16,6 +16,9 @@
 	* toolkit/otr_parse.c:
 	* toolkit/otr_remac.c: Deal with the new kind of Data Message.
 
+	* src/message.c: Use the gone_secure callback instead of the
+	still_secure callback if the other side changes its fingerprint.
+
 2005-10-19
 
 	* src/context.h:
