@@ -206,13 +206,20 @@ void test_crash1(void)
     sending(BOB, ALICE, "then."); dispatch();
 }
 
-void test_refresh(void)
+void test_refresh(int vers)
 {
+    ConnContext *alicecontext, *bobcontext;
+
     printf("\n\n*** Testing refresh ***\n\n");
 
     otrl_context_forget_all(us);
-    ALICEPOLICY = OTRL_POLICY_DEFAULT;
+    ALICEPOLICY = vers == 1 ? (OTRL_POLICY_DEFAULT &~ OTRL_POLICY_ALLOW_V2) :
+	OTRL_POLICY_DEFAULT;
     sending(ALICE, BOB, "?OTR?"); dispatch();
+
+    alicecontext = otrl_context_find(us, BOB, ALICE, PROTO, 0, NULL, NULL, NULL);
+    bobcontext = otrl_context_find(us, ALICE, BOB, PROTO, 0, NULL, NULL, NULL);
+    printf("%p %p\n", alicecontext, bobcontext);
 
     sending(ALICE, BOB, "Hi!"); dispatch();
     sending(BOB, ALICE, "There!"); dispatch();
@@ -236,7 +243,8 @@ int main(int argc, char **argv)
     test(2,1);
     test_unreadable();
     test_crash1();
-    test_refresh();
+    test_refresh(2);
+    test_refresh(1);
 
     otrl_userstate_free(us);
 

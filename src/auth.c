@@ -1255,6 +1255,11 @@ gcry_error_t otrl_auth_handle_v1_key_exchange(OtrlAuthInfo *auth,
 	goto err;
     }
 
+    if (auth->authstate != OTRL_AUTHSTATE_V1_SETUP) {
+	/* Clear the auth and start over */
+	otrl_auth_clear(auth);
+    }
+
     /* Everything checked out */
     auth->their_keyid = received_keyid;
     gcry_mpi_release(auth->their_pub);

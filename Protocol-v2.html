@@ -148,22 +148,23 @@ that group, as indicated in the detailed description below.</p>
 <ol>
 <li>Picks the most recent of her own D-H encryption keys that Bob has
 acknowledged receiving (by using it in a Data Message, or failing that,
-in the AKE).  Let keyid<sub>A</sub> be the serial number of that
-key.</li>
+in the AKE).  Let key<sub>A</sub> by that key, and let keyid<sub>A</sub>
+be its serial number.</li>
 <li>If the above key is Alice's most recent key, she generates a new D-H key 
 (next_dh), to get the serial number keyid<sub>A</sub>+1.</li>
 <li>Picks the most recent of Bob's D-H encryption keys that she has
 received from him (either in a Data Message or in the AKE).  Let
-keyid<sub>B</sub> be the serial number of that key.</li>
+key<sub>B</sub> by that key, and let keyid<sub>B</sub> be its serial
+number.</li>
 <li>Uses Diffie-Hellman to compute a shared secret from the two keys
-labelled by keyid<sub>A</sub> and keyid<sub>B</sub>, and generates the
+key<sub>A</sub> and key<sub>B</sub>, and generates the
 sending AES key, ek, and the sending MAC key, mk, as detailed
 below.</li>
 <li>Collects any old MAC keys that were used in previous messages, but
 will never again be used (because their associated D-H keys are no
 longer the most recent ones) into a list, oldmackeys.</li>
 <li>Picks a value of the counter, ctr, so that the triple
-(keyid<sub>A</sub>, keyid<sub>B</sub>, ctr) is never the same for more
+(key<sub>A</sub>, key<sub>B</sub>, ctr) is never the same for more
 than one Data Message Alice sends to Bob.</li>
 <li>Computes T<sub>A</sub> = (keyid<sub>A</sub>, keyid<sub>B</sub>, next_dh,
 ctr, AES-CTR<sub>ek,ctr</sub>(msg))</li>

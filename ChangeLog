@@ -1,3 +1,11 @@
+2005-10-30
+
+	* Protocol-v2.html: Clarified the uniqueness conditions for the
+	counter.
+
+	* src/auth.c (otrl_auth_handle_v1_key_exchange): Clear the auth
+	structure when we receive an unexpected v1 Key Exchange Message.
+
 2005-10-27
 
 	* src/auth.h:
