@@ -1,3 +1,6 @@
+02 Nov 2005:
+- Released 3.0.0
+
 16 Oct 2005:
 - Major overhaul with implementation of version 2 of the protocol.
 
@@ -15,7 +18,7 @@
   last Key Exchange Message that caused a rekeying), _not_ the DH secure
   id calculated from DH keys in more recent Data Messages.
 
-3 May 2005:
+03 May 2005:
 - Released 2.0.2
 
 16 Feb 2005:
@@ -27,11 +30,11 @@
 - Fix a crash bug that happened when messages were retransmitted under
   certain circumstances.
 
-8 Feb 2005:
+08 Feb 2005:
 - Released 2.0.0
 - Keep track of whether a given message is eligible for retransmission
 
-2 Feb 2005:
+02 Feb 2005:
 - Released 1.99.0, the first preview release of 2.0.0
 
 31 Jan 2005:
@@ -101,13 +104,13 @@
 - Heartbeats now only get sent if (1) we have just received a message,
   and (2) we haven't sent one to that user in over a minute.
 
-9 Dec 2004:
+09 Dec 2004:
 - Back out of the sending of heartbeats.  They were causing too many
   problems.  It seems some networks don't let buddies know when you
   log out, and then you get a dialog box "unable to send message" each
   minute.  :-(
 
-8 Dec 2004:
+08 Dec 2004:
 - Released 0.9.9rc1
 - Removed the 100 private connection limit, by not using a fixed amount
   of secure memory.  Unfortuantely, this means that *no* memory is
@@ -123,15 +126,15 @@
   or both sides aren't actively typing.  This aids perfect forward
   secrecy.
 
-4 Dec 2004:
+04 Dec 2004:
 - Fixed a bug wherein multi-person chat windows would get the OTR button
   in their button bar if the OTR plugin was enabled when one of them was
   active.
 
-3 Dec 2004:
+03 Dec 2004:
 - Released 0.9.1
 
-2 Dec 2004:
+02 Dec 2004:
 - Clicking "OTR: Private" when you're already private will display an
   info dialog letting you know the connection was refreshed (assuming it
   actually is; if the other side isn't running OTR at all, the dialog

@@ -20,7 +20,7 @@
 #ifndef __VERSION_H__
 #define __VERSION_H__
 
-#define OTRL_VERSION "3.0.0 beta 1"
+#define OTRL_VERSION "3.0.0"
 
 #define OTRL_VERSION_MAJOR 3
 #define OTRL_VERSION_MINOR 0
