@@ -5,8 +5,8 @@
 #include "privkey.h"
 #include "message.h"
 
-#define ALICE "oneeyedian"
-#define BOB "otr4ian"
+#define ALICE "alice"
+#define BOB "bob"
 #define PROTO "prpl-oscar"
 
 static OtrlPolicy ALICEPOLICY = OTRL_POLICY_DEFAULT &~ OTRL_POLICY_ALLOW_V1;
