@@ -1,3 +1,7 @@
+2005-11-20
+
+	* src/proto.h: Fix typo in policy #defines.
+
 2005-11-02
 
 	* README:
