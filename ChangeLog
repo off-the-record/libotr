@@ -1,3 +1,8 @@
+2005-12-30
+
+	* src/message.c: Fix a typo, thanks to Anton Blanchard
+	<anton@samba.org>.
+
 2005-11-20
 
 	* src/proto.h: Fix typo in policy #defines.

@@ -830,7 +830,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			    break;
 			}
 			format = is_conflict ? "We received an unreadable "
-			    "encrypted messahe from %s." :
+			    "encrypted message from %s." :
 			    "We received a malformed data message from %s.";
 			buf = malloc(strlen(format) + strlen(sender) - 1);
 			if (buf) {
