@@ -1188,7 +1188,7 @@ gcry_error_t otrl_auth_handle_v1_key_exchange(OtrlAuthInfo *auth,
     unsigned char *buf = NULL, *bufp = NULL;
     unsigned char *fingerprintstart, *fingerprintend;
     unsigned char fingerprintbuf[20], hashbuf[20];
-    gcry_mpi_t p, q, g, y, received_pub;
+    gcry_mpi_t p, q, g, y, received_pub = NULL;
     gcry_sexp_t pubs = NULL;
     size_t buflen, lenp;
     unsigned char received_reply;

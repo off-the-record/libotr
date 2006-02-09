@@ -1,3 +1,8 @@
+2006-02-09
+
+	* src/auth.c (otrl_auth_handle_v1_key_exchange): Fix
+	uninitialized variable received_pub.
+
 2005-12-30
 
 	* src/message.c: Fix a typo, thanks to Anton Blanchard
