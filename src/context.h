@@ -38,9 +38,9 @@ typedef enum {
 					  sent to him. */
 } OtrlMessageState;
 
-typedef struct fingerprint {
-    struct fingerprint *next;          /* The next fingerprint in the list */
-    struct fingerprint **tous;         /* A pointer to the pointer to us */
+typedef struct s_fingerprint {
+    struct s_fingerprint *next;        /* The next fingerprint in the list */
+    struct s_fingerprint **tous;       /* A pointer to the pointer to us */
     unsigned char *fingerprint;        /* The fingerprint, or NULL */
     struct context *context;           /* The context to which we belong */
     char *trust;                       /* The trust level of the fingerprint */

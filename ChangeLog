@@ -1,3 +1,8 @@
+2006-04-13
+
+	* src/context.h: Change "struct fingerprint" to "struct
+	s_fingerprint" to appease some C++ compilers.
+
 2006-02-09
 
 	* src/auth.c (otrl_auth_handle_v1_key_exchange): Fix
