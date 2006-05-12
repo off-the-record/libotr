@@ -1,3 +1,8 @@
+2006-05-09
+
+	* Protocol-v2.html: Fix a typo, and correct the documentation
+	regarding when MAC keys are revealed.
+
 2006-04-13
 
 	* src/context.h: Change "struct fingerprint" to "struct
