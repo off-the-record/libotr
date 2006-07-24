@@ -187,6 +187,8 @@ gcry_error_t otrl_privkey_read_FILEp(OtrlUserState us, FILE *privf)
     gcry_sexp_t allkeys;
     size_t i;
 
+    if (!privf) return gcry_error(GPG_ERR_NO_ERROR);
+
     /* Release any old ideas we had about our keys */
     otrl_privkey_forget_all(us);
 
@@ -379,7 +381,7 @@ gcry_error_t otrl_privkey_generate(OtrlUserState us, const char *filename,
 #ifndef WIN32
     oldmask = umask(077);
 #endif
-    privf = fopen(filename, "w+");
+    privf = fopen(filename, "w+b");
     if (!privf) {
 #ifndef WIN32
 	umask(oldmask);
@@ -408,6 +410,8 @@ gcry_error_t otrl_privkey_generate_FILEp(OtrlUserState us, FILE *privf,
     gcry_sexp_t key, parms, privkey;
     static const char *parmstr = "(genkey (dsa (nbits 4:1024)))";
     OtrlPrivKey *p;
+
+    if (!privf) return gcry_error(GPG_ERR_NO_ERROR);
 
     /* Create a DSA key */
     err = gcry_sexp_new(&parms, parmstr, strlen(parmstr), 0);
@@ -465,7 +469,7 @@ gcry_error_t otrl_privkey_read_fingerprints(OtrlUserState us,
     gcry_error_t err;
     FILE *storef;
 
-    storef = fopen(filename, "r");
+    storef = fopen(filename, "rb");
     if (!storef) {
 	err = gcry_error_from_errno(errno);
 	return err;
@@ -489,6 +493,8 @@ gcry_error_t otrl_privkey_read_fingerprints_FILEp(OtrlUserState us,
     char storeline[1000];
     unsigned char fingerprint[20];
     size_t maxsize = sizeof(storeline);
+
+    if (!storef) return gcry_error(GPG_ERR_NO_ERROR);
 
     while(fgets(storeline, maxsize, storef)) {
 	char *username;
@@ -556,7 +562,7 @@ gcry_error_t otrl_privkey_write_fingerprints(OtrlUserState us,
     gcry_error_t err;
     FILE *storef;
 
-    storef = fopen(filename, "w");
+    storef = fopen(filename, "wb");
     if (!storef) {
 	err = gcry_error_from_errno(errno);
 	return err;
@@ -575,6 +581,8 @@ gcry_error_t otrl_privkey_write_fingerprints_FILEp(OtrlUserState us,
 {
     ConnContext *context;
     Fingerprint *fprint;
+
+    if (!storef) return gcry_error(GPG_ERR_NO_ERROR);
 
     for(context = us->context_root; context; context = context->next) {
 	/* Don't both with the first (fingerprintless) entry. */
