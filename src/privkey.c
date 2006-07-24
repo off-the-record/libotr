@@ -157,6 +157,27 @@ static gcry_error_t make_pubkey(unsigned char **pubbufp, size_t *publenp,
 gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
 {
     FILE *privf;
+    gcry_error_t err;
+
+    /* Open the privkey file.  We use rb mode so that on WIN32, fread()
+     * reads the same number of bytes that fstat() indicates are in the
+     * file. */
+    privf = fopen(filename, "rb");
+    if (!privf) {
+	err = gcry_error_from_errno(errno);
+	return err;
+    }
+
+    err = otrl_privkey_read_FILEp(us, privf);
+
+    fclose(privf);
+    return err;
+}
+
+/* Read a sets of private DSA keys from a FILE* into the given
+ * OtrlUserState.  The FILE* must be open for reading. */
+gcry_error_t otrl_privkey_read_FILEp(OtrlUserState us, FILE *privf)
+{
     int privfd;
     struct stat st;
     char *buf;
@@ -169,34 +190,21 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
     /* Release any old ideas we had about our keys */
     otrl_privkey_forget_all(us);
 
-    /* Open the privkey file.  We use rb mode so that on WIN32, fread()
-     * reads the same number of bytes that fstat() indicates are in the
-     * file. */
-    privf = fopen(filename, "rb");
-    if (!privf) {
-	err = gcry_error_from_errno(errno);
-	return err;
-    }
-
     /* Load the data into a buffer */
     privfd = fileno(privf);
     if (fstat(privfd, &st)) {
 	err = gcry_error_from_errno(errno);
-	fclose(privf);
 	return err;
     }
     buf = malloc(st.st_size);
     if (!buf && st.st_size > 0) {
-	fclose(privf);
 	return gcry_error(GPG_ERR_ENOMEM);
     }
     if (fread(buf, st.st_size, 1, privf) != 1) {
 	err = gcry_error_from_errno(errno);
-	fclose(privf);
 	free(buf);
 	return err;
     }
-    fclose(privf);
 
     err = gcry_sexp_new(&allkeys, buf, st.st_size, 0);
     free(buf);
@@ -363,11 +371,41 @@ gcry_error_t otrl_privkey_generate(OtrlUserState us, const char *filename,
 	const char *accountname, const char *protocol)
 {
     gcry_error_t err;
-    gcry_sexp_t key, parms, privkey;
     FILE *privf;
 #ifndef WIN32
     mode_t oldmask;
 #endif
+
+#ifndef WIN32
+    oldmask = umask(077);
+#endif
+    privf = fopen(filename, "w+");
+    if (!privf) {
+#ifndef WIN32
+	umask(oldmask);
+#endif
+	err = gcry_error_from_errno(errno);
+	return err;
+    }
+
+    err = otrl_privkey_generate_FILEp(us, privf, accountname, protocol);
+
+    fclose(privf);
+#ifndef WIN32
+    umask(oldmask);
+#endif
+    return err;
+}
+
+/* Generate a private DSA key for a given account, storing it into a
+ * FILE*, and loading it into the given OtrlUserState.  Overwrite any
+ * previously generated keys for that account in that OtrlUserState.
+ * The FILE* must be open for reading and writing. */
+gcry_error_t otrl_privkey_generate_FILEp(OtrlUserState us, FILE *privf,
+	const char *accountname, const char *protocol)
+{
+    gcry_error_t err;
+    gcry_sexp_t key, parms, privkey;
     static const char *parmstr = "(genkey (dsa (nbits 4:1024)))";
     OtrlPrivKey *p;
 
@@ -387,16 +425,6 @@ gcry_error_t otrl_privkey_generate(OtrlUserState us, const char *filename,
     gcry_sexp_release(key);
 
     /* Output the other keys we know */
-#ifndef WIN32
-    oldmask = umask(077);
-#endif
-    privf = fopen(filename, "w");
-    if (!privf) {
-	err = gcry_error_from_errno(errno);
-	gcry_sexp_release(privkey);
-	return err;
-    }
-
     fprintf(privf, "(privkeys\n");
 
     for (p=us->privkey_root; p; p=p->next) {
@@ -411,12 +439,10 @@ gcry_error_t otrl_privkey_generate(OtrlUserState us, const char *filename,
     account_write(privf, accountname, protocol, privkey);
     gcry_sexp_release(privkey);
     fprintf(privf, ")\n");
-    fclose(privf);
-#ifndef WIN32
-    umask(oldmask);
-#endif
 
-    return otrl_privkey_read(us, filename);
+    fseek(privf, 0, SEEK_SET);
+
+    return otrl_privkey_read_FILEp(us, privf);
 }
 
 /* Convert a hex character to a value */
@@ -436,18 +462,34 @@ gcry_error_t otrl_privkey_read_fingerprints(OtrlUserState us,
 	void (*add_app_data)(void *data, ConnContext *context),
 	void  *data)
 {
-    FILE *storef;
     gcry_error_t err;
-    ConnContext *context;
-    char storeline[1000];
-    unsigned char fingerprint[20];
-    size_t maxsize = sizeof(storeline);
+    FILE *storef;
 
     storef = fopen(filename, "r");
     if (!storef) {
 	err = gcry_error_from_errno(errno);
 	return err;
     }
+
+    err = otrl_privkey_read_fingerprints_FILEp(us, storef, add_app_data, data);
+
+    fclose(storef);
+    return err;
+}
+
+/* Read the fingerprint store from a FILE* into the given
+ * OtrlUserState.  Use add_app_data to add application data to each
+ * ConnContext so created.  The FILE* must be open for reading. */
+gcry_error_t otrl_privkey_read_fingerprints_FILEp(OtrlUserState us,
+	FILE *storef,
+	void (*add_app_data)(void *data, ConnContext *context),
+	void  *data)
+{
+    ConnContext *context;
+    char storeline[1000];
+    unsigned char fingerprint[20];
+    size_t maxsize = sizeof(storeline);
+
     while(fgets(storeline, maxsize, storef)) {
 	char *username;
 	char *accountname;
@@ -503,7 +545,6 @@ gcry_error_t otrl_privkey_read_fingerprints(OtrlUserState us,
 	fng = otrl_context_find_fingerprint(context, fingerprint, 1, NULL);
 	otrl_context_set_trust(fng, trust);
     }
-    fclose(storef);
 
     return gcry_error(GPG_ERR_NO_ERROR);
 }
@@ -512,16 +553,29 @@ gcry_error_t otrl_privkey_read_fingerprints(OtrlUserState us,
 gcry_error_t otrl_privkey_write_fingerprints(OtrlUserState us,
 	const char *filename)
 {
-    FILE *storef;
     gcry_error_t err;
-    ConnContext *context;
-    Fingerprint *fprint;
+    FILE *storef;
 
     storef = fopen(filename, "w");
     if (!storef) {
 	err = gcry_error_from_errno(errno);
 	return err;
     }
+
+    err = otrl_privkey_write_fingerprints_FILEp(us, storef);
+
+    fclose(storef);
+    return err;
+}
+
+/* Write the fingerprint store from a given OtrlUserState to a FILE*.
+ * The FILE* must be open for writing. */
+gcry_error_t otrl_privkey_write_fingerprints_FILEp(OtrlUserState us,
+	FILE *storef)
+{
+    ConnContext *context;
+    Fingerprint *fprint;
+
     for(context = us->context_root; context; context = context->next) {
 	/* Don't both with the first (fingerprintless) entry. */
 	for (fprint = context->fingerprint_root.next; fprint;
@@ -535,7 +589,6 @@ gcry_error_t otrl_privkey_write_fingerprints(OtrlUserState us,
 	    fprintf(storef, "\t%s\n", fprint->trust ? fprint->trust : "");
 	}
     }
-    fclose(storef);
 
     return gcry_error(GPG_ERR_NO_ERROR);
 }

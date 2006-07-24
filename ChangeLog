@@ -1,3 +1,9 @@
+2006-07-24
+
+	* src/privkey.h:
+	* src/privkey.c: Add routines to read and write privkey and
+	fingerprint data to FILE*s, instead of to filenames.
+
 2006-05-09
 
 	* Protocol-v2.html: Fix a typo, and correct the documentation
