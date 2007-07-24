@@ -1,6 +1,6 @@
 Table of Contents
 
-1. Preface/Introduction?
+1. Introduction
 2. Major Additions
 2.1. Fragmentation
 2.2. Socialist Millionaires' Protocol
@@ -16,7 +16,12 @@ Table of Contents
 3.3.4. Control Flow and Errors
 3.4. Miscellaneous
 
-1. Preface/Introduction?
+1. Introduction
+
+This file contains information about the changes between the 3.0.0 and
+the 3.1.0 APIs for libotr.  Note that, as a minor release, applications
+compiled against 3.0.0 will continue to work with 3.1.0.  This document
+explains how to add the new functionality in 3.1.0.
 
 2. Major Additions
 
