@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -37,11 +37,17 @@
 #include "tlv.h"
 #include "serial.h"
 
+/* For now, we need to know the API version the client is using so that
+ * we don't use any UI callbacks it hasn't set. */
+unsigned int otrl_api_version = 0;
+
 /* Initialize the OTR library.  Pass the version of the API you are
  * using. */
 void otrl_init(unsigned int ver_major, unsigned int ver_minor,
 	unsigned int ver_sub)
 {
+    unsigned int api_version;
+
     /* The major versions have to match, and you can't be using a newer
      * minor version than we expect. */
     if (ver_major != OTRL_VERSION_MAJOR || ver_minor > OTRL_VERSION_MINOR) {
@@ -52,11 +58,21 @@ void otrl_init(unsigned int ver_major, unsigned int ver_minor,
 	exit(1);
     }
 
+    /* Set the API version.  If we get called multiple times for some
+     * reason, take the smallest value. */
+    api_version = (ver_major << 16) | (ver_minor << 8) | (ver_sub);
+    if (otrl_api_version == 0 || otrl_api_version > api_version) {
+	otrl_api_version = api_version;
+    }
+
     /* Initialize the memory module */
     otrl_mem_init();
 
     /* Initialize the DH module */
     otrl_dh_init();
+
+    /* Initialize the SM module */
+    otrl_sm_init();
 }
 
 /* Return a pointer to a static string containing the version number of
@@ -199,10 +215,10 @@ char *otrl_proto_default_query_msg(const char *ourname, OtrlPolicy policy)
      * get passed to the main IM application for processing (and
      * free()ing). */
     const char *format = "?OTR%s\n<b>%s</b> has requested an "
-	    "<a href=\"http://www.cypherpunks.ca/otr/\">Off-the-Record "
+	    "<a href=\"http://otr.cypherpunks.ca/\">Off-the-Record "
 	    "private conversation</a>.  However, you do not have a plugin "
-	    "to support that.\nSee <a href=\"http://www.cypherpunks.ca/otr/\">"
-	    "http://www.cypherpunks.ca/otr/</a> for more information.";
+	    "to support that.\nSee <a href=\"http://otr.cypherpunks.ca/\">"
+	    "http://otr.cypherpunks.ca/</a> for more information.";
 
     /* Figure out the version tag */
     v1_supported = (policy & OTRL_POLICY_ALLOW_V1);
@@ -360,7 +376,7 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     size_t reveallen = 20 * context->numsavedkeys;
     size_t base64len;
     char *base64buf = NULL;
-    char *msgbuf = NULL;
+    unsigned char *msgbuf = NULL;
     enum gcry_mpi_format format = GCRYMPI_FMT_USG;
     char *msgdup;
     int version = context->protocol_version;
@@ -461,7 +477,7 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     base64len = ((buflen + 2) / 3) * 4;
     base64buf = malloc(5 + base64len + 1 + 1);
     if (base64buf == NULL) {
-	err = GPG_ERR_ENOMEM;
+	err = gcry_error(GPG_ERR_ENOMEM);
 	goto err;
     }
     memmove(base64buf, "?OTR:", 5);
@@ -705,7 +721,7 @@ gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
     }
 
     gcry_mpi_release(sender_next_y);
-    *plaintextp = data;
+    *plaintextp = (char *)data;
 
     /* See if there are TLVs */
     nul = data;
@@ -811,3 +827,78 @@ OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
 
     return res;
 }
+
+/* Create a fragmented message. */
+gcry_error_t otrl_proto_fragment_create(int mms, int fragment_count,
+	char ***fragments, const char *message)
+{
+    char *fragdata;
+    int fragdatalen = 0;
+    unsigned short curfrag = 0;
+    int index = 0;
+    int msglen = strlen(message);
+    int headerlen = 19; /* Should vary by number of msgs */
+
+    char **fragmentarray = malloc(fragment_count * sizeof(char*));
+    if(!fragmentarray) return gcry_error(GPG_ERR_ENOMEM);
+    
+    /*
+     * Find the next message fragment and store it in the array.
+     */
+    for(curfrag = 1; curfrag <= fragment_count; curfrag++) {
+	if (msglen - index < mms - headerlen) {
+    	    fragdatalen = msglen - index;
+	} else {
+	    fragdatalen = mms - headerlen;
+	}
+	int i;
+	fragdata = malloc(fragdatalen + 1);
+    	if(!fragdata) {
+		for (i=0; i<curfrag-1; free(fragmentarray[i++])) {}
+    		free(fragmentarray);
+    		return gcry_error(GPG_ERR_ENOMEM);
+    	}
+    	strncpy(fragdata, message, fragdatalen);
+    	fragdata[fragdatalen] = 0;
+    	
+    	char *fragmentmsg = malloc(fragdatalen+headerlen+1);
+    	if(!fragmentmsg) {
+	    for (i=0; i<curfrag-1; free(fragmentarray[i++])) {}
+    	    free(fragmentarray);
+    	    free(fragdata);
+    	    return gcry_error(GPG_ERR_ENOMEM);
+    	}
+
+    	/* 
+    	 * Create the actual fragment and store it in the array
+    	 */
+    	snprintf(fragmentmsg, fragdatalen + headerlen, "?OTR,%05hu,%05hu,%s,", curfrag, fragment_count, fragdata);
+    	fragmentmsg[fragdatalen + headerlen] = 0;
+
+    	fragmentarray[curfrag-1] = fragmentmsg;
+    	
+    	free(fragdata);
+    	index += fragdatalen;
+	message += fragdatalen;
+    }
+    
+    *fragments = fragmentarray;
+    return gcry_error(GPG_ERR_NO_ERROR);
+}
+
+/* Free a string array containing fragment messages. */
+void otrl_proto_fragment_free(char ***fragments, unsigned short arraylen)
+{
+    int i;
+    char **fragmentarray = *fragments;
+    if(fragmentarray) {
+	for(i = 0; i < arraylen; i++)
+	{
+	    if(fragmentarray[i]) {
+	    	free(fragmentarray[i]);
+	    }
+	}
+	free(fragmentarray);
+    }
+}
+

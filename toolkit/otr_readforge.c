@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -114,7 +114,8 @@ int main(int argc, char **argv)
 	    fprintf(stderr, "Out of memory!\n");
 	    exit(1);
 	}
-	aes_ctr_crypt(ciphertext, argv[2], newlen, aeskey, datamsg->ctr);
+	aes_ctr_crypt(ciphertext, (const unsigned char *)argv[2], newlen,
+		aeskey, datamsg->ctr);
 	free(datamsg->encmsg);
 	datamsg->encmsg = ciphertext;
 	datamsg->encmsglen = newlen;

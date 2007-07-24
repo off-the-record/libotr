@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -69,7 +69,7 @@ typedef struct s_OtrlMessageAppOps {
      * state), this is called so the UI can be updated. */
     void (*update_context_list)(void *opdata);
 
-    /* Return a newly-allocated string containing a human-friendly name
+    /* Return a newly allocated string containing a human-friendly name
      * for the given protocol id */
     const char *(*protocol_name)(void *opdata, const char *protocol);
 
@@ -96,6 +96,17 @@ typedef struct s_OtrlMessageAppOps {
 
     /* Log a message.  The passed message will end in "\n". */
     void (*log_message)(void *opdata, const char *message);
+
+    /* Find the maximum message size supported by this protocol. */
+    int (*max_message_size)(void *opdata, ConnContext *context);
+
+    /* Return a newly allocated string containing a human-friendly
+     * representation for the given account */
+    const char *(*account_name)(void *opdata, const char *account,
+	    const char *protocol);
+
+    /* Deallocate a string returned by account_name */
+    void (*account_name_free)(void *opdata, const char *account_name);
 
 } OtrlMessageAppOps;
 
@@ -161,11 +172,33 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void (*add_appdata)(void *data, ConnContext *context),
 	void *data);
 
+/* Send a message to the network, fragmenting first if necessary.
+ * All messages to be sent to the network should go through this
+ * method immediately before they are sent, ie after encryption. */
+gcry_error_t otrl_message_fragment_and_send(const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context, const char *message,
+	OtrlFragmentPolicy fragPolicy, char **returnFragment);
+
 /* Put a connection into the PLAINTEXT state, first sending the
  * other side a notice that we're doing so if we're currently ENCRYPTED,
  * and we think he's logged in. */
 void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
 	const char *username);
+
+/* Initiate the Socialist Millionaires' Protocol */
+void otrl_message_initiate_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context, const unsigned char *secret,
+	size_t secretlen);
+
+/* Respond to a buddy initiating the Socialist Millionaires' Protocol */
+void otrl_message_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context, const unsigned char *secret,
+	size_t secretlen);
+
+/* Abort the SMP.  Called when an unexpected SMP message breaks the
+ * normal flow. */
+void otrl_message_abort_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context);
 
 #endif

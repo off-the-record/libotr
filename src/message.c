@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -30,6 +30,10 @@
 #include "proto.h"
 #include "auth.h"
 #include "message.h"
+#include "sm.h"
+
+/* The API version */
+extern unsigned int otrl_api_version;
 
 /* How long after sending a packet should we wait to send a heartbeat? */
 #define HEARTBEAT_INTERVAL 60
@@ -221,7 +225,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 			protocol, recipient, "Your message was not sent.  "
 			"Either end your private conversation, or restart "
 			"it.")) && ops->notify) {
-		const char *fmt = "%s has already closed his private "
+		const char *fmt = "%s has already closed his/her private "
 		    "connection to you";
 		char *primary = malloc(strlen(fmt) + strlen(recipient) - 1);
 		if (primary) {
@@ -251,10 +255,11 @@ static gcry_error_t send_or_error_auth(const OtrlMessageAppOps *ops,
     if (!err) {
 	const char *msg = context->auth.lastauthmsg;
 	if (msg && *msg) {
-	    if (ops->inject_message) {
+	    otrl_message_fragment_and_send(ops, opdata, context, msg, OTRL_FRAGMENT_SEND_ALL, NULL);
+	    /*if (ops->inject_message) {
 		ops->inject_message(opdata, context->accountname,
 			context->protocol, context->username, msg);
-	    }
+	    }*/
 	}
     } else {
 	const char *buf_format = "Error setting up private conversation: %s";
@@ -456,11 +461,7 @@ static void maybe_resend(EncrData *edata)
 	    char *buf;
 
 	    /* Resend the message */
-	    if (edata->ops->inject_message) {
-		edata->ops->inject_message(edata->opdata,
-			edata->context->accountname, edata->context->protocol,
-			edata->context->username, resendmsg);
-	    }
+	    otrl_message_fragment_and_send(edata->ops, edata->opdata, edata->context, resendmsg, OTRL_FRAGMENT_SEND_ALL, NULL);
 	    free(resendmsg);
 	    edata->context->lastsent = now;
 
@@ -492,6 +493,127 @@ static void maybe_resend(EncrData *edata)
 	    }
 	}
     }
+}
+
+/* Set the trust level based on the result of the SMP */
+static void set_smp_trust(const OtrlMessageAppOps *ops, void *opdata,
+	ConnContext *context, int trusted)
+{
+    otrl_context_set_trust(context->active_fingerprint, trusted ? "smp" : "");
+
+    /* Write the new info to disk, redraw the ui, and redraw the
+     * OTR buttons. */
+    if (ops->write_fingerprints) {
+	ops->write_fingerprints(opdata);
+    }
+}
+
+static void init_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context, const unsigned char *secret,
+	size_t secretlen, int initiating)
+{
+    unsigned char *smpmsg = NULL;
+    int smpmsglen;
+    unsigned char combined_secret[SM_DIGEST_SIZE];
+    gcry_error_t err;
+    unsigned char our_fp[20];
+    unsigned char *combined_buf;
+    size_t combined_buf_len;
+
+    if (!context || context->msgstate != OTRL_MSGSTATE_ENCRYPTED) return;
+
+    /*
+     * Construct the combined secret as a SHA256 hash of:
+     * Version byte (0x01), Initiator fingerprint (20 bytes),
+     * responder fingerprint (20 bytes), secure session id, input secret
+     */
+    otrl_privkey_fingerprint_raw(us, our_fp, context->accountname,
+	    context->protocol);
+
+    combined_buf_len = 41 + context->sessionid_len + secretlen;
+    combined_buf = malloc(combined_buf_len);
+    combined_buf[0] = 0x01;
+    if (initiating) {
+	memmove(combined_buf + 1, our_fp, 20);
+	memmove(combined_buf + 21,
+		context->active_fingerprint->fingerprint, 20);
+    } else {
+	memmove(combined_buf + 1,
+		context->active_fingerprint->fingerprint, 20);
+	memmove(combined_buf + 21, our_fp, 20);
+    }
+    memmove(combined_buf + 41, context->sessionid,
+	    context->sessionid_len);
+    memmove(combined_buf + 41 + context->sessionid_len,
+	    secret, secretlen);
+    gcry_md_hash_buffer(SM_HASH_ALGORITHM, combined_secret, combined_buf,
+	    combined_buf_len);
+    free(combined_buf);
+
+    if (initiating) {
+	otrl_sm_step1(context->smstate, combined_secret, SM_DIGEST_SIZE,
+		&smpmsg, &smpmsglen);
+    } else {
+	otrl_sm_step2b(context->smstate, combined_secret, SM_DIGEST_SIZE,
+		&smpmsg, &smpmsglen);
+    }
+
+    /* Send msg with next smp msg content */
+    OtrlTLV *sendtlv = otrl_tlv_new(initiating ? OTRL_TLV_SMP1 : OTRL_TLV_SMP2,
+	    smpmsglen, smpmsg);
+    char *sendsmp = NULL;
+    err = otrl_proto_create_data(&sendsmp, context, "", sendtlv,
+            OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+    if (!err) {
+        /*  Send it, and set the next expected message to the
+	 *  logical response */
+        err = otrl_message_fragment_and_send(ops, opdata, context,
+		sendsmp, OTRL_FRAGMENT_SEND_ALL, NULL);
+        context->smstate->nextExpected =
+	    initiating ? OTRL_SMP_EXPECT2 : OTRL_SMP_EXPECT3;
+    }
+    free(sendsmp);
+    otrl_tlv_free(sendtlv);
+    free(smpmsg);
+}
+
+/* Initiate the Socialist Millionaires' Protocol */
+void otrl_message_initiate_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context, const unsigned char *secret,
+	size_t secretlen)
+{
+    init_respond_smp(us, ops, opdata, context, secret, secretlen, 1);
+}
+
+/* Respond to a buddy initiating the Socialist Millionaires' Protocol */
+void otrl_message_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context, const unsigned char *secret,
+	size_t secretlen)
+{
+    init_respond_smp(us, ops, opdata, context, secret, secretlen, 0);
+}
+
+/* Abort the SMP.  Called when an unexpected SMP message breaks the
+ * normal flow. */
+void otrl_message_abort_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context)
+{
+    context->smstate->nextExpected = OTRL_SMP_EXPECT1;
+
+    OtrlTLV *sendtlv = otrl_tlv_new(OTRL_TLV_SMP_ABORT, 0,
+	    (const unsigned char *)"");
+    char *sendsmp = NULL;
+    gcry_error_t err;
+    err = otrl_proto_create_data(&sendsmp,
+	    context, "", sendtlv,
+	    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+    if (!err) {
+	/* Send the abort signal so our buddy knows we've stopped */
+	err = otrl_message_fragment_and_send(ops, opdata, context,
+		sendsmp, OTRL_FRAGMENT_SEND_ALL, NULL);
+    }
+    free(sendsmp);
+    otrl_tlv_free(sendtlv);
 }
 
 /* Handle a message just received from the network.  It is safe to pass
@@ -766,11 +888,14 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	case OTRL_MSGTYPE_DATA:
 	    switch(context->msgstate) {
 		gcry_error_t err;
-		OtrlTLV *tlvs;
+		OtrlTLV *tlvs, *tlv;
 		char *plaintext;
 		char *buf;
-		char *format;
+		const char *format;
+		const char *displayaccountname;
 		unsigned char flags;
+		NextExpectedSMP nextMsg;
+
 		case OTRL_MSGSTATE_PLAINTEXT:
 		case OTRL_MSGSTATE_FINISHED:
 		    /* See if we're supposed to ignore this message in
@@ -806,15 +931,28 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    }
 		    format = "?OTR Error: You sent encrypted "
 			    "data to %s, who wasn't expecting it.";
-		    buf = malloc(strlen(format) + strlen(context->accountname)
+		    if (otrl_api_version >= 0x00030100 &&
+			    ops->account_name) {
+			displayaccountname = ops->account_name(opdata,
+				context->accountname, protocol);
+		    } else {
+			displayaccountname = NULL;
+		    }
+		    buf = malloc(strlen(format) + strlen(displayaccountname ?
+				displayaccountname : context->accountname)
 			    - 1);
 		    if (buf) {
-			sprintf(buf, format, context->accountname);
+			sprintf(buf, format, displayaccountname ?
+				displayaccountname : context->accountname);
 			if (ops->inject_message) {
 			    ops->inject_message(opdata, accountname, protocol,
 				    sender, buf);
 			}
 			free(buf);
+		    }
+		    if (displayaccountname && otrl_api_version >= 0x00030100 &&
+			    ops->account_name_free) {
+			ops->account_name_free(opdata, displayaccountname);
 		    }
 
 		    break;
@@ -863,7 +1001,75 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    if (otrl_tlv_find(tlvs, OTRL_TLV_DISCONNECTED)) {
 			otrl_context_force_finished(context);
 		    }
-		    
+
+                    /* If TLVs contain SMP data, process it */
+		    nextMsg = context->smstate->nextExpected;
+                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1);
+		    if (tlv && nextMsg == OTRL_SMP_EXPECT1) {
+			/* We can only do the verification half now.
+			 * We must wait for the secret to be entered
+			 * to continue. */
+			otrl_sm_step2a(context->smstate, tlv->data, tlv->len);
+                    }
+                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP2);
+		    if (tlv && nextMsg == OTRL_SMP_EXPECT2) {
+			unsigned char* nextmsg;
+			int nextmsglen;
+			OtrlTLV *sendtlv;
+			char *sendsmp;
+			otrl_sm_step3(context->smstate, tlv->data, tlv->len,
+					&nextmsg, &nextmsglen);
+			
+			/* Send msg with next smp msg content */
+			sendtlv = otrl_tlv_new(OTRL_TLV_SMP3, nextmsglen,
+				nextmsg);
+			err = otrl_proto_create_data(&sendsmp,
+				context, "", sendtlv,
+				OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+			if (!err) {
+			    err = otrl_message_fragment_and_send(ops, opdata, context, sendsmp, OTRL_FRAGMENT_SEND_ALL, NULL);
+			}
+			free(sendsmp);
+			otrl_tlv_free(sendtlv);
+			free(nextmsg);
+                    }
+                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP3);
+		    if (tlv && nextMsg == OTRL_SMP_EXPECT3) {
+			unsigned char* nextmsg;
+			int nextmsglen;
+			OtrlTLV *sendtlv;
+			char *sendsmp;
+			err = otrl_sm_step4(context->smstate, tlv->data,
+					tlv->len, &nextmsg, &nextmsglen);
+			/* Set trust level based on result */
+			set_smp_trust(ops, opdata, context,
+				(err == gcry_error(GPG_ERR_NO_ERROR)));
+			
+			/* Send msg with next smp msg content */
+			sendtlv = otrl_tlv_new(OTRL_TLV_SMP4, nextmsglen,
+				nextmsg);
+			err = otrl_proto_create_data(&sendsmp,
+				context, "", sendtlv,
+				OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+			if (!err) {
+			    err = otrl_message_fragment_and_send(ops, opdata, context, sendsmp, OTRL_FRAGMENT_SEND_ALL, NULL);
+			}
+			free(sendsmp);
+			otrl_tlv_free(sendtlv);
+			free(nextmsg);
+                    }
+                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP4);
+		    if (tlv && nextMsg == OTRL_SMP_EXPECT4) {
+			err = otrl_sm_step5(context->smstate, tlv->data,
+				tlv->len);
+			/* Set trust level based on result */
+			set_smp_trust(ops, opdata, context,
+				(err == gcry_error(GPG_ERR_NO_ERROR)));
+                    }
+                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP_ABORT);
+		    if (tlv) {
+			context->smstate->nextExpected = OTRL_SMP_EXPECT1;
+		    }
 		    if (plaintext[0] == '\0') {
 			/* If it's a heartbeat (an empty message), don't
 			 * display it to the user, but log a debug message. */
@@ -1078,6 +1284,74 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 
     if (edata.ignore_message == -1) edata.ignore_message = 0;
     return edata.ignore_message;
+}
+
+/* Send a message to the network, fragmenting first if necessary.
+ * All messages to be sent to the network should go through this
+ * method immediately before they are sent, ie after encryption. */
+gcry_error_t otrl_message_fragment_and_send(const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context, const char *message,
+	OtrlFragmentPolicy fragPolicy, char **returnFragment)
+{
+    int mms = 0;
+    if (message && ops->inject_message) {
+        if (otrl_api_version >= 0x030100 && ops->max_message_size) {
+	    mms = ops->max_message_size(opdata, context);
+        }
+    	int msglen;
+    	msglen = strlen(message);
+
+	/* Don't incur overhead of fragmentation unless necessary */
+    	if(mms != 0 && msglen > mms) {
+	    char **fragments;
+	    gcry_error_t err;
+	    int fragment_count = ((msglen - 1) / (mms -19)) + 1;
+		/* like ceil(msglen/(mms - 19)) */
+	    err = otrl_proto_fragment_create(mms, fragment_count, &fragments,
+		    message);
+	    if (err) {
+		return err;
+	    }
+
+	    /* Determine which fragments to send and which to return
+	     * based on given Fragment Policy.  If the first fragment
+	     * should be returned instead of sent, store it. */
+	    if (fragPolicy == OTRL_FRAGMENT_SEND_ALL_BUT_FIRST) {
+		*returnFragment = strdup(fragments[0]);
+	    } else {
+		ops->inject_message(opdata, context->accountname,
+			context->protocol, context->username, fragments[0]);
+	    }
+	    int i;
+	    for (i=1; i<fragment_count-1; i++) {
+		ops->inject_message(opdata, context->accountname,
+			context->protocol, context->username, fragments[i]);
+	    }
+	    /* If the last fragment should be stored instead of sent,
+	     * store it */
+	    if (fragPolicy == OTRL_FRAGMENT_SEND_ALL_BUT_LAST) {
+		*returnFragment = strdup(fragments[fragment_count-1]);
+	    } else {
+		ops->inject_message(opdata, context->accountname,
+			context->protocol, context->username, fragments[fragment_count-1]);
+	    }
+	    /* Now free all fragment memory */
+	    otrl_proto_fragment_free(&fragments, fragment_count);
+
+	} else {
+	    /* No fragmentation necessary */
+	    if (fragPolicy == OTRL_FRAGMENT_SEND_ALL) {
+	    	ops->inject_message(opdata, context->accountname,
+		        context->protocol, context->username, message);
+	    } else {
+		/* Copy and return the entire given message. */
+		int l = strlen(message) + 1;
+		*returnFragment = malloc(sizeof(char)*l);
+		strcpy(*returnFragment, message);
+	    }
+	}
+    }
+    return gcry_error(GPG_ERR_NO_ERROR);
 }
 
 /* Put a connection into the PLAINTEXT state, first sending the

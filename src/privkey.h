@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -32,6 +32,12 @@ void otrl_privkey_hash_to_human(char human[45], const unsigned char hash[20]);
  * the given buffer on success. */
 char *otrl_privkey_fingerprint(OtrlUserState us, char fingerprint[45],
 	const char *accountname, const char *protocol);
+
+/* Calculate a raw hash of our DSA public key.  Return it in the passed
+ * fingerprint buffer.  Return NULL on error, or a pointer to the given
+ * buffer on success. */
+unsigned char *otrl_privkey_fingerprint_raw(OtrlUserState us,
+	unsigned char hash[20], const char *accountname, const char *protocol);
 
 /* Read a sets of private DSA keys from a file on disk into the given
  * OtrlUserState. */

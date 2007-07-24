@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -75,8 +75,8 @@ int main(int argc, char **argv)
 		"length.\n");
 	usage(argv[0]);
     }
-    old_text = argv[2];
-    new_text = argv[3];
+    old_text = (const unsigned char *)argv[2];
+    new_text = (const unsigned char *)argv[3];
 
     if (sscanf(argv[4], "%u", &offset) != 1) {
 	fprintf(stderr, "Unparseable offset given.\n");

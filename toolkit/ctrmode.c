@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 /* Encrypt or decrypt data in AES-CTR mode.  (The operations are the
  * same.)  We roll our own here just to double-check that the calls
  * libotr makes to libgcrypt are doing the right thing. */
-void aes_ctr_crypt(unsigned char *out, unsigned char *in, size_t len,
+void aes_ctr_crypt(unsigned char *out, const unsigned char *in, size_t len,
 	unsigned char key[16], unsigned char ctrtop[8])
 {
     unsigned char ctr[16], encctr[16];

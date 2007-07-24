@@ -1,3 +1,43 @@
+2007-07-24:
+
+	* src/proto.h:
+	* src/proto.c:
+	* src/message.c: Implemented fragmentation of large messages
+
+	* src/message.h: New callback for fragmentation
+
+	* src/privkey.h:
+	* src/privkey.c (otrl_privkey_fingerprint_raw): New function to
+	return a raw hash of an account's public key
+
+	* src/proto.c: Keep track of the API version number passed to
+	otrl_init()
+
+	* src/context.h:
+	* src/context.c:
+	* src/tlv.h:
+	* src/sm.h:
+	* src/sm.c: Implemented the Socialist Millionaires' Protocol for
+	authenticating buddies without using user-visible fingerprints
+
+	* src/b64.h:
+	* src/b64.c (decode, otrl_base64_decode): Corrected char vs.
+	unsigned char
+
+	* README:
+	* configure.ac:
+	* src/version.h: Change version number to 3.1.0
+
+	* Most files: Update copyright information
+
+2007-07-23
+
+	* src/message.h:
+	* src/message.c: Added account_name and account_name_free callbacks
+	to OtrlMessageAppOps to let the application choose how to
+	display the account name in OTR Error Messages.  Based on a
+	patch from Evan Schoenberg <evan.s@dreskin.net>.
+
 2006-07-24
 
 	* src/privkey.h:

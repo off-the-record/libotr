@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -38,7 +38,7 @@ void dump_int(FILE *stream, const char *title, unsigned int val)
 void dump_mpi(FILE *stream, const char *title, gcry_mpi_t val)
 {
     size_t plen;
-    char *d;
+    unsigned char *d;
     
     gcry_mpi_print(GCRYMPI_FMT_USG, NULL, 0, &plen, val);
     d = malloc(plen);

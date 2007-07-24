@@ -1,3 +1,8 @@
+24 Jul 2007:
+- Added fragmentation support for large messages
+- Added new method for buddy authentication which does not require the
+  (explicit) use of fingerprints.
+
 02 Nov 2005:
 - Released 3.0.0
 

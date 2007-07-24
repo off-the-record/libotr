@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -32,6 +32,7 @@ static ConnContext * new_context(const char * user, const char * accountname,
 	const char * protocol)
 {
     ConnContext * context;
+    OtrlSMState *smstate;
     context = malloc(sizeof(*context));
     assert(context != NULL);
     context->username = strdup(user);
@@ -43,6 +44,12 @@ static ConnContext * new_context(const char * user, const char * accountname,
     context->fragment_k = 0;
     context->msgstate = OTRL_MSGSTATE_PLAINTEXT;
     otrl_auth_new(&(context->auth));
+
+    smstate = malloc(sizeof(OtrlSMState));
+    assert(smstate != NULL);
+    otrl_sm_state_new(smstate);
+    context->smstate = smstate;
+
     context->fingerprint_root.fingerprint = NULL;
     context->fingerprint_root.context = context;
     context->fingerprint_root.next = NULL;
@@ -221,6 +228,7 @@ void otrl_context_force_finished(ConnContext *context)
     gcry_free(context->lastmessage);
     context->lastmessage = NULL;
     context->may_retransmit = 0;
+    otrl_sm_state_free(context->smstate);
 }
 
 /* Force a context into the OTRL_MSGSTATE_PLAINTEXT state. */
@@ -285,9 +293,11 @@ void otrl_context_forget(ConnContext *context)
     free(context->username);
     free(context->accountname);
     free(context->protocol);
+    free(context->smstate);
     context->username = NULL;
     context->accountname = NULL;
     context->protocol = NULL;
+    context->smstate = NULL;
 
     /* Free the application data, if it exists */
     if (context->app_data && context->app_data_free) {

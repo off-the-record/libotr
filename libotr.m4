@@ -1,6 +1,6 @@
 dnl
 dnl  Off-the-Record Messaging library
-dnl  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+dnl  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
 dnl                           <otr@cypherpunks.ca>
 dnl
 dnl  This library is free software; you can redistribute it and/or

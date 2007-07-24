@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -35,6 +35,12 @@ typedef struct s_OtrlTLV {
 /* The sender has thrown away his OTR session keys with you */
 #define OTRL_TLV_DISCONNECTED    0x0001
 
+/* The message contains a step in the Socialist Millionaires' Protocol. */ 
+#define OTRL_TLV_SMP1            0x0002
+#define OTRL_TLV_SMP2            0x0003
+#define OTRL_TLV_SMP3            0x0004
+#define OTRL_TLV_SMP4            0x0005
+#define OTRL_TLV_SMP_ABORT       0x0006
 
 /* Make a single TLV, copying the supplied data */
 OtrlTLV *otrl_tlv_new(unsigned short type, unsigned short len,

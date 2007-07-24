@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -84,6 +84,12 @@ typedef enum {
     OTRL_FRAGMENT_COMPLETE
 } OtrlFragmentResult;
 
+typedef enum {
+    OTRL_FRAGMENT_SEND_ALL,
+    OTRL_FRAGMENT_SEND_ALL_BUT_FIRST,
+    OTRL_FRAGMENT_SEND_ALL_BUT_LAST
+} OtrlFragmentPolicy;
+
 /* Initialize the OTR library.  Pass the version of the API you are
  * using. */
 void otrl_init(unsigned int ver_major, unsigned int ver_minor,
@@ -137,4 +143,8 @@ gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
 OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
 	ConnContext *context, const char *msg);
 
+gcry_error_t otrl_proto_fragment_create(int mms, int fragment_count,
+	char ***fragments, const char *message);
+
+void otrl_proto_fragment_free(char ***fragments, unsigned short arraylen);
 #endif

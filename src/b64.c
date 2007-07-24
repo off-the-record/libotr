@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -64,7 +64,7 @@ VERSION HISTORY:
 /*
 ** Translation Table as described in RFC1113
 */
-static const unsigned char cb64[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const char cb64[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /*
 ** Translation Table to decode (created by author)
@@ -118,8 +118,7 @@ size_t otrl_base64_encode(char *base64data, const unsigned char *data,
     return base64len;
 }
 
-static size_t decode(unsigned char *out, const unsigned char *in,
-	size_t b64len)
+static size_t decode(unsigned char *out, const char *in, size_t b64len)
 {   
     size_t written = 0;
     unsigned char c = 0;
@@ -151,11 +150,11 @@ static size_t decode(unsigned char *out, const unsigned char *in,
  * The buffer data must contain at least (base64len / 4) * 3 bytes of
  * space.  This function will return the number of bytes actually used.
  */
-size_t otrl_base64_decode(char *data, const unsigned char *base64data,
+size_t otrl_base64_decode(unsigned char *data, const char *base64data,
 	size_t base64len)
 {
     size_t datalen = 0;
-    unsigned char b64[4];
+    char b64[4];
     size_t b64accum = 0;
 
     while(base64len > 0) {

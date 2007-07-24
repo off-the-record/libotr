@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+ *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -24,6 +24,7 @@
 
 #include "dh.h"
 #include "auth.h"
+#include "sm.h"
 
 typedef enum {
     OTRL_MSGSTATE_PLAINTEXT,           /* Not yet started an encrypted
@@ -124,6 +125,9 @@ typedef struct context {
     void *app_data;
     /* A function to free the above data when we forget this context */
     void (*app_data_free)(void *);
+
+    OtrlSMState *smstate;              /* The state of the current
+                                          socialist millionaires exchange */
 } ConnContext;
 
 #include "userstate.h"

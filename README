@@ -1,5 +1,5 @@
 	      Off-the-Record Messaging Library and Toolkit
-			  v3.0.0,  2 Nov 2005
+			  v3.1.0, XX XXX 2007
 
 This is a library and toolkit which implements Off-the-Record (OTR) Messaging.
 
@@ -19,7 +19,7 @@ OTR allows you to have private conversations over IM by providing:
      is compromised.
 
 For more information on Off-the-Record Messaging, see
-http://www.cypherpunks.ca/otr/
+http://otr.cypherpunks.ca/
 
 LIBRARY USAGE
 
@@ -239,7 +239,7 @@ The Off-the-Record Messaging library (in the src directory) is
 covered by the following (LGPL) license:
 
     Off-the-Record Messaging library
-    Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+    Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
 			     <otr@cypherpunks.ca>
 
     This library is free software; you can redistribute it and/or
@@ -260,7 +260,7 @@ The Off-the-Record Messaging Toolkit (in the toolkit directory) is covered
 by the following (GPL) license:
 
     Off-the-Record Messaging Toolkit
-    Copyright (C) 2004-2005  Nikita Borisov and Ian Goldberg
+    Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
 		             <otr@cypherpunks.ca>
 
     This program is free software; you can redistribute it and/or modify
@@ -282,7 +282,7 @@ CONTACT
 To report problems, comments, suggestions, patches, etc., you can email
 the authors:
 
-Nikita Borisov and Ian Goldberg <otr@cypherpunks.ca>
+Ian Goldberg, Chris Alexander, and Nikita Borisov <otr@cypherpunks.ca>
 
 For more information on Off-the-Record Messaging, visit
-http://www.cypherpunks.ca/otr/
+http://otr.cypherpunks.ca/
