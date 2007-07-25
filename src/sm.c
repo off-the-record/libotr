@@ -587,6 +587,10 @@ gcry_error_t otrl_sm_step1(OtrlSMAliceState *astate,
 {
     /* Initialize the sm state or update the secret */
     gcry_mpi_t secret_mpi = NULL;
+
+    *output = NULL;
+    *outputlen = 0;
+    
     gcry_mpi_scan(&secret_mpi, GCRYMPI_FMT_USG, secret, secretlen, NULL);
 
     if (! astate->g1) {
@@ -670,6 +674,10 @@ gcry_error_t otrl_sm_step2b(OtrlSMBobState *bstate, const unsigned char* secret,
     /* Convert the given secret to the proper form and store it */
     gcry_mpi_t *msg2;
     gcry_mpi_t secret_mpi = NULL;
+
+    *output = NULL;
+    *outputlen = 0;
+    
     gcry_mpi_scan(&secret_mpi, GCRYMPI_FMT_USG, secret, secretlen, NULL);
     gcry_mpi_set(bstate->secret, secret_mpi);
     gcry_mpi_release(secret_mpi);
@@ -720,8 +728,11 @@ gcry_error_t otrl_sm_step3(OtrlSMAliceState *astate, const unsigned char* input,
     gcry_mpi_t *msg2;
     gcry_mpi_t *msg3;
     gcry_error_t err;
-    err = unserialize_mpi_array(&msg2, SM_MSG2_LEN, input, inputlen);
     
+    *output = NULL;
+    *outputlen = 0;
+    
+    err = unserialize_mpi_array(&msg2, SM_MSG2_LEN, input, inputlen);
     if (err != gcry_error(GPG_ERR_NO_ERROR)) return err;
 
     if (check_group_elem(msg2[0]) || check_group_elem(msg2[3]) ||
@@ -799,6 +810,9 @@ gcry_error_t otrl_sm_step4(OtrlSMBobState *bstate, const unsigned char* input, c
     gcry_mpi_t *msg4;
     gcry_error_t err;
     err = unserialize_mpi_array(&msg3, SM_MSG3_LEN, input, inputlen);
+
+    *output = NULL;
+    *outputlen = 0;
     
     if (err != gcry_error(GPG_ERR_NO_ERROR)) return err;
 
