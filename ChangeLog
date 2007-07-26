@@ -1,4 +1,4 @@
-2007-07-26:
+2007-07-26
 
 	* src/sm.c:
 	* src/message.c: ISO C cleanups (no mixing declarations with
@@ -6,12 +6,12 @@
 
 	* src/sm.c: Fixed a 64-bit pointer error
 
-2007-07-25:
+2007-07-25
 
 	* src/message.c: Behave sanely if we receive a totally malformed
 	SMP message.
 
-2007-07-24:
+2007-07-24
 
 	* src/proto.h:
 	* src/proto.c:
