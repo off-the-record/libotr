@@ -846,12 +846,14 @@ gcry_error_t otrl_proto_fragment_create(int mms, int fragment_count,
      * Find the next message fragment and store it in the array.
      */
     for(curfrag = 1; curfrag <= fragment_count; curfrag++) {
+	int i;
+    	char *fragmentmsg;
+
 	if (msglen - index < mms - headerlen) {
     	    fragdatalen = msglen - index;
 	} else {
 	    fragdatalen = mms - headerlen;
 	}
-	int i;
 	fragdata = malloc(fragdatalen + 1);
     	if(!fragdata) {
 		for (i=0; i<curfrag-1; free(fragmentarray[i++])) {}
@@ -861,7 +863,7 @@ gcry_error_t otrl_proto_fragment_create(int mms, int fragment_count,
     	strncpy(fragdata, message, fragdatalen);
     	fragdata[fragdatalen] = 0;
     	
-    	char *fragmentmsg = malloc(fragdatalen+headerlen+1);
+    	fragmentmsg = malloc(fragdatalen+headerlen+1);
     	if(!fragmentmsg) {
 	    for (i=0; i<curfrag-1; free(fragmentarray[i++])) {}
     	    free(fragmentarray);

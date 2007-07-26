@@ -246,8 +246,8 @@ static gcry_error_t otrl_sm_hash(gcry_mpi_t* hash, int version,
 {
     unsigned char* input;
     unsigned char output[SM_DIGEST_SIZE];
-    unsigned int sizea;
-    unsigned int sizeb;
+    size_t sizea;
+    size_t sizeb;
     unsigned int totalsize;
     unsigned char* dataa;
     unsigned char* datab;
@@ -415,6 +415,8 @@ static gcry_error_t otrl_sm_proof_know_log(gcry_mpi_t *c, gcry_mpi_t *d, const g
  */
 static int otrl_sm_check_know_log(const gcry_mpi_t c, const gcry_mpi_t d, const gcry_mpi_t g, const gcry_mpi_t x, int version)
 {
+    int comp;
+
     gcry_mpi_t gd = gcry_mpi_new(SM_MOD_LEN_BITS);  /* g^d */
     gcry_mpi_t xc = gcry_mpi_new(SM_MOD_LEN_BITS);  /* x^c */
     gcry_mpi_t gdxc = gcry_mpi_new(SM_MOD_LEN_BITS);   /* (g^d x^c) */
@@ -425,7 +427,7 @@ static int otrl_sm_check_know_log(const gcry_mpi_t c, const gcry_mpi_t d, const 
     gcry_mpi_mulm(gdxc, gd, xc, SM_MODULUS);
     otrl_sm_hash(&hgdxc, version, gdxc, NULL);
     
-    int comp = gcry_mpi_cmp(hgdxc, c);
+    comp = gcry_mpi_cmp(hgdxc, c);
     gcry_mpi_release(gd);
     gcry_mpi_release(xc);
     gcry_mpi_release(gdxc);
@@ -471,6 +473,8 @@ static gcry_error_t otrl_sm_proof_equal_coords(gcry_mpi_t *c, gcry_mpi_t *d1, gc
  */
 static gcry_error_t otrl_sm_check_equal_coords(const gcry_mpi_t c, const gcry_mpi_t d1, const gcry_mpi_t d2, const gcry_mpi_t p, const gcry_mpi_t q, const OtrlSMState *state, int version)
 {
+    int comp;
+
     gcry_mpi_t temp1 = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_t temp2 = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_t temp3 = gcry_mpi_new(SM_MOD_LEN_BITS);
@@ -498,7 +502,7 @@ static gcry_error_t otrl_sm_check_equal_coords(const gcry_mpi_t c, const gcry_mp
 
     otrl_sm_hash(&cprime, version, temp1, temp2);
 
-    int comp = gcry_mpi_cmp(c, cprime);
+    comp = gcry_mpi_cmp(c, cprime);
     gcry_mpi_release(temp1);
     gcry_mpi_release(temp2);
     gcry_mpi_release(temp3);
@@ -537,6 +541,8 @@ static gcry_error_t otrl_sm_proof_equal_logs(gcry_mpi_t *c, gcry_mpi_t *d, OtrlS
  */
 static gcry_error_t otrl_sm_check_equal_logs(const gcry_mpi_t c, const gcry_mpi_t d, const gcry_mpi_t r, const OtrlSMState *state, int version)
 {
+    int comp;
+
     gcry_mpi_t temp1 = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_t temp2 = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_t temp3 = gcry_mpi_new(SM_MOD_LEN_BITS);
@@ -565,7 +571,7 @@ static gcry_error_t otrl_sm_check_equal_logs(const gcry_mpi_t c, const gcry_mpi_
 
     otrl_sm_hash(&cprime, version, temp1, temp2);
 
-    int comp = gcry_mpi_cmp(c, cprime);
+    comp = gcry_mpi_cmp(c, cprime);
     gcry_mpi_release(temp1);
     gcry_mpi_release(temp2);
     gcry_mpi_release(temp3);
@@ -587,6 +593,7 @@ gcry_error_t otrl_sm_step1(OtrlSMAliceState *astate,
 {
     /* Initialize the sm state or update the secret */
     gcry_mpi_t secret_mpi = NULL;
+    gcry_mpi_t *msg1;
 
     *output = NULL;
     *outputlen = 0;
@@ -599,7 +606,6 @@ gcry_error_t otrl_sm_step1(OtrlSMAliceState *astate,
     gcry_mpi_set(astate->secret, secret_mpi);
     gcry_mpi_release(secret_mpi);
 
-    gcry_mpi_t *msg1;
     otrl_sm_msg1_init(&msg1);
 
     astate->x2 = randomExponent();
@@ -672,6 +678,7 @@ gcry_error_t otrl_sm_step2a(OtrlSMBobState *bstate, const unsigned char* input, 
 gcry_error_t otrl_sm_step2b(OtrlSMBobState *bstate, const unsigned char* secret, int secretlen, unsigned char **output, int* outputlen)
 {
     /* Convert the given secret to the proper form and store it */
+    gcry_mpi_t r, qb1, qb2;
     gcry_mpi_t *msg2;
     gcry_mpi_t secret_mpi = NULL;
 
@@ -691,9 +698,9 @@ gcry_error_t otrl_sm_step2b(OtrlSMBobState *bstate, const unsigned char* secret,
     otrl_sm_proof_know_log(&(msg2[4]), &(msg2[5]), bstate->g1, bstate->x3, 4);
 
     /* Calculate P and Q values for Bob */
-    gcry_mpi_t r = randomExponent();
-    gcry_mpi_t qb1 = gcry_mpi_new(SM_MOD_LEN_BITS);
-    gcry_mpi_t qb2 = gcry_mpi_new(SM_MOD_LEN_BITS);
+    r = randomExponent();
+    qb1 = gcry_mpi_new(SM_MOD_LEN_BITS);
+    qb2 = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_powm(bstate->p, bstate->g3, r, SM_MODULUS);
     gcry_mpi_set(msg2[6], bstate->p);
     gcry_mpi_powm(qb1, bstate->g1, r, SM_MODULUS);
@@ -725,6 +732,7 @@ gcry_error_t otrl_sm_step2b(OtrlSMBobState *bstate, const unsigned char* secret,
 gcry_error_t otrl_sm_step3(OtrlSMAliceState *astate, const unsigned char* input, const int inputlen, unsigned char **output, int* outputlen)
 {
     /* Read from input to find the mpis */
+    gcry_mpi_t r, qa1, qa2, inv;
     gcry_mpi_t *msg2;
     gcry_mpi_t *msg3;
     gcry_error_t err;
@@ -762,9 +770,9 @@ gcry_error_t otrl_sm_step3(OtrlSMAliceState *astate, const unsigned char* input,
         return gcry_error(GPG_ERR_INV_VALUE);
 
     /* Calculate P and Q values for Alice */
-    gcry_mpi_t r = randomExponent();
-    gcry_mpi_t qa1 = gcry_mpi_new(SM_MOD_LEN_BITS);
-    gcry_mpi_t qa2 = gcry_mpi_new(SM_MOD_LEN_BITS);
+    r = randomExponent();
+    qa1 = gcry_mpi_new(SM_MOD_LEN_BITS);
+    qa2 = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_powm(astate->p, astate->g3, r, SM_MODULUS);
     gcry_mpi_set(msg3[0], astate->p);
     gcry_mpi_powm(qa1, astate->g1, r, SM_MODULUS);
@@ -775,7 +783,7 @@ gcry_error_t otrl_sm_step3(OtrlSMAliceState *astate, const unsigned char* input,
     otrl_sm_proof_equal_coords(&(msg3[2]), &(msg3[3]), &(msg3[4]), astate, r, 6);
 
     /* Calculate Ra and proof */
-    gcry_mpi_t inv = gcry_mpi_new(SM_MOD_LEN_BITS);
+    inv = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_invm(inv, msg2[6], SM_MODULUS);
     gcry_mpi_mulm(astate->pab, astate->p, inv, SM_MODULUS);
     gcry_mpi_invm(inv, msg2[7], SM_MODULUS);
@@ -806,6 +814,8 @@ gcry_error_t otrl_sm_step3(OtrlSMAliceState *astate, const unsigned char* input,
 gcry_error_t otrl_sm_step4(OtrlSMBobState *bstate, const unsigned char* input, const int inputlen, unsigned char **output, int* outputlen)
 {
     /* Read from input to find the mpis */
+    int comp;
+    gcry_mpi_t inv, rab;
     gcry_mpi_t *msg3;
     gcry_mpi_t *msg4;
     gcry_error_t err;
@@ -829,7 +839,7 @@ gcry_error_t otrl_sm_step4(OtrlSMBobState *bstate, const unsigned char* input, c
         return gcry_error(GPG_ERR_INV_VALUE);
 
     /* Find Pa/Pb and Qa/Qb */
-    gcry_mpi_t inv = gcry_mpi_new(SM_MOD_LEN_BITS);
+    inv = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_invm(inv, bstate->p, SM_MODULUS);
     gcry_mpi_mulm(bstate->pab, msg3[0], inv, SM_MODULUS);
     gcry_mpi_invm(inv, bstate->q, SM_MODULUS);
@@ -846,9 +856,9 @@ gcry_error_t otrl_sm_step4(OtrlSMBobState *bstate, const unsigned char* input, c
     serialize_mpi_array(output, outputlen, SM_MSG4_LEN, msg4);
 
     /* Calculate Rab and verify that secrets match */
-    gcry_mpi_t rab = gcry_mpi_new(SM_MOD_LEN_BITS);
+    rab = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_powm(rab, msg3[5], bstate->x3, SM_MODULUS);
-    int comp = gcry_mpi_cmp(rab, bstate->pab);
+    comp = gcry_mpi_cmp(rab, bstate->pab);
 
     /* Clean up everything allocated in this step */
     otrl_sm_msg_free(&msg3, SM_MSG3_LEN);
@@ -869,6 +879,8 @@ gcry_error_t otrl_sm_step4(OtrlSMBobState *bstate, const unsigned char* input, c
 gcry_error_t otrl_sm_step5(OtrlSMAliceState *astate, const unsigned char* input, const int inputlen)
 {
     /* Read from input to find the mpis */
+    int comp;
+    gcry_mpi_t rab;
     gcry_mpi_t *msg4;
     gcry_error_t err;
     err = unserialize_mpi_array(&msg4, SM_MSG4_LEN, input, inputlen);
@@ -884,10 +896,10 @@ gcry_error_t otrl_sm_step5(OtrlSMAliceState *astate, const unsigned char* input,
         return gcry_error(GPG_ERR_INV_VALUE);
 
     /* Calculate Rab and verify that secrets match */
-    gcry_mpi_t rab = gcry_mpi_new(SM_MOD_LEN_BITS);
+    rab = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_powm(rab, msg4[0], astate->x3, SM_MODULUS);
 
-    int comp = gcry_mpi_cmp(rab, astate->pab);
+    comp = gcry_mpi_cmp(rab, astate->pab);
     gcry_mpi_release(rab);
     otrl_sm_msg_free(&msg4, SM_MSG4_LEN);
 

@@ -519,6 +519,8 @@ static void init_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
     unsigned char our_fp[20];
     unsigned char *combined_buf;
     size_t combined_buf_len;
+    OtrlTLV *sendtlv;
+    char *sendsmp = NULL;
 
     if (!context || context->msgstate != OTRL_MSGSTATE_ENCRYPTED) return;
 
@@ -559,9 +561,8 @@ static void init_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
     }
 
     /* Send msg with next smp msg content */
-    OtrlTLV *sendtlv = otrl_tlv_new(initiating ? OTRL_TLV_SMP1 : OTRL_TLV_SMP2,
+    sendtlv = otrl_tlv_new(initiating ? OTRL_TLV_SMP1 : OTRL_TLV_SMP2,
 	    smpmsglen, smpmsg);
-    char *sendsmp = NULL;
     err = otrl_proto_create_data(&sendsmp, context, "", sendtlv,
             OTRL_MSGFLAGS_IGNORE_UNREADABLE);
     if (!err) {
@@ -598,12 +599,13 @@ void otrl_message_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 void otrl_message_abort_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, ConnContext *context)
 {
-    context->smstate->nextExpected = OTRL_SMP_EXPECT1;
-
     OtrlTLV *sendtlv = otrl_tlv_new(OTRL_TLV_SMP_ABORT, 0,
 	    (const unsigned char *)"");
     char *sendsmp = NULL;
     gcry_error_t err;
+    
+    context->smstate->nextExpected = OTRL_SMP_EXPECT1;
+
     err = otrl_proto_create_data(&sendsmp,
 	    context, "", sendtlv,
 	    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
@@ -1295,18 +1297,21 @@ gcry_error_t otrl_message_fragment_and_send(const OtrlMessageAppOps *ops,
 {
     int mms = 0;
     if (message && ops->inject_message) {
+    	int msglen;
+
         if (otrl_api_version >= 0x030100 && ops->max_message_size) {
 	    mms = ops->max_message_size(opdata, context);
         }
-    	int msglen;
     	msglen = strlen(message);
 
 	/* Don't incur overhead of fragmentation unless necessary */
     	if(mms != 0 && msglen > mms) {
 	    char **fragments;
 	    gcry_error_t err;
+	    int i;
 	    int fragment_count = ((msglen - 1) / (mms -19)) + 1;
 		/* like ceil(msglen/(mms - 19)) */
+
 	    err = otrl_proto_fragment_create(mms, fragment_count, &fragments,
 		    message);
 	    if (err) {
@@ -1322,7 +1327,6 @@ gcry_error_t otrl_message_fragment_and_send(const OtrlMessageAppOps *ops,
 		ops->inject_message(opdata, context->accountname,
 			context->protocol, context->username, fragments[0]);
 	    }
-	    int i;
 	    for (i=1; i<fragment_count-1; i++) {
 		ops->inject_message(opdata, context->accountname,
 			context->protocol, context->username, fragments[i]);

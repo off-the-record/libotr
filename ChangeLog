@@ -1,3 +1,11 @@
+2007-07-26:
+
+	* src/sm.c:
+	* src/message.c: ISO C cleanups (no mixing declarations with
+	code)
+
+	* src/sm.c: Fixed a 64-bit pointer error
+
 2007-07-25:
 
 	* src/message.c: Behave sanely if we receive a totally malformed
