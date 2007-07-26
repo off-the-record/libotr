@@ -248,7 +248,7 @@ static gcry_error_t otrl_sm_hash(gcry_mpi_t* hash, int version,
     unsigned char output[SM_DIGEST_SIZE];
     size_t sizea;
     size_t sizeb;
-    unsigned int totalsize;
+    size_t totalsize;
     unsigned char* dataa;
     unsigned char* datab;
     
