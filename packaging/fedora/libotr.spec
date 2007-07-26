@@ -1,11 +1,11 @@
 Summary: Off-The-Record Messaging library and toolkit
 Name: libotr
 Version: 3.1.0
-Release: 1%{?dist}
+Release: preview2%{?dist}
 License: GPL and LGPL
 Group: System Environment/Libraries
 Source0: http://otr.cypherpunks.ca/%{name}-%{version}.tar.gz
-Url: http://www.cypherpunks.ca/otr/
+Url: http://otr.cypherpunks.ca/
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Provides: libotr-toolkit = %{version}
 Obsoletes: libotr-toolkit < %{version}
@@ -50,7 +50,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %postun -p /sbin/ldconfig
 
-%files 
+%files
 %defattr(-,root,root)
 %doc AUTHORS README COPYING COPYING.LIB NEWS Protocol*
 %{_libdir}/libotr.so.*
@@ -68,7 +68,7 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
-* Wed Jul 25 2007 Paul Wouters <paul@cypherpunks.ca> 3.1.0-1
+* Thu Jul 26 2007 Paul Wouters <paul@cypherpunks.ca> 3.1.0-preview2
 - Upgraded to current version
 
 * Mon Oct 17 2005 Paul Wouters <paul@cypherpunks.ca> 3.0.0-1
