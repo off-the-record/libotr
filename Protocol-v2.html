@@ -21,6 +21,7 @@ could be useful if the application sending the OTR messages is also
 privacy-preserving</li>
 <li>Supporting fragmentation of OTR messages, to support IM networks
 whose maximum message size is very small.</li>
+<li>Adding a way to authenticate without the use of fingerprints.</li>
 <li>Better protocol version control, for future extensibility.</li>
 </ul>
 <h2>Very high level overview</h2>
@@ -181,6 +182,71 @@ below.  (These will be the same as the keys Alice generated, above.)</li>
 AES-CTR<sub>ek,ctr</sub>(msg).</li>
 </ol>
 </li>
+</ul>
+<h3>Socialist Millionaires' Protocol (SMP)</h3>
+<p>While data messages are being exchanged, either Alice or Bob may
+run SMP to detect impersonation or man-in-the-middle attacks.
+As above, all exponentiations are done modulo a particular 1536-bit
+prime, and g<sub>1</sub> is a generator of that group.  All sent values
+include zero-knowledge proofs that they were generated according to
+this protocol, as indicated in the detailed description below.</p>
+<p>Suppose Alice and Bob have secret information x and y respectively,
+and they wish to know whether x = y.  The Socialist Millionaires' Protocol
+allows them to compare x and y without revealing any other information
+than the value of (x == y).  For OTR, the secrets contain
+information about both parties' long-term authentication public keys,
+as well as information entered by the users themselves.  If x = y,
+this means that Alice and Bob entered the same secret information, and
+so must be the same entities who established that secret to begin with.</p>
+<p>Assuming that Alice begins the exchange:</p>
+<ul>
+<li>Alice:
+<ol>
+<li>Picks random exponents a<sub>2</sub> and a<sub>3</sub></li>
+<li>Sends Bob g<sub>2a</sub> = g<sub>1</sub><sup>a<sub>2</sub></sup> and
+g<sub>3a</sub> = g<sub>1</sub><sup>a<sub>3</sub></sup></li>
+</ol></li>
+<li>Bob:
+<ol>
+<li>Picks random exponents b<sub>2</sub> and b<sub>3</sub></li>
+<li>Computes g<sub>2b</sub> = g<sub>1</sub><sup>b<sub>2</sub></sup> and
+g<sub>3b</sub> = g<sub>1</sub><sup>b<sub>3</sub></sup></li>
+<li>Computes g<sub>2</sub> = g<sub>2a</sub><sup>b<sub>2</sub></sup> and
+g<sub>3</sub> = g<sub>3a</sub><sup>b<sub>3</sub></sup></li>
+<li>Picks random exponent r</li>
+<li>Computes P<sub>b</sub> = g<sub>3</sub><sup>r</sup> and
+Q<sub>b</sub> = g<sub>1</sub><sup>r</sup> g<sub>2</sub><sup>y</sup></li>
+<li>Sends Alice g<sub>2b</sub>, g<sub>3b</sub>, P<sub>b</sub> and
+Q<sub>b</sub></li>
+</ol></li>
+<li>Alice:
+<ol>
+<li>Computes g<sub>2</sub> = g<sub>2b</sub><sup>a<sub>2</sub></sup> and
+g<sub>3</sub> = g<sub>3b</sub><sup>a<sub>3</sub></sup></li>
+<li>Picks random exponent s</li>
+<li>Computes P<sub>a</sub> = g<sub>3</sub><sup>s</sup> and
+Q<sub>a</sub> = g<sub>1</sub><sup>s</sup> g<sub>2</sub><sup>x</sup></li>
+<li>Computes R<sub>a</sub> = (Q<sub>a</sub> / Q<sub>b</sub>)
+<sup>a<sub>3</sub></sup></li>
+<li>Sends Bob P<sub>a</sub>, Q<sub>a</sub> and R<sub>a</sub></li>
+</ol></li>
+<li>Bob:
+<ol>
+<li>Computes R<sub>b</sub> = (Q<sub>a</sub> / Q<sub>b</sub>)
+<sup>b<sub>3</sub></sup></li>
+<li>Computes R<sub>ab</sub> = R<sub>a</sub><sup>b<sub>3</sub></sup></li>
+<li>Checks whether R<sub>ab</sub> == (P<sub>a</sub> / P<sub>b</sub>)</li>
+<li>Sends Alice R<sub>b</sub></li>
+</ol></li>
+<li>Alice:
+<ol>
+<li>Computes R<sub>ab</sub> = R<sub>b</sub><sup>a<sub>3</sub></sup></li>
+<li>Checks whether R<sub>ab</sub> == (P<sub>a</sub> / P<sub>b</sub>)</li>
+</ol></li>
+<li>If everything is done correctly, then R<sub>ab</sub> should hold the
+value of (P<sub>a</sub> / P<sub>b</sub>) times
+g<sub>2</sub><sup>(x - y)</sup>, which means that the test at the end of
+the protocol will only succeed if x == y.</li>
 </ul>
 <h2>Details of the protocol</h2>
 <h3>Unencoded messages</h3>
@@ -491,7 +557,37 @@ transition to MSGSTATE_PLAINTEXT (see below).  If you receive a TLV
 record of this type, you should transition to MSGSTATE_FINISHED (see
 below), and inform the user that his correspondent has closed his end of
 the private connection, and the user should do the same.</dd>
+<dt>Type 2: SMP Message 1</dt>
+<dd>The value represents an initiating message of the Socialist
+Millionaires' Protocol, described below.</dd>
+<dt>Type 3: SMP Message 2</dt>
+<dd>The value represents the second message in an instance of SMP.</dd>
+<dt>Type 4: SMP Message 3</dt>
+<dd>The value represents the third message in an instance of SMP.</dd>
+<dt>Type 5: SMP Message 4</dt>
+<dd>The value represents the final message in an instance of SMP.</dd>
+<dt>Type 6: SMP Abort Message</dt>
+<dd>If the user cancels SMP prematurely or encounters an error in the
+protocol and cannot continue, you may send a message (possibly with empty
+human-readable part) with this TLV type to instruct the other party's
+client to abort the protocol.  The associated length should be zero and
+the associated value should be empty.  If you receive a TLV of this type,
+you should change the SMP state to SMP_EXPECT1 (see below).</dd>
 </dl>
+<p>SMP Message TLVs (types 2-5) all carry data sharing the same general
+format:</p> 
+<dl>
+<dt>MPI count (INT)</dt>
+<dd>The number of mpis contained in the remainder of the TLV.</dd>
+<dt>Length (INT)</dt>
+<dd>The length of the first encoded mpi.</dd>
+<dt>Serialized MPI (len BYTEs)  [where len is the value of the Length field]</dt>
+<dd>The first mpi of the TLV, serialized into a byte array.</dd>
+</dl>
+<p>These fields are followed by additional (Length, Serialized MPI) pairs
+for the remaining mpis for this TLV.  There should be as many pairs as
+declared in the MPI count field.  For the exact MPIs passed for each SMP TLV,
+see the SMP state machine below.</p>
 <p>A message with an empty human-readable part (the plaintext is of zero
 length, or starts with a NUL) is a "heartbeat" packet, and should not
 be displayed to the user.  (But it's still useful to effect key
@@ -541,6 +637,361 @@ this message.</dd>
 <dt>Old MAC keys to be revealed (DATA)</dt>
 <dd>See "Revealing MAC Keys", below.</dd>
 </dl>
+<h3>Socialist Millionaires' Protocol (SMP)</h3>
+<p>The Socialist Millionaires' Protocol allows two parties with secret
+information x and y respectively to check whether (x==y) without revealing
+any additional information about the secrets.  The protocol used by OTR is
+based on the work of Boudot, Schoenmakers and Traore (2001).  A full 
+justification for its use in OTR is made by Alexander and Goldberg,
+in a paper to be published this year.  The following is a technical account
+of what is transmitted during the course of the protocol.</p>
+<h4>Secret information</h4>
+<p>The secret information x and y compared during this protocol contains
+not only information entered by the users, but also information unique to
+the conversation in which SMP takes place.  Specifically, the format is:</p>
+<dl>
+<dt>Version (BYTE)</dt>
+<dd>The version of SMP used.  The version described here is 1.</dd>
+<dt>Initiator fingerprint (20 BYTEs)</dt>
+<dd>The fingerprint that the party initiating SMP is using in
+the current conversation.</dd>
+<dt>Responder fingerprint (20 BYTEs)</dt>
+<dd>The fingerprint that the party that did not initiate SMP is 
+using in the current conversation.</dd>
+<dt>Secure Session ID</dt>
+<dd>The ssid described below.</dd>
+<dt>User input</dt>
+<dd>The input string given by the user at runtime.</dd>
+</dl>
+<p>Then the SHA256 hash of the above is taken, and the digest becomes the 
+actual secret (x or y) to be used in SMP.  The additional fields insure
+that not only do both parties know the same secret input string, but no
+man-in-the-middle is capable of reading their communication either.</p>
+<h3>The SMP state machine</h3>
+<p>Whenever the OTR message state machine has MSGSTATE_ENCRYPTED set
+(see below), the SMP state machine may progress.  If at any point 
+MSGSTATE_ENCRYPTED becomes unset, SMP must abandon its state and return
+to its initial setup.  The SMP state consists of one main variable, as
+well as information from the partial computations at each protocol step.</p>
+<h4>Expected Message</h4>
+<p>This main state variable for SMP controls what SMP-specific TLVs will
+be accepted.  This variable has no effect on type 0 or type 1 TLVs, which
+are always allowed.  smpstate can take one of four values:</p>
+<dl>
+<dt>SMPSTATE_EXPECT1</dt>
+<dd>This state indicates that only type 2 TLVs (SMP message 1) should
+be accepted.  This is the default state when SMP has not yet begun.  This
+state is also reached whenever an error occurs or SMP is aborted, and the
+protocol must be restarted from the beginning.</dd>
+<dt>SMPSTATE_EXPECT2</dt>
+<dd>This state indicates that only type 3 TLVs (SMP message 2) should
+be accepted.</dd>
+<dt>SMPSTATE_EXPECT3</dt>
+<dd>This state indicates that only type 4 TLVs (SMP message 3) should
+be accepted.</dd>
+<dt>SMPSTATE_EXPECT4</dt>
+<dd>This state indicates that only type 5 TLVs (SMP message 4) should
+be accepted.</dd>
+</dl>
+<h4>State Transitions</h4>
+<p>There are 7 actions that an OTR client must handle:</p>
+<ul>
+<li>Received TLVs:
+<ul>
+<li>SMP Message 1</li>
+<li>SMP Message 2</li>
+<li>SMP Message 3</li>
+<li>SMP Message 4</li>
+<li>SMP Abort Message</li>
+</ul></li>
+<li>User actions:</li>
+<ul>
+<li>User requests to begin SMP</li>
+<li>User requests to abort SMP</li>
+</ul></li>
+</ul>
+<p>The following sections outline what is to be done in each case.  They
+all assume that MSGSTATE_ENCRYPTED is set.  For simplicity, they also
+assume that Alice has begun SMP, and Bob is responding to her.</p>
+<h4>SMP Hash function</h4>
+<p>In the following actions, there are many places where a SHA256 hash of
+an integer followed by one or two mpis is taken.  The input to this hash
+function is:</p>
+<dl>
+<dt>Version (BYTE)</dt>
+<dd>This distinguishes calls to the hash function at different points in
+the protocol, to prevent Alice from replaying Bob's zero knowledge proofs
+or vice versa.</dd>
+<dt>Length of first mpi (INT)</dt>
+<dd>The length of the first number given as input, expressed as a serialized
+mpi.</dd>
+<dt>First mpi (len1 BYTEs) [where len1 is the preceeding length]</dt>
+<dd>The first mpi, serialized into a byte array.</dd>
+<dt>Length of second mpi (optional, INT)</dt>
+<dd>The length of the second number (if present) given as input, expressed as a serialized
+mpi.</dd>
+<dt>Second mpi (optional, len2 BYTEs) [where len2 is the preceeding length]</dt>
+<dd>The second mpi (if present), serialized into a byte array.</dd>
+</dl>
+<h4>Receiving a type 2 TLV (SMP message 1)</h4>
+<p>SMP message 1 is sent by Alice to begin a DH exchange to determine two
+new generators, g<sub>2</sub> and g<sub>3</sub>.  It contains the
+following mpi values:</p>
+<dl>
+<dt>g<sub>2a</sub></dt>
+<dd>Alice's half of the DH exchange to determine g<sub>2</sub>.</dd>
+<dt>c2, D2</dt>
+<dd>A zero-knowledge proof that Alice knows the exponent associated with
+her transmitted value g<sub>2a</sub>.</dd>
+<dt>g<sub>3a</sub></dt>
+<dd>Alice's half of the DH exchange to determine g<sub>3</sub>.</dd>
+<dt>c3, D3</dt>
+<dd>A zero-knowledge proof that Alice knows the exponent associated with
+her transmitted value g<sub>3a</sub>.</dd>
+</dl>
+<p>When Bob receives this TLV he should do:</p>
+<dl>
+<dt>If smpstate is not SMPSTATE_EXPECT1:</dt>
+<dd>Set smpstate to SMPSTATE_EXPECT1 and send a type 6 TLV (SMP abort)
+to Alice.</dd>
+<dt>If smpstate is SMPSTATE_EXPECT1:</dt>
+<dd>Verify Alice's zero-knowledge proofs for g<sub>2a</sub> and
+g<sub>3a</sub>:
+<ol>
+<li>Check that c2 = SHA256(1, g<sub>1</sub><sup>D2</sup> 
+g<sub>2a</sub><sup>c2</sup>).</li>
+<li>Check that c3 = SHA256(2, g<sub>1</sub><sup>D3</sup> 
+g<sub>3a</sub><sup>c3</sup>).</li>
+</ol>
+Create a type 3 TLV (SMP message 2) and send it to Alice:
+<ol>
+<li>Determine Bob's secret input y, which is to be compared to Alice's
+secret x.</li>
+<li>Pick random exponents b<sub>2</sub> and b<sub>3</sub>.
+These will used during the DH exchange to pick generators.</li>
+<li>Pick random exponents r2, r3, r4, r5 and r6.
+These will be used to add a blinding factor to the final results, and
+to generate zero-knowledge proofs that this message was created honestly.</li>
+<li>Compute g<sub>2b</sub> = g<sub>1</sub><sup>b<sub>2</sub></sup> and
+g<sub>3b</sub> = g<sub>1</sub><sup>b<sub>3</sub></sup></li>
+<li>Generate a zero-knowledge proof that the exponent b<sub>2</sub> is
+known by setting c2 = SHA256(3, g<sub>1</sub><sup>r2</sup>) and
+D2 = r2 - b<sub>2</sub> c2.</li>
+<li>Generate a zero-knowledge proof that the exponent b<sub>3</sub> is
+known by setting c3 = SHA256(4, g<sub>1</sub><sup>r3</sup>) and
+D3 = r3 - b<sub>3</sub> c3.</li>
+<li>Compute g<sub>2</sub> = g<sub>2a</sub><sup>b<sub>2</sub></sup> and
+g<sub>3</sub> = g<sub>3a</sub><sup>b<sub>3</sub></sup></li>
+<li>Compute P<sub>b</sub> = g<sub>3</sub><sup>r4</sup> and
+Q<sub>b</sub> = g<sub>1</sub><sup>r4</sup> g<sub>2</sub><sup>y</sup></li>
+<li>Generate a zero-knowledge proof that P<sub>b</sub> and Q<sub>b</sub>
+were created according to the protocol by setting 
+cP = SHA256(5, g<sub>3</sub><sup>r5</sup>, g<sub>1</sub><sup>r5</sup> 
+g<sub>2</sub><sup>r6</sup>), D5 = r5 - r4 cP and D6 = r6 - y cP.</li>
+<li>Store the values of g<sub>3a</sub>, g<sub>2</sub>, g<sub>3</sub>,
+b<sub>3</sub>, P<sub>b</sub> and Q<sub>b</sub> for use later in the
+protocol.</li>
+<li>Send Alice a type 3 TLV (SMP message 2) containing g<sub>2b</sub>, 
+c2, d2, g<sub>3b</sub>, c3, d3, P<sub>b</sub>, Q<sub>b</sub>, cP, D5
+and D6, in that order.</li>
+</ol>
+Set smpstate to SMPSTATE_EXPECT3.</dd>
+</dl>
+<h4>Receiving a type 3 TLV (SMP message 2)</h4>
+<p>SMP message 2 is sent by Bob to complete the DH exchange to
+determine the new generators, g<sub>2</sub> and g<sub>3</sub>. 
+It also begins the construction of the values used in the final
+comparison of the protocol.  It contains the following mpi values:</p>
+<dl>
+<dt>g<sub>2b</sub></dt>
+<dd>Bob's half of the DH exchange to determine g<sub>2</sub>.</dd>
+<dt>c2, D2</dt>
+<dd>A zero-knowledge proof that Bob knows the exponent associated with
+his transmitted value g<sub>2b</sub>.</dd>
+<dt>g<sub>3b</sub></dt>
+<dd>Bob's half of the DH exchange to determine g<sub>3</sub>.</dd>
+<dt>c3, D3</dt>
+<dd>A zero-knowledge proof that Bob knows the exponent associated with
+his transmitted value g<sub>3b</sub>.</dd>
+<dt>P<sub>b</sub>, Q<sub>b</sub></dt>
+<dd>These values are used in the final comparison to determine if Alice
+and Bob share the same secret.</dd>
+<dt>cP, D5, D6</dt>
+<dd>A zero-knowledge proof that P<sub>b</sub> and Q<sub>b</sub> were
+created according to the protcol given above.</dd>
+</dl>
+<p>When Alice receives this TLV she should do:</p>
+<dl>
+<dt>If smpstate is not SMPSTATE_EXPECT2:</dt>
+<dd>Set smpstate to SMPSTATE_EXPECT1 and send a type 6 TLV (SMP abort)
+to Bob.</dd>
+<dt>If smpstate is SMPSTATE_EXPECT2:</dt>
+<dd>Verify Bob's zero-knowledge proofs for g<sub>2b</sub>, 
+g<sub>3b</sub>, P<sub>b</sub> and Q<sub>b</sub>:
+<ol>
+<li>Check that c2 = SHA256(3, g<sub>1</sub><sup>D2</sup> 
+g<sub>2b</sub><sup>c2</sup>).</li>
+<li>Check that c3 = SHA256(4, g<sub>1</sub><sup>D3</sup> 
+g<sub>3b</sub><sup>c3</sup>).</li>
+<li>Check that cP = SHA256(5, g<sub>3</sub><sup>D5</sup> 
+P<sub>b</sub><sup>cP</sup>, g<sub>2</sub><sup>d6</sup> 
+Q<sub>b</sub><sup>cP</sup>).</li>
+</ol>
+Create a type 4 TLV (SMP message 3) and send it to Bob:
+<ol>
+<li>Pick random exponents r4, r5, r6 and r7.
+These will be used to add a blinding factor to the final results, and
+to generate zero-knowledge proofs that this message was created honestly.</li>
+<li>Compute g<sub>2</sub> = g<sub>2b</sub><sup>a<sub>2</sub></sup> and
+g<sub>3</sub> = g<sub>3b</sub><sup>a<sub>3</sub></sup></li>
+<li>Compute P<sub>a</sub> = g<sub>3</sub><sup>r4</sup> and
+Q<sub>a</sub> = g<sub>1</sub><sup>r4</sup> g<sub>2</sub><sup>x</sup></li>
+<li>Generate a zero-knowledge proof that P<sub>a</sub> and Q<sub>a</sub>
+were created according to the protocol by setting 
+cP = SHA256(6, g<sub>3</sub><sup>r5</sup>, g<sub>1</sub><sup>r5</sup> 
+g<sub>2</sub><sup>r6</sup>), D5 = r5 - r4 cP and D6 = r6 - x cP.</li>
+<li>Compute R<sub>a</sub> = (Q<sub>a</sub> / Q<sub>b</sub>)
+<sup>a<sub>3</sub></sup></li>
+<li>Generate a zero-knowledge proof that R<sub>a</sub> was created 
+according to the protocol by setting cR = SHA256(7, g<sub>1</sub><sup>r7</sup>, 
+(Q<sub>a</sub> / Q<sub>b</sub>)<sup>r7</sup>) and 
+D7 = r7 - a<sub>3</sub> cR.</li>
+<li>Store the values of g<sub>3b</sub>, (P<sub>a</sub> / P<sub>b</sub>), 
+(Q<sub>a</sub> / Q<sub>b</sub>) and R<sub>b</sub> for use later in the
+protocol.</li>
+<li>Send Bob a type 4 TLV (SMP message 3) containing P<sub>a</sub>, 
+Q<sub>a</sub>, cP, D5, D6, R<sub>a</sub>, cR and D7 in that order.</li>
+</ol>
+Set smpstate to SMPSTATE_EXPECT4.</dd>
+</dl>
+<h4>Receiving a type 4 TLV (SMP message 3)</h4>
+<p>SMP message 3 is Alice's final message in the SMP exchange.  It 
+has the last of the information required by Bob to determine if x = y.
+It contains the following mpi values:</p>
+<dl>
+<dt>P<sub>a</sub>, Q<sub>a</sub></dt>
+<dd>These values are used in the final comparison to determine if Alice
+and Bob share the same secret.</dd>
+<dt>cP, D5, D6</dt>
+<dd>A zero-knowledge proof that P<sub>a</sub> and Q<sub>a</sub> were
+created according to the protcol given above.</dd>
+<dt>R<sub>a</sub></dt>
+<dd>This value is used in the final comparison to determine if Alice
+and Bob share the same secret.</dd>
+<dt>cR, D7</dt>
+<dd>A zero-knowledge proof that R<sub>a</sub> was
+created according to the protcol given above.</dd>
+<dt>
+</dl>
+<p>When Bob receives this TLV he should do:</p>
+<dl>
+<dt>If smpstate is not SMPSTATE_EXPECT3:</dt>
+<dd>Set smpstate to SMPSTATE_EXPECT1 and send a type 6 TLV (SMP abort)
+to Bob.</dd>
+<dt>If smpstate is SMPSTATE_EXPECT3:</dt>
+<dd>Verify Alice's zero-knowledge proofs for P<sub>a</sub>, Q<sub>a</sub> 
+and R<sub>a</sub>:
+<ol>
+<li>Check that cP = SHA256(5, g<sub>3</sub><sup>D5</sup> 
+P<sub>a</sub><sup>cP</sup>, g<sub>2</sub><sup>d6</sup> 
+Q<sub>a</sub><sup>cP</sup>).</li>
+<li>Check that cR = SHA256(7, g<sub>1</sub><sup>D7</sup>
+g<sub>3a</sub><sup>cR</sup>, (Q<sub>a</sub> / Q<sub>b</sub>)<sup>D7</sup> 
+R<sub>a</sub><sup>cR</sup>).</li> 
+</ol>
+Create a type 5 TLV (SMP message 4) and send it to Alice:
+<ol>
+<li>Pick a random exponent r7.
+This will be used to generate Bob's final zero-knowledge proof that 
+this message was created honestly.</li>
+<li>Compute R<sub>b</sub> = (Q<sub>a</sub> / Q<sub>b</sub>)
+<sup>b<sub>3</sub></sup></li>
+<li>Generate a zero-knowledge proof that R<sub>b</sub> was created 
+according to the protocol by setting cR = SHA256(8, g<sub>1</sub><sup>r7</sup>, 
+(Q<sub>a</sub> / Q<sub>b</sub>)<sup>r7</sup>) and 
+D7 = r7 - b<sub>3</sub> cR.</li>
+<li>Send Alice a type 5 TLV (SMP message 4) containing R<sub>b</sub>, 
+cR and D7 in that order.</li>
+</ol>
+Check whether the protocol was successful:
+<ol>
+<li>Compute R<sub>ab</sub> = R<sub>a</sub><sup>b<sub>3</sub></sup>.</li>
+<li>Determine if x = y by checking the equivalent condition that 
+(P<sub>a</sub> / P<sub>b</sub>) = R<sub>ab</sub>.</li>
+</ol>
+Set smpstate to SMPSTATE_EXPECT1, as no more messages are expected from
+Alice.</dd>
+</dl>
+<h4>Receiving a type 5 TLV (SMP message 4)</h4>
+<p>SMP message 4 is Bob's final message in the SMP exchange.  It 
+has the last of the information required by Alice to determine if x = y.
+It contains the following mpi values:</p>
+<dl>
+<dt>R<sub>b</sub></dt>
+<dd>This value is used in the final comparison to determine if Alice
+and Bob share the same secret.</dd>
+<dt>cR, D7</dt>
+<dd>A zero-knowledge proof that R<sub>b</sub> was
+created according to the protcol given above.</dd>
+<dt>
+</dl>
+<p>When Alice receives this TLV she should do:</p>
+<dl>
+<dt>If smpstate is not SMPSTATE_EXPECT4:</dt>
+<dd>Set smpstate to SMPSTATE_EXPECT1 and send a type 6 TLV (SMP abort)
+to Bob.</dd>
+<dt>If smpstate is SMPSTATE_EXPECT4:</dt>
+<dd>Verify Bob's zero-knowledge proof for R<sub>b</sub>:
+<ol>
+<li>Check that cR = SHA256(8, g<sub>1</sub><sup>D7</sup>
+g<sub>3b</sub><sup>cR</sup>, (Q<sub>a</sub> / Q<sub>b</sub>)<sup>D7</sup> 
+R<sub>b</sub><sup>cR</sup>).</li> 
+</ol>
+Check whether the protocol was successful:
+<ol>
+<li>Compute R<sub>ab</sub> = R<sub>b</sub><sup>a<sub>3</sub></sup>.</li>
+<li>Determine if x = y by checking the equivalent condition that 
+(P<sub>a</sub> / P<sub>b</sub>) = R<sub>ab</sub>.</li>
+</ol>
+Set smpstate to SMPSTATE_EXPECT1, as no more messages are expected from
+Bob.</dd>
+</dl>
+<h4>User requests to begin SMP</h4>
+<dl>
+<dt>If smpstate is not set to SMPSTATE_EXPECT1:</dt>
+<dd>SMP is already underway.  If you wish to restart SMP, send a
+type 6 TLV (SMP abort) to the other party and then proceed as if
+smpstate was SMPSTATE_EXPECT1.  Otherwise, you may simply continue the
+current SMP instance.</dd>
+<dt>If smpstate is set to SMPSTATE_EXPECT1:</dt>
+<dd>No current exchange is underway.  In this case, Alice should 
+create a valid type 2 TLV (SMP message 1) as follows:
+<ol>
+<li>Determine her secret input x, which is to be compared to Bob's
+secret y.</li>
+<li>Pick random values a<sub>2</sub> and a<sub>3</sub> (128 bits).
+These will be Alice's exponents for the DH exchange to pick generators.</li>
+<li>Pick random values r2 and r3 (128 bits).
+These will be used to generate zero-knowledge proofs that this message
+was created according to the protocol.</li>
+<li>Compute g<sub>2a</sub> = g<sub>1</sub><sup>a<sub>2</sub></sup> and
+g<sub>3a</sub> = g<sub>1</sub><sup>a<sub>3</sub></sup></li>
+<li>Generate a zero-knowledge proof that the exponent a<sub>2</sub> is
+known by setting c2 = SHA256(1, g<sub>1</sub><sup>r2</sup>) and
+D2 = r2 - a<sub>2</sub> c2.</li>
+<li>Generate a zero-knowledge proof that the exponent a<sub>3</sub> is
+known by setting c3 = SHA256(2, g<sub>1</sub><sup>r3</sup>) and
+D3 = r3 - a<sub>3</sub> c3.</li>
+<li>Store the values of x, a<sub>2</sub> and a<sub>3</sub> 
+for use later in the protocol.</li>
+<li>Send Bob a type 2 TLV (SMP message 1) containing g<sub>2a</sub>, 
+c2, d2, g<sub>3a</sub>, c3 and D3 in that order.</li>
+</ol>
+Set smpstate to SMPSTATE_EXPECT2.</dd>
+</dl>
+<h4>User requests to abort SMP</h4>
+<p>In all cases, send a type 6 TLV (SMP abort) to the correspondent and
+set smpstate to SMPSTATE_EXPECT1.</p>
 <h4>Key Management</h4>
 <p>For each correspondent, keep track of:</p>
 <dl>
