@@ -125,6 +125,26 @@ If newmessage gets set by the call to something non-NULL, then you
 should replace your message with the contents of newmessage, and
 send that instead.
 
+Once the message is encrypted, it may still be too large to send over
+the network in a single piece.  To check the maximum message size and
+break your message into fragments if necessary, do this:
+
+    gcry_error_t err;
+    char *extrafragment = NULL;
+
+    err = otrl_message_fragment_and_send(&ui_ops, opdata, context,
+	    message, fragmentPolicy, extrafragment);
+
+fragmentPolicy determines which, if any, fragments to return instead
+of sending them immediately.  For example, you may wish to send all 
+fragments except the last one, which is handled differently.  Valid
+policies may be found in proto.h.
+
+If err returns a nonzero value from fragment_and_send, the application
+tried to break your message into fragments but failed for some reason.
+You may still attempt to send the original message, but it might be
+rejected if it too large.
+
 When you're done with newmessage, you must call
 
     otrl_message_free(newmessage)
@@ -160,6 +180,14 @@ user without modification.
 If tlvs is set to non-NULL, then there is machine-readable data that was
 sent along with this message.  Call otrl_tlv_free(tlvs) when you're done
 dealing with it (or ignoring it).
+
+5. Socialist Millionaires' Protocol
+
+The Socialist Millionaires' Protocol (SMP) is a way to detect
+eavesdropping and man-in-the-middle attacks without requiring users to
+work with fingerprints.  This feature was added to OTR starting in
+version 3.1.0.  To learn how to modify your application to use SMP, read
+the UPGRADING file.
 
 TOOLKIT
 
