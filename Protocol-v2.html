@@ -245,8 +245,11 @@ Q<sub>a</sub> = g<sub>1</sub><sup>s</sup> g<sub>2</sub><sup>x</sup></li>
 </ol></li>
 <li>If everything is done correctly, then R<sub>ab</sub> should hold the
 value of (P<sub>a</sub> / P<sub>b</sub>) times
-g<sub>2</sub><sup>(x - y)</sup>, which means that the test at the end of
-the protocol will only succeed if x == y.</li>
+(g<sub>2</sub><sup>a<sub>3</sub>b<sub>3</sub></sup>)<sup>(x - y)</sup>, which means that the test at the end of
+the protocol will only succeed if x == y. Further, since
+g<sub>2</sub><sup>a<sub>3</sub>b<sub>3</sub></sup> is a random number
+not known to any party, if x is not equal to y, no other information is
+revealed.</li>
 </ul>
 <h2>Details of the protocol</h2>
 <h3>Unencoded messages</h3>
@@ -418,7 +421,7 @@ it.</p>
 <li>Encode this encrypted value as the DATA field.</li>
 </ul></dd>
 <dt>Hashed g<sup>x</sup> (DATA)</dt>
-<dd>This is the SHA-256 hash of gxmpi.</dd>
+<dd>This is the SHA256 hash of gxmpi.</dd>
 </dl>
 <h4>D-H Key Message</h4>
 <p>This is the second message of the AKE.  Alice sends it to Bob, and it
@@ -578,16 +581,16 @@ you should change the SMP state to SMP_EXPECT1 (see below).</dd>
 format:</p> 
 <dl>
 <dt>MPI count (INT)</dt>
-<dd>The number of mpis contained in the remainder of the TLV.</dd>
-<dt>Length (INT)</dt>
-<dd>The length of the first encoded mpi.</dd>
-<dt>Serialized MPI (len BYTEs)  [where len is the value of the Length field]</dt>
-<dd>The first mpi of the TLV, serialized into a byte array.</dd>
+<dd>The number of MPIs contained in the remainder of the TLV.</dd>
+<dt>MPI 1 (MPI)</dt>
+<dd>The first MPI of the TLV, serialized into a byte array.</dd>
+<dt>MPI 2 (MPI)</dt>
+<dd>The second MPI of the TLV, serialized into a byte array.</dd>
+<dt>etc.</dt>
 </dl>
-<p>These fields are followed by additional (Length, Serialized MPI) pairs
-for the remaining mpis for this TLV.  There should be as many pairs as
-declared in the MPI count field.  For the exact MPIs passed for each SMP TLV,
-see the SMP state machine below.</p>
+<p>There should be as many MPIs as declared in the MPI count field.  For
+the exact MPIs passed for each SMP TLV, see the SMP state machine
+below.</p>
 <p>A message with an empty human-readable part (the plaintext is of zero
 length, or starts with a NUL) is a "heartbeat" packet, and should not
 be displayed to the user.  (But it's still useful to effect key
@@ -715,23 +718,18 @@ all assume that MSGSTATE_ENCRYPTED is set.  For simplicity, they also
 assume that Alice has begun SMP, and Bob is responding to her.</p>
 <h4>SMP Hash function</h4>
 <p>In the following actions, there are many places where a SHA256 hash of
-an integer followed by one or two mpis is taken.  The input to this hash
+an integer followed by one or two MPIs is taken.  The input to this hash
 function is:</p>
 <dl>
 <dt>Version (BYTE)</dt>
 <dd>This distinguishes calls to the hash function at different points in
 the protocol, to prevent Alice from replaying Bob's zero knowledge proofs
 or vice versa.</dd>
-<dt>Length of first mpi (INT)</dt>
-<dd>The length of the first number given as input, expressed as a serialized
-mpi.</dd>
-<dt>First mpi (len1 BYTEs) [where len1 is the preceeding length]</dt>
-<dd>The first mpi, serialized into a byte array.</dd>
-<dt>Length of second mpi (optional, INT)</dt>
-<dd>The length of the second number (if present) given as input, expressed as a serialized
-mpi.</dd>
-<dt>Second mpi (optional, len2 BYTEs) [where len2 is the preceeding length]</dt>
-<dd>The second mpi (if present), serialized into a byte array.</dd>
+<dt>First MPI (MPI)</dt>
+<dd>The first MPI given as input, serialized in the usual way.</dd>
+<dt>Second MPI (MPI)</dt>
+<dd>The second MPI given as input, if present, serialized in the usual way.
+If only one MPI is given as input, this field is simply omitted.</dd>
 </dl>
 <h4>Receiving a type 2 TLV (SMP message 1)</h4>
 <p>SMP message 1 is sent by Alice to begin a DH exchange to determine two
@@ -992,7 +990,7 @@ Set smpstate to SMPSTATE_EXPECT2.</dd>
 <h4>User requests to abort SMP</h4>
 <p>In all cases, send a type 6 TLV (SMP abort) to the correspondent and
 set smpstate to SMPSTATE_EXPECT1.</p>
-<h4>Key Management</h4>
+<h3>Key Management</h3>
 <p>For each correspondent, keep track of:</p>
 <dl>
 <dt>Your two most recent DH public/private key pairs</dt>
@@ -1155,7 +1153,7 @@ can modify an OTR message and still have it appear valid.  But since we
 don't reveal the MAC keys until their corresponding pubkeys are being
 discarded, there is no danger of accepting a message as valid which
 uses a MAC key which has already been revealed.</p>
-<h4>Fragmentation</h4>
+<h3>Fragmentation</h3>
 <p>Some networks may have a maximum message size that is too small to
 contain an encoded OTR message.  In that event, the sender may choose
 to split the message into a number of <em>fragments</em>.  This section
