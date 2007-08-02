@@ -1,7 +1,7 @@
 Summary: Off-The-Record Messaging library and toolkit
 Name: libotr
 Version: 3.1.0
-Release: preview2%{?dist}
+Release: 1%{?dist}
 License: GPL and LGPL
 Group: System Environment/Libraries
 Source0: http://otr.cypherpunks.ca/%{name}-%{version}.tar.gz
