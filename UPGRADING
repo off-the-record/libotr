@@ -19,13 +19,13 @@ Table of Contents
 1. Introduction
 
 This file contains information about the changes between the 3.0.0 and
-the 3.1.0 APIs for libotr.  Note that, as a minor release, applications
-compiled against 3.0.0 will continue to work with 3.1.0.  This document
-explains how to add the new functionality in 3.1.0.
+the 3.2.0 APIs for libotr.  Note that, as a minor release, applications
+compiled against 3.0.0 will continue to work with 3.2.0.  This document
+explains how to add the new functionality in 3.2.0.
 
 2. Major Additions
 
-This section describes the new features in OTR 3.1.0 along with a short
+This section describes the new features in OTR 3.2.0 along with a short
 history or motivation for each.
 
 2.1. Fragmentation
@@ -39,7 +39,7 @@ networks with low MMS values, support for fragmentation was added.
 OTR version 3.0.0 added support for recombining message fragments to
 recover the original message.  Now that users may be assumed to be able to
 handle message fragments, support for fragmenting and sending large
-messages has been added to OTR 3.1.0.
+messages has been added to OTR 3.2.0.
 
 2.2. Socialist Millionaires' Protocol
 
@@ -53,7 +53,7 @@ but this is a large enough hassle that many users omit fingerprint
 verification altogether.
 
 To allow for a method of authentication that is both easier to understand
-and easier to use, OTR version 3.1.0 includes the Socialist Millionaires'
+and easier to use, OTR version 3.2.0 includes the Socialist Millionaires'
 Protocol (SMP).  SMP runs as follows: each user inputs a secret string,
 say "x" and "y".  They then exchange a series of messages which reveal
 the value of (x==y), but no additional information about the inputs.
@@ -216,8 +216,11 @@ SMP by sending an appropriate OTRL_TLV_SMP_ABORT (see below).
 The protocol itself consists of 4 messages passed between the two users,
 say Alice and Bob.  These messages are identified through their TLVs:
 
-OTRL_TLV_SMP1       The initial message, containing Alice's secret
-OTRL_TLV_SMP2       A response containing Bob's secret
+OTRL_TLV_SMP1       The initial message, containing a commitment to
+                      Alice's secret
+OTRL_TLV_SMP1Q      Like OTRL_TLV_SMP1, but also containing a question
+                      to display to Bob
+OTRL_TLV_SMP2       A response containing a commitment to Bob's secret
 OTRL_TLV_SMP3       The next message in the chain, from Alice to Bob
 OTRL_TLV_SMP4       The final message in the chain, from Bob to Alice
 OTRL_TLV_SMP_ABORT  Indicates an error has occurred. Will reset SMP state
@@ -247,49 +250,69 @@ like this:
     ConnContext *context = [correct context];
     NextExpectedSMP nextMsg = context->smstate->nextExpected;
 
-    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1);
-    if (tlv) {
-        if (nextMsg != OTRL_SMP_EXPECT1)
-	    [abort SMP];
-        else {
-	    [get secret from user and continue SMP];
-        }
-    }
-    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP2);
-    if (tlv) {
-        if (nextMsg != OTRL_SMP_EXPECT2)
-	    [abort SMP];
-        else {
-	    // If we received TLV2, we will send TLV3 and expect TLV4
-            context->smstate->nextExpected = OTRL_SMP_EXPECT4;
-        }
-    }
-    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP3);
-    if (tlv) {
-        if (nextMsg != OTRL_SMP_EXPECT3)
-	    [abort SMP];
-        else {
-	    // If we received TLV3, we will send TLV4
-            // We will not expect more messages, so prepare for next SMP
-            context->smstate->nextExpected = OTRL_SMP_EXPECT1;
-	    // Report result to user
-        }
-    }
-    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP4);
-    if (tlv) {
-        if (nextMsg != OTRL_SMP_EXPECT4)
-	    [abort SMP];
-        else {
-            // We will not expect more messages, so prepare for next SMP
-            context->smstate->nextExpected = OTRL_SMP_EXPECT1;
-	    // Report result to user
-        }
-    }
-    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP_ABORT);
-    if (tlv) {
-	// The message we are waiting for will not arrive, so reset
-        // and prepare for the next SMP
+    if (context->smstate->sm_prog_state == OTRL_SMP_PROG_CHEATED) {
+	otrg_plugin_abort_smp(context);
+	otrg_dialog_update_smp(context, 0.0);
 	context->smstate->nextExpected = OTRL_SMP_EXPECT1;
+	context->smstate->sm_prog_state = OTRL_SMP_PROG_OK;
+    } else {
+	tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1Q);
+	if (tlv) {
+	    if (nextMsg != OTRL_SMP_EXPECT1)
+		[abort SMP];
+	    else {
+		char *question = (char *)tlv->data;
+		char *eoq = memchr(question, '\0', tlv->len);
+		if (eoq) {
+		    [prompt the user with question, get the response,
+			and continue SMP];
+		}
+	    }
+	}
+	tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1);
+	if (tlv) {
+	    if (nextMsg != OTRL_SMP_EXPECT1)
+		[abort SMP];
+	    else {
+		[get secret from user and continue SMP];
+	    }
+	}
+	tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP2);
+	if (tlv) {
+	    if (nextMsg != OTRL_SMP_EXPECT2)
+		[abort SMP];
+	    else {
+		// If we received TLV2, we will send TLV3 and expect TLV4
+		context->smstate->nextExpected = OTRL_SMP_EXPECT4;
+	    }
+	}
+	tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP3);
+	if (tlv) {
+	    if (nextMsg != OTRL_SMP_EXPECT3)
+		[abort SMP];
+	    else {
+		// If we received TLV3, we will send TLV4
+		// We will not expect more messages, so prepare for next SMP
+		context->smstate->nextExpected = OTRL_SMP_EXPECT1;
+		// Report result to user
+	    }
+	}
+	tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP4);
+	if (tlv) {
+	    if (nextMsg != OTRL_SMP_EXPECT4)
+		[abort SMP];
+	    else {
+		// We will not expect more messages, so prepare for next SMP
+		context->smstate->nextExpected = OTRL_SMP_EXPECT1;
+		// Report result to user
+	    }
+	}
+	tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP_ABORT);
+	if (tlv) {
+	    // The message we are waiting for will not arrive, so reset
+	    // and prepare for the next SMP
+	    context->smstate->nextExpected = OTRL_SMP_EXPECT1;
+	}
     }
 
 To report the result to the user after receiving OTRL_TLV_SMP3 or

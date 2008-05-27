@@ -1,3 +1,29 @@
+2008-05-27:
+
+	* UPGRADING: Update documentation.
+
+	* README:
+	* toolkit/*.[ch]:
+	* src/*.[ch]: Update copyright dates to 2004-2008.
+
+	* src/tlv.h: Add new OTRL_TLV_SMP1Q TLV type to indicate an
+	instance of the first SMP message, with an explicit question.
+
+	* src/sm.h:
+	* src/sm.c: More carefully track the progress of the SMP using a
+	new smp_prog_state field.  Also keep track of whether Bob
+	received an explicit question from Alice using a new
+	received_question field.
+
+	* src/message.c: Handle explicit questions for the SMP.
+
+	* src/message.c: Behave better if an SMP message fails
+	verification.
+
+	* README:
+	* configure.ac:
+	* src/version.h: Update version number to 3.2.0.
+
 2007-07-26
 
 	* src/sm.c:

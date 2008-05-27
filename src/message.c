@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2007  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -509,8 +509,8 @@ static void set_smp_trust(const OtrlMessageAppOps *ops, void *opdata,
 }
 
 static void init_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
-	void *opdata, ConnContext *context, const unsigned char *secret,
-	size_t secretlen, int initiating)
+	void *opdata, ConnContext *context, const char *question,
+	const unsigned char *secret, size_t secretlen, int initiating)
 {
     unsigned char *smpmsg = NULL;
     int smpmsglen;
@@ -560,8 +560,25 @@ static void init_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 		&smpmsg, &smpmsglen);
     }
 
+    /* If we've got a question, attach it to the smpmsg */
+    if (question != NULL) {
+	size_t qlen = strlen(question);
+	unsigned char *qsmpmsg = malloc(qlen + 1 + smpmsglen);
+	if (!qsmpmsg) {
+	    free(smpmsg);
+	    return;
+	}
+	strcpy((char *)qsmpmsg, question);
+	memmove(qsmpmsg + qlen + 1, smpmsg, smpmsglen);
+	free(smpmsg);
+	smpmsg = qsmpmsg;
+	smpmsglen += qlen + 1;
+    }
+
     /* Send msg with next smp msg content */
-    sendtlv = otrl_tlv_new(initiating ? OTRL_TLV_SMP1 : OTRL_TLV_SMP2,
+    sendtlv = otrl_tlv_new(initiating ?
+	    (question != NULL ? OTRL_TLV_SMP1Q : OTRL_TLV_SMP1)
+	    : OTRL_TLV_SMP2,
 	    smpmsglen, smpmsg);
     err = otrl_proto_create_data(&sendsmp, context, "", sendtlv,
             OTRL_MSGFLAGS_IGNORE_UNREADABLE);
@@ -583,7 +600,16 @@ void otrl_message_initiate_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, ConnContext *context, const unsigned char *secret,
 	size_t secretlen)
 {
-    init_respond_smp(us, ops, opdata, context, secret, secretlen, 1);
+    init_respond_smp(us, ops, opdata, context, NULL, secret, secretlen, 1);
+}
+
+/* Initiate the Socialist Millionaires' Protocol and send a prompt
+ * question to the buddy */
+void otrl_message_initiate_smp_q(OtrlUserState us,
+	const OtrlMessageAppOps *ops, void *opdata, ConnContext *context,
+	const char *question, const unsigned char *secret, size_t secretlen)
+{
+    init_respond_smp(us, ops, opdata, context, question, secret, secretlen, 1);
 }
 
 /* Respond to a buddy initiating the Socialist Millionaires' Protocol */
@@ -591,7 +617,7 @@ void otrl_message_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, ConnContext *context, const unsigned char *secret,
 	size_t secretlen)
 {
-    init_respond_smp(us, ops, opdata, context, secret, secretlen, 0);
+    init_respond_smp(us, ops, opdata, context, NULL, secret, secretlen, 0);
 }
 
 /* Abort the SMP.  Called when an unexpected SMP message breaks the
@@ -1006,12 +1032,24 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 
                     /* If TLVs contain SMP data, process it */
 		    nextMsg = context->smstate->nextExpected;
+                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1Q);
+		    if (tlv && nextMsg == OTRL_SMP_EXPECT1) {
+			/* We can only do the verification half now.
+			 * We must wait for the secret to be entered
+			 * to continue. */
+			char *question = (char *)tlv->data;
+			char *qend = memchr(question, '\0', tlv->len - 1);
+			size_t qlen = qend ? (qend - question + 1) : tlv->len;
+			otrl_sm_step2a(context->smstate, tlv->data + qlen,
+				tlv->len - qlen, 1);
+                    }
                     tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1);
 		    if (tlv && nextMsg == OTRL_SMP_EXPECT1) {
 			/* We can only do the verification half now.
 			 * We must wait for the secret to be entered
 			 * to continue. */
-			otrl_sm_step2a(context->smstate, tlv->data, tlv->len);
+			otrl_sm_step2a(context->smstate, tlv->data, tlv->len,
+				0);
                     }
                     tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP2);
 		    if (tlv && nextMsg == OTRL_SMP_EXPECT2) {
@@ -1022,17 +1060,22 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			otrl_sm_step3(context->smstate, tlv->data, tlv->len,
 					&nextmsg, &nextmsglen);
 			
-			/* Send msg with next smp msg content */
-			sendtlv = otrl_tlv_new(OTRL_TLV_SMP3, nextmsglen,
-				nextmsg);
-			err = otrl_proto_create_data(&sendsmp,
-				context, "", sendtlv,
-				OTRL_MSGFLAGS_IGNORE_UNREADABLE);
-			if (!err) {
-			    err = otrl_message_fragment_and_send(ops, opdata, context, sendsmp, OTRL_FRAGMENT_SEND_ALL, NULL);
+			if (context->smstate->sm_prog_state !=
+				OTRL_SMP_PROG_CHEATED) {
+			    /* Send msg with next smp msg content */
+			    sendtlv = otrl_tlv_new(OTRL_TLV_SMP3, nextmsglen,
+				    nextmsg);
+			    err = otrl_proto_create_data(&sendsmp,
+				    context, "", sendtlv,
+				    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+			    if (!err) {
+				err = otrl_message_fragment_and_send(ops,
+					opdata, context, sendsmp,
+					OTRL_FRAGMENT_SEND_ALL, NULL);
+			    }
+			    free(sendsmp);
+			    otrl_tlv_free(sendtlv);
 			}
-			free(sendsmp);
-			otrl_tlv_free(sendtlv);
 			free(nextmsg);
                     }
                     tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP3);
@@ -1044,20 +1087,27 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			err = otrl_sm_step4(context->smstate, tlv->data,
 					tlv->len, &nextmsg, &nextmsglen);
 			/* Set trust level based on result */
-			set_smp_trust(ops, opdata, context,
-				(err == gcry_error(GPG_ERR_NO_ERROR)));
-			
-			/* Send msg with next smp msg content */
-			sendtlv = otrl_tlv_new(OTRL_TLV_SMP4, nextmsglen,
-				nextmsg);
-			err = otrl_proto_create_data(&sendsmp,
-				context, "", sendtlv,
-				OTRL_MSGFLAGS_IGNORE_UNREADABLE);
-			if (!err) {
-			    err = otrl_message_fragment_and_send(ops, opdata, context, sendsmp, OTRL_FRAGMENT_SEND_ALL, NULL);
+			if (context->smstate->received_question == 0) {
+			    set_smp_trust(ops, opdata, context,
+				    (err == gcry_error(GPG_ERR_NO_ERROR)));
 			}
-			free(sendsmp);
-			otrl_tlv_free(sendtlv);
+			
+			if (context->smstate->sm_prog_state !=
+				OTRL_SMP_PROG_CHEATED) {
+			    /* Send msg with next smp msg content */
+			    sendtlv = otrl_tlv_new(OTRL_TLV_SMP4, nextmsglen,
+				    nextmsg);
+			    err = otrl_proto_create_data(&sendsmp,
+				    context, "", sendtlv,
+				    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+			    if (!err) {
+				err = otrl_message_fragment_and_send(ops,
+					opdata, context, sendsmp,
+					OTRL_FRAGMENT_SEND_ALL, NULL);
+			    }
+			    free(sendsmp);
+			    otrl_tlv_free(sendtlv);
+			}
 			free(nextmsg);
                     }
                     tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP4);
