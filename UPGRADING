@@ -28,7 +28,7 @@ explains how to add the new functionality in 3.2.0.
 This section describes the new features in OTR 3.2.0 along with a short
 history or motivation for each.
 
-2.1. Fragmentation
+2.1. Fragmentation  [Added in 3.1.0]
 
 Most IM networks supported by Pidgin have fixed maximum message sizes
 (MMS) of approximately 1-3 kB.  The longer messages in the initial key
@@ -41,7 +41,7 @@ recover the original message.  Now that users may be assumed to be able to
 handle message fragments, support for fragmenting and sending large
 messages has been added to OTR 3.2.0.
 
-2.2. Socialist Millionaires' Protocol
+2.2. Socialist Millionaires' Protocol  [Added in 3.1.0, revised in 3.2.0]
 
 In version 3.0.0, the only method available to authenticate a buddy was
 fingerprint verification.  However, many users who are unfamiliar with
@@ -84,7 +84,7 @@ For detailed information on how SMP works, see the paper by Boudot,
 Schoenmakers and Traore titled "A Fair and Efficient Solution to the
 Socialist Millionaires Problem" (2001), on which our solution is based.
 
-3. Required Changes
+3. Required Changes  [Added in 3.1.0]
 
 3.1. OtrlMessageAppOps Callbacks
 
@@ -142,7 +142,7 @@ released.
 Setting account_name to NULL will cause libotr to use
 ConnContext->accountname as the displayed name for an account.
 
-3.2. Using Fragmentation
+3.2. Using Fragmentation  [Added in 3.1.0]
 
 To make use of fragmentation, first make sure that the max_message_size
 callback described in 3.1.1. has been implemented.  Then, whenever you
@@ -168,7 +168,7 @@ regular message.  In order to reassemble the fragments, however, they
 must be received in order, so at most one of the latter two options
 will result in readable messages.
 
-3.3. Using SMP
+3.3. Using SMP  [Added in 3.1.0, revised in 3.2.0]
 
 Recall from section 2.2. above that SMP takes one input string from each
 user and outputs either failure or success.
