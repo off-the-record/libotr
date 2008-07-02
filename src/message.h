@@ -234,7 +234,9 @@ void otrl_message_abort_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, ConnContext *context);
 
 /* Get the current extra symmetric key (of size OTRL_EXTRAKEY_BYTES
- * bytes) and let the other side know what we're going to use it for. */
+ * bytes) and let the other side know what we're going to use it for.
+ * The key is stored in symkey, which must already be allocated
+ * and OTRL_EXTRAKEY_BYTES bytes long. */
 gcry_error_t otrl_message_symkey(OtrlUserState us,
 	const OtrlMessageAppOps *ops, void *opdata, ConnContext *context,
 	unsigned int use, const unsigned char *usedata, size_t usedatalen,
