@@ -135,9 +135,11 @@ gcry_error_t otrl_proto_data_read_flags(const char *datamsg,
 
 /* Accept an OTR Data Message in datamsg.  Decrypt it and put the
  * plaintext into *plaintextp, and any TLVs into tlvsp.  Put any
- * received flags into *flagsp (if non-NULL). */
+ * received flags into *flagsp (if non-NULL).  Put the current extra
+ * symmetric key into extrakey (if non-NULL). */
 gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
-	ConnContext *context, const char *datamsg, unsigned char *flagsp);
+	ConnContext *context, const char *datamsg, unsigned char *flagsp,
+	unsigned char *extrakey);
 
 /* Accumulate a potential fragment into the current context. */
 OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,

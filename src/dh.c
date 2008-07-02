@@ -200,6 +200,12 @@ gcry_error_t otrl_dh_session(DH_sesskeys *sess, const DH_keypair *kp,
     err = gcry_md_setkey(sess->rcvmac, sess->rcvmackey, 20);
     if (err) goto err;
 
+    /* Calculate the extra key (used if applications wish to extract a
+     * symmetric key for transferring files, or something like that) */
+    /* XXX: Document this in the protocol spec */
+    gabdata[0] = 0xff;
+    gcry_md_hash_buffer(GCRY_MD_SHA256, sess->extrakey, gabdata, gablen+5);
+
     gcry_free(gabdata);
     gcry_free(hashdata);
     return gcry_error(GPG_ERR_NO_ERROR);
@@ -442,6 +448,7 @@ void otrl_dh_session_blank(DH_sesskeys *sess)
     memset(sess->rcvmackey, 0, 20);
     sess->sendmacused = 0;
     sess->rcvmacused = 0;
+    memset(sess->extrakey, 0, OTRL_EXTRAKEY_BYTES);
 }
 
 /* Increment the top half of a counter block */

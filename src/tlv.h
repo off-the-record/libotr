@@ -44,6 +44,13 @@ typedef struct s_OtrlTLV {
 /* Like OTRL_TLV_SMP1, but there's a question for the buddy at the
  * beginning */
 #define OTRL_TLV_SMP1Q           0x0007
+/* Tell the application the current "extra" symmetric key */
+/* XXX: Document this in the protocol spec:
+ * The body of the TLV will begin with a 4-byte indication of what this
+ * symmetric key will be used for (file transfer, voice encryption,
+ * etc.).  After that, the contents are use-specific (which file, etc.).
+ * There are no currently defined uses. */
+#define OTRL_TLV_SYMKEY          0x0008
 
 /* Make a single TLV, copying the supplied data */
 OtrlTLV *otrl_tlv_new(unsigned short type, unsigned short len,

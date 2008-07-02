@@ -572,9 +572,11 @@ invval:
 
 /* Accept an OTR Data Message in datamsg.  Decrypt it and put the
  * plaintext into *plaintextp, and any TLVs into tlvsp.  Put any
- * received flags into *flagsp (if non-NULL). */
+ * received flags into *flagsp (if non-NULL).  Put the current extra
+ * symmetric key into extrakey (if non-NULL). */
 gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
-	ConnContext *context, const char *datamsg, unsigned char *flagsp)
+	ConnContext *context, const char *datamsg, unsigned char *flagsp,
+	unsigned char *extrakey)
 {
     char *otrtag, *endtag;
     gcry_error_t err;
@@ -705,6 +707,11 @@ gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
     if (err) goto err;
     err = gcry_cipher_decrypt(sess->rcvenc, data, datalen, NULL, 0);
     if (err) goto err;
+
+    /* Save a copy of the current extra key */
+    if (extrakey) {
+	memmove(extrakey, sess->extrakey, OTRL_EXTRAKEY_BYTES);
+    }
 
     /* See if either set of keys needs rotating */
 

@@ -20,6 +20,18 @@
 #ifndef __MESSAGE_H__
 #define __MESSAGE_H__
 
+/* These define the events used to indicate status of SMP to the UI */
+typedef enum {
+    OTRL_SMPEVENT_ERROR,
+    OTRL_SMPEVENT_ABORT,
+    OTRL_SMPEVENT_CHEATED,
+    OTRL_SMPEVENT_ASK_FOR_ANSWER,
+    OTRL_SMPEVENT_ASK_FOR_SECRET,
+    OTRL_SMPEVENT_IN_PROGRESS,
+    OTRL_SMPEVENT_SUCCESS,
+    OTRL_SMPEVENT_FAILURE
+} OtrlSMPEvent;
+
 typedef enum {
     OTRL_NOTIFY_ERROR,
     OTRL_NOTIFY_WARNING,
@@ -107,6 +119,19 @@ typedef struct s_OtrlMessageAppOps {
 
     /* Deallocate a string returned by account_name */
     void (*account_name_free)(void *opdata, const char *account_name);
+
+    /* We received a request from the buddy to use the current "extra"
+     * symmetric key.  The key will be passed in symkey, of length
+     * OTRL_EXTRAKEY_BYTES.  The TLV which carried the request will be
+     * passed in tlv, so that the applications can communicate other
+     * identifiers (some id for the data transfer, for example). */
+    void (*received_symkey)(void *opdata, ConnContext *context,
+	    OtrlTLV *tlv, const unsigned char *symkey);
+    
+    /* Update the auth UI with respect to SMP events */
+    void (*handle_smp_event)(void *opdata, OtrlSMPEvent smp_event,
+	    ConnContext *context, unsigned short progress_percent,
+	    char *question);
 
 } OtrlMessageAppOps;
 

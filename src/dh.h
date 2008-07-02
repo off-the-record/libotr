@@ -33,6 +33,8 @@ typedef enum {
     OTRL_SESSIONID_SECOND_HALF_BOLD
 } OtrlSessionIdHalf;
 
+#define OTRL_EXTRAKEY_BYTES 32
+
 typedef struct {
     unsigned char sendctr[16];
     unsigned char rcvctr[16];
@@ -44,6 +46,7 @@ typedef struct {
     gcry_md_hd_t rcvmac;
     unsigned char rcvmackey[20];
     int rcvmacused;
+    unsigned char extrakey[OTRL_EXTRAKEY_BYTES];
 } DH_sesskeys;
 
 /*

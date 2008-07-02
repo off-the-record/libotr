@@ -106,6 +106,10 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
         return gcry_error(GPG_ERR_NO_ERROR);
     }
 
+    /* XXX: Add flags to the policy specifying whether to treat a typed
+     * "?OTR?" as a signal to start OTR, or just an ordinary message,
+     * for (1) unencrypted conversations, (2) encrypted conversations. */
+
     /* If this is an OTR Query message, don't encrypt it. */
     if (otrl_proto_message_type(message) == OTRL_MSGTYPE_QUERY) {
 	/* Replace the "?OTR?" with a custom message */
@@ -921,6 +925,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		char *buf;
 		const char *format;
 		const char *displayaccountname;
+		unsigned char *extrakey;
 		unsigned char flags;
 		NextExpectedSMP nextMsg;
 
@@ -986,8 +991,9 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    break;
 
 		case OTRL_MSGSTATE_ENCRYPTED:
+		    extrakey = gcry_malloc_secure(OTRL_EXTRAKEY_BYTES);
 		    err = otrl_proto_accept_data(&plaintext, &tlvs, context,
-			    message, &flags);
+			    message, &flags, extrakey);
 		    if (err) {
 			int is_conflict =
 			    (gpg_err_code(err) == GPG_ERR_CONFLICT);
@@ -1030,98 +1036,264 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			otrl_context_force_finished(context);
 		    }
 
+		    /* If the other side told us to use the current
+		     * extra symmetric key, let the application know. */
+		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SYMKEY);
+		    if (tlv && otrl_api_version >= 0x040000) {
+			if (ops->received_symkey) {
+			    ops->received_symkey(opdata, context, tlv,
+				    extrakey);
+			}
+		    }
+		    gcry_free(extrakey);
+		    extrakey = NULL;
+
                     /* If TLVs contain SMP data, process it */
 		    nextMsg = context->smstate->nextExpected;
-                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1Q);
-		    if (tlv && nextMsg == OTRL_SMP_EXPECT1) {
-			/* We can only do the verification half now.
-			 * We must wait for the secret to be entered
-			 * to continue. */
-			char *question = (char *)tlv->data;
-			char *qend = memchr(question, '\0', tlv->len - 1);
-			size_t qlen = qend ? (qend - question + 1) : tlv->len;
-			otrl_sm_step2a(context->smstate, tlv->data + qlen,
+
+		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1Q);
+		    if (tlv) {
+			if (nextMsg == OTRL_SMP_EXPECT1) {
+			    /* We can only do the verification half now.
+			     * We must wait for the secret to be entered
+			     * to continue. */
+			    char *question = (char *)tlv->data;
+			    char *qend = memchr(question, '\0', tlv->len - 1);
+			    size_t qlen = qend ? (qend - question + 1) :
+				tlv->len;
+			    otrl_sm_step2a(context->smstate, tlv->data + qlen,
 				tlv->len - qlen, 1);
-                    }
-                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1);
-		    if (tlv && nextMsg == OTRL_SMP_EXPECT1) {
-			/* We can only do the verification half now.
-			 * We must wait for the secret to be entered
-			 * to continue. */
-			otrl_sm_step2a(context->smstate, tlv->data, tlv->len,
-				0);
-                    }
-                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP2);
-		    if (tlv && nextMsg == OTRL_SMP_EXPECT2) {
-			unsigned char* nextmsg;
-			int nextmsglen;
-			OtrlTLV *sendtlv;
-			char *sendsmp;
-			otrl_sm_step3(context->smstate, tlv->data, tlv->len,
-					&nextmsg, &nextmsglen);
-			
-			if (context->smstate->sm_prog_state !=
-				OTRL_SMP_PROG_CHEATED) {
-			    /* Send msg with next smp msg content */
-			    sendtlv = otrl_tlv_new(OTRL_TLV_SMP3, nextmsglen,
-				    nextmsg);
-			    err = otrl_proto_create_data(&sendsmp,
+
+			    if (context->smstate->sm_prog_state !=
+				    OTRL_SMP_PROG_CHEATED) {
+				if (ops->handle_smp_event) {
+				    ops->handle_smp_event(opdata,
+					    OTRL_SMPEVENT_ASK_FOR_ANSWER,
+					    context, 25, question);
+				}
+			    } else {
+				if (ops->handle_smp_event) {
+				    ops->handle_smp_event(opdata,
+					    OTRL_SMPEVENT_CHEATED, context,
+					    0, NULL);
+				}
+				context->smstate->nextExpected =
+				    OTRL_SMP_EXPECT1;
+				context->smstate->sm_prog_state =
+				    OTRL_SMP_PROG_OK;
+			    }
+			} else {
+			    if (ops->handle_smp_event) {
+				ops->handle_smp_event(opdata,
+					OTRL_SMPEVENT_ERROR, context,
+					0, NULL);
+			    }
+			}
+		    }
+		    
+		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1);
+		    if (tlv) {
+			if (nextMsg == OTRL_SMP_EXPECT1) {
+			    /* We can only do the verification half now.
+			     * We must wait for the secret to be entered
+			     * to continue. */
+			    otrl_sm_step2a(context->smstate, tlv->data,
+				    tlv->len, 0);
+			    if (context->smstate->sm_prog_state !=
+				    OTRL_SMP_PROG_CHEATED) {
+				if (ops->handle_smp_event) {
+				    ops->handle_smp_event(opdata,
+					    OTRL_SMPEVENT_ASK_FOR_SECRET,
+					    context, 25, NULL);
+				}
+			    } else {
+				if (ops->handle_smp_event) {
+				    ops->handle_smp_event(opdata,
+					    OTRL_SMPEVENT_CHEATED,
+					    context, 0, NULL);
+				}
+				context->smstate->nextExpected =
+				    OTRL_SMP_EXPECT1;
+				context->smstate->sm_prog_state =
+				    OTRL_SMP_PROG_OK;
+			    }
+			} else {
+			    if (ops->handle_smp_event) {
+				ops->handle_smp_event(opdata,
+					OTRL_SMPEVENT_ERROR, context,
+					0, NULL);
+			    }
+			}
+		    }
+		    
+		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP2);
+		    if (tlv) {
+			if (nextMsg == OTRL_SMP_EXPECT2) {
+			    unsigned char* nextmsg;
+			    int nextmsglen;
+			    OtrlTLV *sendtlv;
+			    char *sendsmp;
+			    otrl_sm_step3(context->smstate, tlv->data,
+				    tlv->len, &nextmsg, &nextmsglen);
+			    
+			    if (context->smstate->sm_prog_state !=
+				    OTRL_SMP_PROG_CHEATED) {
+				/* Send msg with next smp msg content */
+				sendtlv = otrl_tlv_new(OTRL_TLV_SMP3,
+					nextmsglen, nextmsg);
+				err = otrl_proto_create_data(&sendsmp,
 				    context, "", sendtlv,
 				    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
-			    if (!err) {
+				if (!err) {
 				err = otrl_message_fragment_and_send(ops,
-					opdata, context, sendsmp,
-					OTRL_FRAGMENT_SEND_ALL, NULL);
+				    opdata, context, sendsmp,
+				    OTRL_FRAGMENT_SEND_ALL, NULL);
+				}
+				free(sendsmp);
+				otrl_tlv_free(sendtlv);
+
+				if (ops->handle_smp_event) {
+				    ops->handle_smp_event(opdata,
+					    OTRL_SMPEVENT_IN_PROGRESS,
+					    context, 60, NULL);
+				}
+				context->smstate->nextExpected =
+				    OTRL_SMP_EXPECT4;
+			    } else {
+				if (ops->handle_smp_event) {
+				    ops->handle_smp_event(opdata,
+					    OTRL_SMPEVENT_CHEATED,
+					    context, 0, NULL);
+				}
+				context->smstate->nextExpected =
+				    OTRL_SMP_EXPECT1;
+				context->smstate->sm_prog_state =
+				    OTRL_SMP_PROG_OK;
 			    }
-			    free(sendsmp);
-			    otrl_tlv_free(sendtlv);
-			}
-			free(nextmsg);
-                    }
-                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP3);
-		    if (tlv && nextMsg == OTRL_SMP_EXPECT3) {
-			unsigned char* nextmsg;
-			int nextmsglen;
-			OtrlTLV *sendtlv;
-			char *sendsmp;
-			err = otrl_sm_step4(context->smstate, tlv->data,
-					tlv->len, &nextmsg, &nextmsglen);
-			/* Set trust level based on result */
-			if (context->smstate->received_question == 0) {
-			    set_smp_trust(ops, opdata, context,
+			    free(nextmsg);
+			} else {
+			    if (ops->handle_smp_event) {
+				ops->handle_smp_event(opdata,
+					OTRL_SMPEVENT_ERROR, context,
+					0, NULL);
+			    }
+			}   
+		    }
+		    
+		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP3);
+		    if (tlv) {
+			if (nextMsg == OTRL_SMP_EXPECT3) {
+			    unsigned char* nextmsg;
+			    int nextmsglen;
+			    OtrlTLV *sendtlv;
+			    char *sendsmp;
+			    err = otrl_sm_step4(context->smstate, tlv->data,
+				    tlv->len, &nextmsg, &nextmsglen);
+			    /* Set trust level based on result */
+			    if (context->smstate->received_question == 0) {
+				set_smp_trust(ops, opdata, context,
 				    (err == gcry_error(GPG_ERR_NO_ERROR)));
-			}
-			
-			if (context->smstate->sm_prog_state !=
-				OTRL_SMP_PROG_CHEATED) {
-			    /* Send msg with next smp msg content */
-			    sendtlv = otrl_tlv_new(OTRL_TLV_SMP4, nextmsglen,
-				    nextmsg);
-			    err = otrl_proto_create_data(&sendsmp,
+			    }
+			    
+			    if (context->smstate->sm_prog_state !=
+				    OTRL_SMP_PROG_CHEATED) {
+				/* Send msg with next smp msg content */
+				sendtlv = otrl_tlv_new(OTRL_TLV_SMP4,
+					nextmsglen, nextmsg);
+				err = otrl_proto_create_data(&sendsmp,
 				    context, "", sendtlv,
 				    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
-			    if (!err) {
+				if (!err) {
 				err = otrl_message_fragment_and_send(ops,
-					opdata, context, sendsmp,
-					OTRL_FRAGMENT_SEND_ALL, NULL);
+				    opdata, context, sendsmp,
+				    OTRL_FRAGMENT_SEND_ALL, NULL);
+				}
+				free(sendsmp);
+				otrl_tlv_free(sendtlv);
+
+				if (ops->handle_smp_event) {
+				    OtrlSMPEvent succorfail =
+					context->smstate->sm_prog_state ==
+						OTRL_SMP_PROG_SUCCEEDED ?
+					    OTRL_SMPEVENT_SUCCESS :
+					    OTRL_SMPEVENT_FAILURE;
+				    ops->handle_smp_event(opdata, succorfail,
+					    context, 100, NULL);
+				}
+				context->smstate->nextExpected =
+				    OTRL_SMP_EXPECT1;
+			    } else {
+				if (ops->handle_smp_event) {
+				    ops->handle_smp_event(opdata,
+					    OTRL_SMPEVENT_CHEATED,
+					    context, 0, NULL);
+				}
+				context->smstate->nextExpected =
+				    OTRL_SMP_EXPECT1;
+				context->smstate->sm_prog_state =
+				    OTRL_SMP_PROG_OK;
 			    }
-			    free(sendsmp);
-			    otrl_tlv_free(sendtlv);
-			}
-			free(nextmsg);
-                    }
-                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP4);
-		    if (tlv && nextMsg == OTRL_SMP_EXPECT4) {
-			err = otrl_sm_step5(context->smstate, tlv->data,
+			    free(nextmsg);
+			} else {
+			    if (ops->handle_smp_event) {
+				ops->handle_smp_event(opdata,
+					OTRL_SMPEVENT_ERROR, context,
+					0, NULL);
+			    }
+			}   
+		    }
+		    
+		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP4);
+		    if (tlv) {
+			if (nextMsg == OTRL_SMP_EXPECT4) {
+			    err = otrl_sm_step5(context->smstate, tlv->data,
 				tlv->len);
-			/* Set trust level based on result */
-			set_smp_trust(ops, opdata, context,
+			    /* Set trust level based on result */
+			    set_smp_trust(ops, opdata, context,
 				(err == gcry_error(GPG_ERR_NO_ERROR)));
-                    }
-                    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP_ABORT);
+
+			    if (context->smstate->sm_prog_state !=
+				    OTRL_SMP_PROG_CHEATED) {
+				if (ops->handle_smp_event) {
+				    OtrlSMPEvent succorfail =
+					context->smstate->sm_prog_state ==
+						OTRL_SMP_PROG_SUCCEEDED ?
+					    OTRL_SMPEVENT_SUCCESS :
+					    OTRL_SMPEVENT_FAILURE;
+				    ops->handle_smp_event(opdata, succorfail,
+					    context, 100, NULL);
+				}
+				context->smstate->nextExpected =
+				    OTRL_SMP_EXPECT1;
+			    } else {
+				if (ops->handle_smp_event) {
+				    ops->handle_smp_event(opdata,
+					    OTRL_SMPEVENT_CHEATED,
+					    context, 0, NULL);
+				}
+				context->smstate->nextExpected =
+				    OTRL_SMP_EXPECT1;
+				context->smstate->sm_prog_state =
+				    OTRL_SMP_PROG_OK;
+			    }
+			} else {
+			    if (ops->handle_smp_event) {
+				ops->handle_smp_event(opdata,
+					OTRL_SMPEVENT_ERROR, context,
+					0, NULL);
+			    }
+			}   
+		    }
+			    
+		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP_ABORT);
 		    if (tlv) {
 			context->smstate->nextExpected = OTRL_SMP_EXPECT1;
+			if (ops->handle_smp_event) {
+			    ops->handle_smp_event(opdata, OTRL_SMPEVENT_ABORT,
+				    context, 0, NULL);
+			}
 		    }
+            
 		    if (plaintext[0] == '\0') {
 			/* If it's a heartbeat (an empty message), don't
 			 * display it to the user, but log a debug message. */

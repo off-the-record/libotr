@@ -1,3 +1,22 @@
+2008-07-02:
+
+	* version.h: Change version number to 4.0.0 (but still far from
+	release).
+
+	* tlv.h:
+	* proto.h:
+	* proto.c:
+	* message.h:
+	* message.c:
+	* dh.h:
+	* dh.c: Support for applications requesting an extra session key
+	that can be used for things like file transfers.
+
+	* message.h:
+	* message.c: Applications now use the handle_smp_event callback
+	to handle SMP events, rather than having to hardcode part of the
+	SMP state machine themselves.
+
 2008-06-15:
 
 	* README: Release version 3.2.0.
