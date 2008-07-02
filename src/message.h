@@ -122,11 +122,12 @@ typedef struct s_OtrlMessageAppOps {
 
     /* We received a request from the buddy to use the current "extra"
      * symmetric key.  The key will be passed in symkey, of length
-     * OTRL_EXTRAKEY_BYTES.  The TLV which carried the request will be
-     * passed in tlv, so that the applications can communicate other
-     * identifiers (some id for the data transfer, for example). */
+     * OTRL_EXTRAKEY_BYTES.  The requested use, as well as use-specific
+     * data will be passed so that the applications can communicate other
+     * information (some id for the data transfer, for example). */
     void (*received_symkey)(void *opdata, ConnContext *context,
-	    OtrlTLV *tlv, const unsigned char *symkey);
+	    unsigned int use, const unsigned char *usedata,
+	    size_t usedatalen, const unsigned char *symkey);
     
     /* Update the auth UI with respect to SMP events */
     void (*handle_smp_event)(void *opdata, OtrlSMPEvent smp_event,

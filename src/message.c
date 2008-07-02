@@ -1040,9 +1040,13 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		     * extra symmetric key, let the application know. */
 		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SYMKEY);
 		    if (tlv && otrl_api_version >= 0x040000) {
-			if (ops->received_symkey) {
-			    ops->received_symkey(opdata, context, tlv,
-				    extrakey);
+			if (ops->received_symkey && tlv->len >= 4) {
+			    unsigned char *bufp = tlv->data;
+			    unsigned int use =
+				(bufp[0] << 24) | (bufp[1] << 16) |
+				(bufp[2] << 8) | bufp[3];
+			    ops->received_symkey(opdata, context, use,
+				    bufp+4, tlv->len - 4, extrakey);
 			}
 		    }
 		    gcry_free(extrakey);
