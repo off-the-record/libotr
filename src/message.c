@@ -197,7 +197,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 	case OTRL_MSGSTATE_ENCRYPTED:
 	    /* Create the new, encrypted message */
 	    err = otrl_proto_create_data(&msgtosend, context, message, tlvs,
-		    0);
+		    0, NULL);
 	    if (!err) {
 		context->lastsent = time(NULL);
 		*messagep = msgtosend;
@@ -458,7 +458,7 @@ static void maybe_resend(EncrData *edata)
 
 	/* Re-encrypt the message with the new keys */
 	err = otrl_proto_create_data(&resendmsg,
-		edata->context, edata->context->lastmessage, NULL, 0);
+		edata->context, edata->context->lastmessage, NULL, 0, NULL);
 	if (!err) {
 	    const char *format = "<b>The last message "
 		"to %s was resent.</b>";
@@ -585,7 +585,7 @@ static void init_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    : OTRL_TLV_SMP2,
 	    smpmsglen, smpmsg);
     err = otrl_proto_create_data(&sendsmp, context, "", sendtlv,
-            OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+            OTRL_MSGFLAGS_IGNORE_UNREADABLE, NULL);
     if (!err) {
         /*  Send it, and set the next expected message to the
 	 *  logical response */
@@ -638,7 +638,7 @@ void otrl_message_abort_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 
     err = otrl_proto_create_data(&sendsmp,
 	    context, "", sendtlv,
-	    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+	    OTRL_MSGFLAGS_IGNORE_UNREADABLE, NULL);
     if (!err) {
 	/* Send the abort signal so our buddy knows we've stopped */
 	err = otrl_message_fragment_and_send(ops, opdata, context,
@@ -1143,7 +1143,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 					nextmsglen, nextmsg);
 				err = otrl_proto_create_data(&sendsmp,
 				    context, "", sendtlv,
-				    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+				    OTRL_MSGFLAGS_IGNORE_UNREADABLE,
+				    NULL);
 				if (!err) {
 				err = otrl_message_fragment_and_send(ops,
 				    opdata, context, sendsmp,
@@ -1202,7 +1203,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 					nextmsglen, nextmsg);
 				err = otrl_proto_create_data(&sendsmp,
 				    context, "", sendtlv,
-				    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+				    OTRL_MSGFLAGS_IGNORE_UNREADABLE,
+				    NULL);
 				if (!err) {
 				err = otrl_message_fragment_and_send(ops,
 				    opdata, context, sendsmp,
@@ -1319,7 +1321,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			    /* Create the heartbeat message */
 			    err = otrl_proto_create_data(&heartbeat,
 				    context, "", NULL,
-				    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+				    OTRL_MSGFLAGS_IGNORE_UNREADABLE,
+				    NULL);
 			    if (!err) {
 				/* Send it, and log a debug message */
 				if (ops->inject_message) {
@@ -1602,7 +1605,7 @@ void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    OtrlTLV *tlv = otrl_tlv_new(OTRL_TLV_DISCONNECTED, 0, NULL);
 
 	    err = otrl_proto_create_data(&encmsg, context, "", tlv,
-		    OTRL_MSGFLAGS_IGNORE_UNREADABLE);
+		    OTRL_MSGFLAGS_IGNORE_UNREADABLE, NULL);
 	    if (!err) {
 		ops->inject_message(opdata, accountname, protocol,
 			username, encmsg);

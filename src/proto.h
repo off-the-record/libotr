@@ -127,7 +127,8 @@ OtrlMessageType otrl_proto_message_type(const char *message);
  * optional chain of TLVs.  A newly-allocated string will be returned in
  * *encmessagep. */
 gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
-	const char *msg, const OtrlTLV *tlvs, unsigned char flags);
+	const char *msg, const OtrlTLV *tlvs, unsigned char flags,
+	unsigned char *extrakey);
 
 /* Extract the flags from an otherwise unreadable Data Message. */
 gcry_error_t otrl_proto_data_read_flags(const char *datamsg,

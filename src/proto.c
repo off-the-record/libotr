@@ -360,9 +360,11 @@ OtrlMessageType otrl_proto_message_type(const char *message)
 
 /* Create an OTR Data message.  Pass the plaintext as msg, and an
  * optional chain of TLVs.  A newly-allocated string will be returned in
- * *encmessagep. */
+ * *encmessagep.  Put the current extra symmetric key into extrakey
+ * (if non-NULL). */
 gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
-	const char *msg, const OtrlTLV *tlvs, unsigned char flags)
+	const char *msg, const OtrlTLV *tlvs, unsigned char flags,
+	unsigned char *extrakey)
 {
     size_t justmsglen = strlen(msg);
     size_t msglen = justmsglen + 1 + otrl_tlv_seriallen(tlvs);
@@ -506,6 +508,12 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
 	}
     }
     gcry_free(msgdup);
+
+    /* Save a copy of the current extra key */
+    if (extrakey) {
+	memmove(extrakey, sess->extrakey, OTRL_EXTRAKEY_BYTES);
+    }
+
     return gcry_error(GPG_ERR_NO_ERROR);
 err:
     free(buf);

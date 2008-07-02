@@ -10,7 +10,7 @@
 	* message.c:
 	* dh.h:
 	* dh.c: Support for applications requesting an extra session key
-	that can be used for things like file transfers.
+	that can be used for things like file transfers. (Almost done.)
 
 	* message.h:
 	* message.c: Applications now use the handle_smp_event callback
