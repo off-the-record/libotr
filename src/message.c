@@ -1623,3 +1623,47 @@ void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
 	ops->update_context_list(opdata);
     }
 }
+
+/* Get the current extra symmetric key (of size OTRL_EXTRAKEY_BYTES
+ * bytes) and let the other side know what we're going to use it for. */
+gcry_error_t otrl_message_symkey(OtrlUserState us,
+	const OtrlMessageAppOps *ops, void *opdata, ConnContext *context,
+	unsigned int use, const unsigned char *usedata, size_t usedatalen,
+	unsigned char *symkey)
+{
+    if (!context || (usedatalen > 0 && !usedata)) {
+	return gcry_error(GPG_ERR_INV_VALUE);
+    }
+
+    if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED &&
+	    context->their_keyid > 0) {
+	unsigned char *tlvdata = malloc(usedatalen+4);
+	char *encmsg = NULL;
+	gcry_error_t err;
+	OtrlTLV *tlv;
+
+	tlvdata[0] = (use >> 24) & 0xff;
+	tlvdata[1] = (use >> 16) & 0xff;
+	tlvdata[2] = (use >> 8) & 0xff;
+	tlvdata[3] = (use) & 0xff;
+	if (usedatalen > 0) {
+	    memmove(tlvdata+4, usedata, usedatalen);
+	}
+
+	tlv = otrl_tlv_new(OTRL_TLV_SYMKEY, usedatalen+4, tlvdata);
+	free(tlvdata);
+
+	err = otrl_proto_create_data(&encmsg, context, "", tlv,
+		OTRL_MSGFLAGS_IGNORE_UNREADABLE, symkey);
+	if (!err && ops->inject_message) {
+	    ops->inject_message(opdata, context->accountname,
+		    context->protocol, context->username, encmsg);
+	}
+	free(encmsg);
+
+	return err;
+    }
+
+    /* We weren't in an encrypted session. */
+    return gcry_error(GPG_ERR_INV_VALUE);
+}
