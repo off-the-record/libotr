@@ -38,6 +38,7 @@ OtrlUserState otrl_userstate_create(void)
     if (!us) return NULL;
     us->context_root = NULL;
     us->privkey_root = NULL;
+    us->pending_root = NULL;
 
     return us;
 }
@@ -47,5 +48,6 @@ void otrl_userstate_free(OtrlUserState us)
 {
     otrl_context_forget_all(us);
     otrl_privkey_forget_all(us);
+    otrl_privkey_pending_forget_all(us);
     free(us);
 }

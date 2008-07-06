@@ -36,4 +36,14 @@ typedef struct s_OtrlPrivKey {
 
 #define OTRL_PUBKEY_TYPE_DSA 0x0000
 
+/* The list of privkeys currently being constructed, possibly in a
+ * background thread */
+typedef struct s_OtrlPendingPrivKey {
+    struct s_OtrlPendingPrivKey *next;
+    struct s_OtrlPendingPrivKey **tous;
+
+    char *accountname;
+    char *protocol;
+} OtrlPendingPrivKey;
+
 #endif

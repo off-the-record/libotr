@@ -28,6 +28,7 @@ typedef struct s_OtrlUserState* OtrlUserState;
 struct s_OtrlUserState {
     ConnContext *context_root;
     OtrlPrivKey *privkey_root;
+    OtrlPendingPrivKey *pending_root;
 };
 
 /* Create a new OtrlUserState.  Most clients will only need one of

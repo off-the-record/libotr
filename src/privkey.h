@@ -47,6 +47,35 @@ gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename);
  * OtrlUserState.  The FILE* must be open for reading. */
 gcry_error_t otrl_privkey_read_FILEp(OtrlUserState us, FILE *privf);
 
+/* Free the memory associated with the pending privkey list */
+void otrl_privkey_pending_forget_all(OtrlUserState us);
+
+/* Begin a private key generation that will potentially take place in
+ * a background thread.  This routine must be called from the main
+ * thread.  It will set *newkeyp, which you can pass to
+ * otrl_privkey_generate_calculate in a background thread.  If it
+ * returns gcry_error(GPG_ERR_EEXIST), then a privkey creation for
+ * this accountname/protocol is already in progress, and *newkeyp will
+ * be set to NULL. */
+gcry_error_t otrl_privkey_generate_start(OtrlUserState us,
+	const char *accountname, const char *protocol, void **newkeyp);
+
+/* Do the private key generation calculation.  You may call this from a
+ * background thread.  When it completes, call
+ * otrl_privkey_generate_finish from the _main_ thread. */
+gcry_error_t otrl_privkey_generate_calculate(void *newkey);
+
+/* Call this from the main thread only.  It will write the newly created
+ * private key into the given file and store it in the OtrlUserState. */
+gcry_error_t otrl_privkey_generate_finish(OtrlUserState us,
+	void *newkey, const char *filename);
+
+/* Call this from the main thread only.  It will write the newly created
+ * private key into the given FILE* (which must be open for reading and
+ * writing) and store it in the OtrlUserState. */
+gcry_error_t otrl_privkey_generate_finish_FILEp(OtrlUserState us,
+	void *newkey, FILE *privf);
+
 /* Generate a private DSA key for a given account, storing it into a
  * file on disk, and loading it into the given OtrlUserState.  Overwrite any
  * previously generated keys for that account in that OtrlUserState. */

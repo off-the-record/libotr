@@ -16,8 +16,8 @@ dnl   For a backwards-incompatible API change (e.g. changing data structures):
 dnl     Change the libotr package version from a.b.c to (a+1).0.0
 dnl     Change the libotr libtool version from x:y:z to (x+1):0:0
 
-AM_INIT_AUTOMAKE(libotr, 3.2.0)
-LIBOTR_LIBTOOL_VERSION="4:0:2"
+AM_INIT_AUTOMAKE(libotr, 4.0.0)
+LIBOTR_LIBTOOL_VERSION="5:0:0"
 
 AC_SUBST(LIBOTR_LIBTOOL_VERSION)
 

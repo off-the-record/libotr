@@ -342,6 +342,76 @@ gcry_error_t otrl_privkey_read_FILEp(OtrlUserState us, FILE *privf)
     return gcry_error(GPG_ERR_NO_ERROR);
 }
 
+static OtrlPendingPrivKey *pending_find(OtrlUserState us,
+	const char *accountname, const char *protocol)
+{
+    OtrlPendingPrivKey *search = us->pending_root;
+
+    while (search) {
+	if (!strcmp(search->accountname, accountname) &&
+		!strcmp(search->protocol, protocol)) {
+	    /* Found it */
+	    return search;
+	}
+	search = search->next;
+    }
+    return NULL;
+}
+
+/* Insert an account/protocol pair into the pending privkey list of the
+ * given OtrlUserState and return a pointer to the new
+ * OtrlPendingPrivKey, or return NULL if it's already there. */
+static OtrlPendingPrivKey *pending_insert(OtrlUserState us,
+	const char *accountname, const char *protocol)
+{
+    /* See if it's already there */
+    OtrlPendingPrivKey *search = pending_find(us, accountname, protocol);
+
+    if (search) {
+	/* It is */
+	return NULL;
+    }
+
+    /* We'll insert it at the beginning of the list */
+    search = malloc(sizeof(*search));
+    if (!search) return NULL;
+
+    search->accountname = strdup(accountname);
+    search->protocol = strdup(protocol);
+
+    search->next = us->pending_root;
+    us->pending_root = search;
+    if (search->next) {
+	search->next->tous = &(search->next);
+    }
+    search->tous = &(us->pending_root);
+    return search;
+}
+
+static void pending_forget(OtrlPendingPrivKey *ppk)
+{
+    if (ppk) {
+	free(ppk->accountname);
+	free(ppk->protocol);
+
+	/* Re-link the list */
+	*(ppk->tous) = ppk->next;
+	if (ppk->next) {
+	    ppk->next->tous = ppk->tous;
+	}
+
+	free(ppk);
+    }
+}
+
+/* Free the memory associated with the pending privkey list */
+void otrl_privkey_pending_forget_all(OtrlUserState us)
+{
+    while(us->pending_root) {
+	pending_forget(us->pending_root);
+    }
+}
+
 static gcry_error_t sexp_write(FILE *privf, gcry_sexp_t sexp)
 {
     size_t buflen;
@@ -385,52 +455,54 @@ static gcry_error_t account_write(FILE *privf, const char *accountname,
     return err;
 }
 
-/* Generate a private DSA key for a given account, storing it into a
- * file on disk, and loading it into the given OtrlUserState.  Overwrite any
- * previously generated keys for that account in that OtrlUserState. */
-gcry_error_t otrl_privkey_generate(OtrlUserState us, const char *filename,
-	const char *accountname, const char *protocol)
-{
-    gcry_error_t err;
-    FILE *privf;
-#ifndef WIN32
-    mode_t oldmask;
-#endif
+struct s_pending_privkey_calc {
+    char *accountname;
+    char *protocol;
+    gcry_sexp_t privkey;
+};
 
-#ifndef WIN32
-    oldmask = umask(077);
-#endif
-    privf = fopen(filename, "w+b");
-    if (!privf) {
-#ifndef WIN32
-	umask(oldmask);
-#endif
-	err = gcry_error_from_errno(errno);
-	return err;
+/* Begin a private key generation that will potentially take place in
+ * a background thread.  This routine must be called from the main
+ * thread.  It will set *newkeyp, which you can pass to
+ * otrl_privkey_generate_calculate in a background thread.  If it
+ * returns gcry_error(GPG_ERR_EEXIST), then a privkey creation for
+ * this accountname/protocol is already in progress, and *newkeyp will
+ * be set to NULL. */
+gcry_error_t otrl_privkey_generate_start(OtrlUserState us,
+	const char *accountname, const char *protocol, void **newkeyp)
+{
+    OtrlPendingPrivKey *found = pending_find(us, accountname, protocol);
+    struct s_pending_privkey_calc *ppc;
+
+    if (found) {
+	if (newkeyp) *newkeyp = NULL;
+	return gcry_error(GPG_ERR_EEXIST);
     }
 
-    err = otrl_privkey_generate_FILEp(us, privf, accountname, protocol);
+    /* We're not already creating this key.  Mark it as in progress. */
+    pending_insert(us, accountname, protocol);
 
-    fclose(privf);
-#ifndef WIN32
-    umask(oldmask);
-#endif
-    return err;
+    /* Allocate the working structure */
+    ppc = malloc(sizeof(*ppc));
+    ppc->accountname = strdup(accountname);
+    ppc->protocol = strdup(protocol);
+    ppc->privkey = NULL;
+
+    *newkeyp = ppc;
+
+    return gcry_error(GPG_ERR_NO_ERROR);
 }
 
-/* Generate a private DSA key for a given account, storing it into a
- * FILE*, and loading it into the given OtrlUserState.  Overwrite any
- * previously generated keys for that account in that OtrlUserState.
- * The FILE* must be open for reading and writing. */
-gcry_error_t otrl_privkey_generate_FILEp(OtrlUserState us, FILE *privf,
-	const char *accountname, const char *protocol)
+/* Do the private key generation calculation.  You may call this from a
+ * background thread.  When it completes, call
+ * otrl_privkey_generate_finish from the _main_ thread. */
+gcry_error_t otrl_privkey_generate_calculate(void *newkey)
 {
+    struct s_pending_privkey_calc *ppc =
+	(struct s_pending_privkey_calc *)newkey;
     gcry_error_t err;
-    gcry_sexp_t key, parms, privkey;
+    gcry_sexp_t key, parms;
     static const char *parmstr = "(genkey (dsa (nbits 4:1024)))";
-    OtrlPrivKey *p;
-
-    if (!privf) return gcry_error(GPG_ERR_NO_ERROR);
 
     /* Create a DSA key */
     err = gcry_sexp_new(&parms, parmstr, strlen(parmstr), 0);
@@ -444,28 +516,129 @@ gcry_error_t otrl_privkey_generate_FILEp(OtrlUserState us, FILE *privf,
     }
 
     /* Extract the privkey */
-    privkey = gcry_sexp_find_token(key, "private-key", 0);
+    ppc->privkey = gcry_sexp_find_token(key, "private-key", 0);
     gcry_sexp_release(key);
 
-    /* Output the other keys we know */
-    fprintf(privf, "(privkeys\n");
+    return gcry_error(GPG_ERR_NO_ERROR);
+}
 
-    for (p=us->privkey_root; p; p=p->next) {
-	/* Skip this one if our new key replaces it */
-	if (!strcmp(p->accountname, accountname) &&
-		!strcmp(p->protocol, protocol)) {
-	    continue;
-	}
+static FILE* privkey_fopen(const char *filename, gcry_error_t *errp)
+{
+    FILE *privf;
+#ifndef WIN32
+    mode_t oldmask;
+#endif
 
-	account_write(privf, p->accountname, p->protocol, p->privkey);
+#ifndef WIN32
+    oldmask = umask(077);
+#endif
+    privf = fopen(filename, "w+b");
+    if (!privf && errp) {
+	*errp = gcry_error_from_errno(errno);
     }
-    account_write(privf, accountname, protocol, privkey);
-    gcry_sexp_release(privkey);
-    fprintf(privf, ")\n");
+#ifndef WIN32
+    umask(oldmask);
+#endif
+    return privf;
+}
 
-    fseek(privf, 0, SEEK_SET);
+/* Call this from the main thread only.  It will write the newly created
+ * private key into the given file and store it in the OtrlUserState. */
+gcry_error_t otrl_privkey_generate_finish(OtrlUserState us,
+	void *newkey, const char *filename)
+{
+    gcry_error_t err;
+    FILE *privf = privkey_fopen(filename, &err);
+    if (!privf) {
+	return err;
+    }
 
-    return otrl_privkey_read_FILEp(us, privf);
+    err = otrl_privkey_generate_finish_FILEp(us, newkey, privf);
+
+    fclose(privf);
+    return err;
+}
+
+/* Call this from the main thread only.  It will write the newly created
+ * private key into the given FILE* (which must be open for reading and
+ * writing) and store it in the OtrlUserState. */
+gcry_error_t otrl_privkey_generate_finish_FILEp(OtrlUserState us,
+	void *newkey, FILE *privf)
+{
+    struct s_pending_privkey_calc *ppc =
+	(struct s_pending_privkey_calc *)newkey;
+    gcry_error_t ret = gcry_error(GPG_ERR_INV_VALUE);
+
+    if (ppc && us && privf) {
+	OtrlPrivKey *p;
+
+	/* Output the other keys we know */
+	fprintf(privf, "(privkeys\n");
+
+	for (p=us->privkey_root; p; p=p->next) {
+	    /* Skip this one if our new key replaces it */
+	    if (!strcmp(p->accountname, ppc->accountname) &&
+		    !strcmp(p->protocol, ppc->protocol)) {
+		continue;
+	    }
+
+	    account_write(privf, p->accountname, p->protocol, p->privkey);
+	}
+	account_write(privf, ppc->accountname, ppc->protocol, ppc->privkey);
+	fprintf(privf, ")\n");
+
+	fseek(privf, 0, SEEK_SET);
+
+	ret = otrl_privkey_read_FILEp(us, privf);
+
+	/* Remove our entry from the pending list */
+	pending_forget(pending_find(us, ppc->accountname, ppc->protocol));
+    }
+
+    /* Deallocate ppc */
+    free(ppc->accountname);
+    free(ppc->protocol);
+    gcry_sexp_release(ppc->privkey);
+    free(ppc);
+
+    return ret;
+}
+
+/* Generate a private DSA key for a given account, storing it into a
+ * file on disk, and loading it into the given OtrlUserState.  Overwrite any
+ * previously generated keys for that account in that OtrlUserState. */
+gcry_error_t otrl_privkey_generate(OtrlUserState us, const char *filename,
+	const char *accountname, const char *protocol)
+{
+    gcry_error_t err;
+    FILE *privf = privkey_fopen(filename, &err);
+    if (!privf) {
+	return err;
+    }
+
+    err = otrl_privkey_generate_FILEp(us, privf, accountname, protocol);
+
+    fclose(privf);
+    return err;
+}
+
+/* Generate a private DSA key for a given account, storing it into a
+ * FILE*, and loading it into the given OtrlUserState.  Overwrite any
+ * previously generated keys for that account in that OtrlUserState.
+ * The FILE* must be open for reading and writing. */
+gcry_error_t otrl_privkey_generate_FILEp(OtrlUserState us, FILE *privf,
+	const char *accountname, const char *protocol)
+{
+    void *newkey = NULL;
+    gcry_error_t err;
+
+    err = otrl_privkey_generate_start(us, accountname, protocol, &newkey);
+    if (newkey) {
+	otrl_privkey_generate_calculate(newkey);
+	err = otrl_privkey_generate_finish_FILEp(us, newkey, privf);
+    }
+
+    return err;
 }
 
 /* Convert a hex character to a value */

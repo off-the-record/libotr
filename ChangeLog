@@ -1,3 +1,14 @@
+2008-07-06:
+
+	* configure.ac: Update libtool version to match 4.0.0.
+
+	* src/privkey-t.h:
+	* src/privkey.c:
+	* src/privkey.h:
+	* src/userstate.c:
+	* src/userstate.h: Support for generating privkeys in a
+	background thread.
+
 2008-07-02:
 
 	* version.h: Change version number to 4.0.0 (but still far from
