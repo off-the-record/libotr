@@ -76,6 +76,11 @@ gcry_error_t otrl_privkey_generate_finish(OtrlUserState us,
 gcry_error_t otrl_privkey_generate_finish_FILEp(OtrlUserState us,
 	void *newkey, FILE *privf);
 
+/* Call this from the main thread only, in the event that the background
+ * thread generating the key is cancelled.  The newkey is deallocated,
+ * and must not be used further. */
+void otrl_privkey_generate_cancel(OtrlUserState us, void *newkey);
+
 /* Generate a private DSA key for a given account, storing it into a
  * file on disk, and loading it into the given OtrlUserState.  Overwrite any
  * previously generated keys for that account in that OtrlUserState. */

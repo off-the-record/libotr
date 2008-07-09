@@ -542,6 +542,25 @@ static FILE* privkey_fopen(const char *filename, gcry_error_t *errp)
     return privf;
 }
 
+/* Call this from the main thread only, in the event that the background
+ * thread generating the key is cancelled.  The newkey is deallocated,
+ * and must not be used further. */
+void otrl_privkey_generate_cancel(OtrlUserState us, void *newkey)
+{
+    struct s_pending_privkey_calc *ppc =
+	(struct s_pending_privkey_calc *)newkey;
+
+    if (us) {
+	pending_forget(pending_find(us, ppc->accountname, ppc->protocol));
+    }
+
+    /* Deallocate ppc */
+    free(ppc->accountname);
+    free(ppc->protocol);
+    gcry_sexp_release(ppc->privkey);
+    free(ppc);
+}
+
 /* Call this from the main thread only.  It will write the newly created
  * private key into the given file and store it in the OtrlUserState. */
 gcry_error_t otrl_privkey_generate_finish(OtrlUserState us,
@@ -590,16 +609,9 @@ gcry_error_t otrl_privkey_generate_finish_FILEp(OtrlUserState us,
 	fseek(privf, 0, SEEK_SET);
 
 	ret = otrl_privkey_read_FILEp(us, privf);
-
-	/* Remove our entry from the pending list */
-	pending_forget(pending_find(us, ppc->accountname, ppc->protocol));
     }
 
-    /* Deallocate ppc */
-    free(ppc->accountname);
-    free(ppc->protocol);
-    gcry_sexp_release(ppc->privkey);
-    free(ppc);
+    otrl_privkey_generate_cancel(us, newkey);
 
     return ret;
 }

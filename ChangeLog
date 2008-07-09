@@ -1,3 +1,10 @@
+2008-07-09:
+
+	* src/privkey.h:
+	* src/privkey.c: Add otrl_privkey_generate_cancel to handle the
+	case that the background key generation thread is cancelled or
+	fails.
+
 2008-07-06:
 
 	* configure.ac: Update libtool version to match 4.0.0.
