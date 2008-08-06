@@ -777,17 +777,19 @@ OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
 	if (k > 0 && n > 0 && k <= n && start > 0 && end > 0 && start < end) {
 	    if (k == 1) {
 		int fraglen = end - start - 1;
+		size_t newsize = fraglen + 1;
 		free(context->fragment);
-		context->fragment = malloc(fraglen + 1);
-		if (fraglen + 1 > fraglen && context->fragment) {
+		context->fragment = NULL;
+		if (newsize > fraglen) {  /* Check for overflow */
+		    context->fragment = malloc(newsize);
+		}
+		if (context->fragment) {
 		    memmove(context->fragment, tag + start, fraglen);
 		    context->fragment_len = fraglen;
 		    context->fragment[context->fragment_len] = '\0';
 		    context->fragment_n = n;
 		    context->fragment_k = k;
 		} else {
-		    free(context->fragment);
-		    context->fragment = NULL;
 		    context->fragment_len = 0;
 		    context->fragment_n = 0;
 		    context->fragment_k = 0;
@@ -795,9 +797,12 @@ OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
 	    } else if (n == context->fragment_n &&
 		    k == context->fragment_k + 1) {
 		int fraglen = end - start - 1;
-		char *newfrag = realloc(context->fragment,
-			context->fragment_len + fraglen + 1);
-		if (context->fragment_len + fraglen + 1 > fraglen && newfrag) {
+		char *newfrag = NULL;
+		size_t newsize = context->fragment_len + fraglen + 1;
+		if (newsize > fraglen) {  /* Check for overflow */
+		    newfrag = realloc(context->fragment, newsize);
+		}
+		if (newfrag) {
 		    context->fragment = newfrag;
 		    memmove(context->fragment + context->fragment_len,
 			    tag + start, fraglen);

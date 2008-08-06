@@ -1,3 +1,9 @@
+2008-08-06:
+
+	* src/proto.c: gcc 4.2 with -O2 assumes that integer overflow
+	never occurs when optimizing away tests, including those for
+	integer overflow.  The code was made more specific.
+
 2008-07-09:
 
 	* src/privkey.h:
