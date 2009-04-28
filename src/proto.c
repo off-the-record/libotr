@@ -1,6 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -90,33 +91,33 @@ static gcry_error_t reveal_macs(ConnContext *context,
 	sess2->rcvmacused + sess2->sendmacused;
     unsigned int newnumsaved;
     unsigned char *newmacs;
-    
+
     /* Is there anything to do? */
     if (numnew == 0) return gcry_error(GPG_ERR_NO_ERROR);
 
-    newnumsaved = context->numsavedkeys + numnew;
-    newmacs = realloc(context->saved_mac_keys,
+    newnumsaved = context->context_priv->numsavedkeys + numnew;
+    newmacs = realloc(context->context_priv->saved_mac_keys,
 	    newnumsaved * 20);
     if (!newmacs) {
 	return gcry_error(GPG_ERR_ENOMEM);
     }
     if (sess1->rcvmacused) {
-	memmove(newmacs + context->numsavedkeys * 20, sess1->rcvmackey, 20);
-	context->numsavedkeys++;
+	memmove(newmacs + context->context_priv->numsavedkeys * 20, sess1->rcvmackey, 20);
+	context->context_priv->numsavedkeys++;
     }
     if (sess1->sendmacused) {
-	memmove(newmacs + context->numsavedkeys * 20, sess1->sendmackey, 20);
-	context->numsavedkeys++;
+	memmove(newmacs + context->context_priv->numsavedkeys * 20, sess1->sendmackey, 20);
+	context->context_priv->numsavedkeys++;
     }
     if (sess2->rcvmacused) {
-	memmove(newmacs + context->numsavedkeys * 20, sess2->rcvmackey, 20);
-	context->numsavedkeys++;
+	memmove(newmacs + context->context_priv->numsavedkeys * 20, sess2->rcvmackey, 20);
+	context->context_priv->numsavedkeys++;
     }
     if (sess2->sendmacused) {
-	memmove(newmacs + context->numsavedkeys * 20, sess2->sendmackey, 20);
-	context->numsavedkeys++;
+	memmove(newmacs + context->context_priv->numsavedkeys * 20, sess2->sendmackey, 20);
+	context->context_priv->numsavedkeys++;
     }
-    context->saved_mac_keys = newmacs;
+    context->context_priv->saved_mac_keys = newmacs;
 
     return gcry_error(GPG_ERR_NO_ERROR);
 }
@@ -128,39 +129,43 @@ static gcry_error_t rotate_dh_keys(ConnContext *context)
     gcry_error_t err;
 
     /* Rotate the keypair */
-    otrl_dh_keypair_free(&(context->our_old_dh_key));
-    memmove(&(context->our_old_dh_key), &(context->our_dh_key),
-	    sizeof(DH_keypair));
+    otrl_dh_keypair_free(&(context->context_priv->our_old_dh_key));
+    memmove(&(context->context_priv->our_old_dh_key),
+    		&(context->context_priv->our_dh_key),
+    		sizeof(DH_keypair));
 
     /* Rotate the session keys */
-    err = reveal_macs(context, &(context->sesskeys[1][0]),
-	    &(context->sesskeys[1][1]));
+    err = reveal_macs(context, &(context->context_priv->sesskeys[1][0]),
+	    &(context->context_priv->sesskeys[1][1]));
     if (err) return err;
-    otrl_dh_session_free(&(context->sesskeys[1][0]));
-    otrl_dh_session_free(&(context->sesskeys[1][1]));
-    memmove(&(context->sesskeys[1][0]), &(context->sesskeys[0][0]),
-	    sizeof(DH_sesskeys));
-    memmove(&(context->sesskeys[1][1]), &(context->sesskeys[0][1]),
-	    sizeof(DH_sesskeys));
+    otrl_dh_session_free(&(context->context_priv->sesskeys[1][0]));
+    otrl_dh_session_free(&(context->context_priv->sesskeys[1][1]));
+    memmove(&(context->context_priv->sesskeys[1][0]),
+    		&(context->context_priv->sesskeys[0][0]),
+    		sizeof(DH_sesskeys));
+    memmove(&(context->context_priv->sesskeys[1][1]),
+    		&(context->context_priv->sesskeys[0][1]),
+    		sizeof(DH_sesskeys));
 
     /* Create a new DH key */
-    otrl_dh_gen_keypair(DH1536_GROUP_ID, &(context->our_dh_key));
-    context->our_keyid++;
+    otrl_dh_gen_keypair(DH1536_GROUP_ID, &(context->context_priv->our_dh_key));
+    context->context_priv->our_keyid++;
 
     /* Make the session keys */
-    if (context->their_y) {
-	err = otrl_dh_session(&(context->sesskeys[0][0]),
-		&(context->our_dh_key), context->their_y);
+    if (context->context_priv->their_y) {
+	err = otrl_dh_session(&(context->context_priv->sesskeys[0][0]),
+		&(context->context_priv->our_dh_key), context->context_priv->their_y);
 	if (err) return err;
     } else {
-	otrl_dh_session_blank(&(context->sesskeys[0][0]));
+	otrl_dh_session_blank(&(context->context_priv->sesskeys[0][0]));
     }
-    if (context->their_old_y) {
-	err = otrl_dh_session(&(context->sesskeys[0][1]),
-		&(context->our_dh_key), context->their_old_y);
+    if (context->context_priv->their_old_y) {
+	err = otrl_dh_session(&(context->context_priv->sesskeys[0][1]),
+		&(context->context_priv->our_dh_key),
+		context->context_priv->their_old_y);
 	if (err) return err;
     } else {
-	otrl_dh_session_blank(&(context->sesskeys[0][1]));
+	otrl_dh_session_blank(&(context->context_priv->sesskeys[0][1]));
     }
     return gcry_error(GPG_ERR_NO_ERROR);
 }
@@ -172,30 +177,32 @@ static gcry_error_t rotate_y_keys(ConnContext *context, gcry_mpi_t new_y)
     gcry_error_t err;
 
     /* Rotate the public key */
-    gcry_mpi_release(context->their_old_y);
-    context->their_old_y = context->their_y;
+    gcry_mpi_release(context->context_priv->their_old_y);
+    context->context_priv->their_old_y = context->context_priv->their_y;
 
     /* Rotate the session keys */
-    err = reveal_macs(context, &(context->sesskeys[0][1]),
-	    &(context->sesskeys[1][1]));
+    err = reveal_macs(context, &(context->context_priv->sesskeys[0][1]),
+	    &(context->context_priv->sesskeys[1][1]));
     if (err) return err;
-    otrl_dh_session_free(&(context->sesskeys[0][1]));
-    otrl_dh_session_free(&(context->sesskeys[1][1]));
-    memmove(&(context->sesskeys[0][1]), &(context->sesskeys[0][0]),
-	    sizeof(DH_sesskeys));
-    memmove(&(context->sesskeys[1][1]), &(context->sesskeys[1][0]),
-	    sizeof(DH_sesskeys));
+    otrl_dh_session_free(&(context->context_priv->sesskeys[0][1]));
+    otrl_dh_session_free(&(context->context_priv->sesskeys[1][1]));
+    memmove(&(context->context_priv->sesskeys[0][1]),
+    		&(context->context_priv->sesskeys[0][0]),
+    		sizeof(DH_sesskeys));
+    memmove(&(context->context_priv->sesskeys[1][1]),
+    		&(context->context_priv->sesskeys[1][0]),
+    		sizeof(DH_sesskeys));
 
     /* Copy in the new public key */
-    context->their_y = gcry_mpi_copy(new_y);
-    context->their_keyid++;
+    context->context_priv->their_y = gcry_mpi_copy(new_y);
+    context->context_priv->their_keyid++;
 
     /* Make the session keys */
-    err = otrl_dh_session(&(context->sesskeys[0][0]),
-	    &(context->our_dh_key), context->their_y);
+    err = otrl_dh_session(&(context->context_priv->sesskeys[0][0]),
+	    &(context->context_priv->our_dh_key), context->context_priv->their_y);
     if (err) return err;
-    err = otrl_dh_session(&(context->sesskeys[1][0]),
-	    &(context->our_old_dh_key), context->their_y);
+    err = otrl_dh_session(&(context->context_priv->sesskeys[1][0]),
+	    &(context->context_priv->our_old_dh_key), context->context_priv->their_y);
     if (err) return err;
 
     return gcry_error(GPG_ERR_NO_ERROR);
@@ -373,9 +380,9 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     unsigned char *buf = NULL;
     unsigned char *bufp;
     size_t lenp;
-    DH_sesskeys *sess = &(context->sesskeys[1][0]);
+    DH_sesskeys *sess = &(context->context_priv->sesskeys[1][0]);
     gcry_error_t err;
-    size_t reveallen = 20 * context->numsavedkeys;
+    size_t reveallen = 20 * context->context_priv->numsavedkeys;
     size_t base64len;
     char *base64buf = NULL;
     unsigned char *msgbuf = NULL;
@@ -385,7 +392,7 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
 
     /* Make sure we're actually supposed to be able to encrypt */
     if (context->msgstate != OTRL_MSGSTATE_ENCRYPTED ||
-	    context->their_keyid == 0) {
+	    context->context_priv->their_keyid == 0) {
 	return gcry_error(GPG_ERR_CONFLICT);
     }
 
@@ -403,7 +410,8 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
      * len of revealed mac keys, revealed mac keys, MAC */
     buflen = 3 + (version == 2 ? 1 : 0) + 4 + 4 + 8 + 4 + msglen +
 	4 + reveallen + 20;
-    gcry_mpi_print(format, NULL, 0, &pubkeylen, context->our_dh_key.pub);
+    gcry_mpi_print(format, NULL, 0, &pubkeylen,
+    		context->context_priv->our_dh_key.pub);
     buflen += pubkeylen + 4;
     buf = malloc(buflen);
     msgbuf = gcry_malloc_secure(msglen);
@@ -429,12 +437,12 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
 	bufp[0] = flags;
 	bufp += 1; lenp -= 1;
     }
-    write_int(context->our_keyid-1);                    /* sender keyid */
+    write_int(context->context_priv->our_keyid-1);                /* sender keyid */
     debug_int("Sender keyid", bufp-4);
-    write_int(context->their_keyid);                    /* recipient keyid */
+    write_int(context->context_priv->their_keyid);                /* recipient keyid */
     debug_int("Recipient keyid", bufp-4);
 
-    write_mpi(context->our_dh_key.pub, pubkeylen, "Y");      /* Y */
+    write_mpi(context->context_priv->our_dh_key.pub, pubkeylen, "Y");  /* Y */
 
     otrl_dh_incctr(sess->sendctr);
     memmove(bufp, sess->sendctr, 8);      /* Counter (top 8 bytes only) */
@@ -465,12 +473,12 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     debug_int("Revealed MAC length", bufp-4);
 
     if (reveallen > 0) {
-	memmove(bufp, context->saved_mac_keys, reveallen);
+	memmove(bufp, context->context_priv->saved_mac_keys, reveallen);
 	debug_data("Revealed MAC data", bufp, reveallen);
 	bufp += reveallen; lenp -= reveallen;
-	free(context->saved_mac_keys);
-	context->saved_mac_keys = NULL;
-	context->numsavedkeys = 0;
+	free(context->context_priv->saved_mac_keys);
+	context->context_priv->saved_mac_keys = NULL;
+	context->context_priv->numsavedkeys = 0;
     }
 
     assert(lenp == 0);
@@ -490,21 +498,13 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     free(buf);
     gcry_free(msgbuf);
     *encmessagep = base64buf;
-    gcry_free(context->lastmessage);
-    context->lastmessage = NULL;
-    context->may_retransmit = 0;
+    gcry_free(context->context_priv->lastmessage);
+    context->context_priv->lastmessage = NULL;
+    context->context_priv->may_retransmit = 0;
     if (msglen > 0) {
-	const char *prefix = "[resent] ";
-	size_t prefixlen = strlen(prefix);
-	if (!strncmp(prefix, msgdup, prefixlen)) {
-	    /* The prefix is already there.  Don't add it again. */
-	    prefix = "";
-	    prefixlen = 0;
-	}
-	context->lastmessage = gcry_malloc_secure(prefixlen + justmsglen + 1);
-	if (context->lastmessage) {
-	    strcpy(context->lastmessage, prefix);
-	    strcat(context->lastmessage, msgdup);
+	context->context_priv->lastmessage = gcry_malloc_secure(justmsglen + 1);
+	if (context->context_priv->lastmessage) {
+	    strcpy(context->context_priv->lastmessage, msgdup);
 	}
     }
     gcry_free(msgdup);
@@ -674,24 +674,24 @@ gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
     /* We don't take any action on this message (especially rotating
      * keys) until we've verified the MAC on this message.  To that end,
      * we need to know which keys this message is claiming to use. */
-    if (context->their_keyid == 0 ||
-	    (sender_keyid != context->their_keyid &&
-		sender_keyid != context->their_keyid - 1) ||
-	    (recipient_keyid != context->our_keyid &&
-	     recipient_keyid != context->our_keyid - 1) ||
+    if (context->context_priv->their_keyid == 0 ||
+	    (sender_keyid != context->context_priv->their_keyid &&
+		sender_keyid != context->context_priv->their_keyid - 1) ||
+	    (recipient_keyid != context->context_priv->our_keyid &&
+	     recipient_keyid != context->context_priv->our_keyid - 1) ||
 	    sender_keyid == 0 || recipient_keyid == 0) {
 	goto conflict;
     }
 
-    if (sender_keyid == context->their_keyid - 1 &&
-	    context->their_old_y == NULL) {
+    if (sender_keyid == context->context_priv->their_keyid - 1 &&
+	    context->context_priv->their_old_y == NULL) {
 	goto conflict;
     }
 
     /* These are the session keys this message is claiming to use. */
-    sess = &(context->sesskeys
-	    [context->our_keyid - recipient_keyid]
-	    [context->their_keyid - sender_keyid]);
+    sess = &(context->context_priv->sesskeys
+	    [context->context_priv->our_keyid - recipient_keyid]
+	    [context->context_priv->their_keyid - sender_keyid]);
 
     gcry_md_reset(sess->rcvmac);
     gcry_md_write(sess->rcvmac, macstart, macend-macstart);
@@ -723,13 +723,13 @@ gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
 
     /* See if either set of keys needs rotating */
 
-    if (recipient_keyid == context->our_keyid) {
+    if (recipient_keyid == context->context_priv->our_keyid) {
 	/* They're using our most recent key, so generate a new one */
 	err = rotate_dh_keys(context);
 	if (err) goto err;
     }
 
-    if (sender_keyid == context->their_keyid) {
+    if (sender_keyid == context->context_priv->their_keyid) {
 	/* They've sent us a new public key */
 	err = rotate_y_keys(context, sender_next_y);
 	if (err) goto err;
@@ -778,70 +778,70 @@ OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
 	    if (k == 1) {
 		int fraglen = end - start - 1;
 		size_t newsize = fraglen + 1;
-		free(context->fragment);
-		context->fragment = NULL;
+		free(context->context_priv->fragment);
+		context->context_priv->fragment = NULL;
 		if (newsize > fraglen) {  /* Check for overflow */
-		    context->fragment = malloc(newsize);
+		    context->context_priv->fragment = malloc(newsize);
 		}
-		if (context->fragment) {
-		    memmove(context->fragment, tag + start, fraglen);
-		    context->fragment_len = fraglen;
-		    context->fragment[context->fragment_len] = '\0';
-		    context->fragment_n = n;
-		    context->fragment_k = k;
+		if (context->context_priv->fragment) {
+		    memmove(context->context_priv->fragment, tag + start, fraglen);
+		    context->context_priv->fragment_len = fraglen;
+		    context->context_priv->fragment[context->context_priv->fragment_len] = '\0';
+		    context->context_priv->fragment_n = n;
+		    context->context_priv->fragment_k = k;
 		} else {
-		    context->fragment_len = 0;
-		    context->fragment_n = 0;
-		    context->fragment_k = 0;
+		    context->context_priv->fragment_len = 0;
+		    context->context_priv->fragment_n = 0;
+		    context->context_priv->fragment_k = 0;
 		}
-	    } else if (n == context->fragment_n &&
-		    k == context->fragment_k + 1) {
+	    } else if (n == context->context_priv->fragment_n &&
+		    k == context->context_priv->fragment_k + 1) {
 		int fraglen = end - start - 1;
 		char *newfrag = NULL;
-		size_t newsize = context->fragment_len + fraglen + 1;
+		size_t newsize = context->context_priv->fragment_len + fraglen + 1;
 		if (newsize > fraglen) {  /* Check for overflow */
-		    newfrag = realloc(context->fragment, newsize);
+		    newfrag = realloc(context->context_priv->fragment, newsize);
 		}
 		if (newfrag) {
-		    context->fragment = newfrag;
-		    memmove(context->fragment + context->fragment_len,
+		    context->context_priv->fragment = newfrag;
+		    memmove(context->context_priv->fragment + context->context_priv->fragment_len,
 			    tag + start, fraglen);
-		    context->fragment_len += fraglen;
-		    context->fragment[context->fragment_len] = '\0';
-		    context->fragment_k = k;
+		    context->context_priv->fragment_len += fraglen;
+		    context->context_priv->fragment[context->context_priv->fragment_len] = '\0';
+		    context->context_priv->fragment_k = k;
 		} else {
-		    free(context->fragment);
-		    context->fragment = NULL;
-		    context->fragment_len = 0;
-		    context->fragment_n = 0;
-		    context->fragment_k = 0;
+		    free(context->context_priv->fragment);
+		    context->context_priv->fragment = NULL;
+		    context->context_priv->fragment_len = 0;
+		    context->context_priv->fragment_n = 0;
+		    context->context_priv->fragment_k = 0;
 		}
 	    } else {
-		free(context->fragment);
-		context->fragment = NULL;
-		context->fragment_len = 0;
-		context->fragment_n = 0;
-		context->fragment_k = 0;
+		free(context->context_priv->fragment);
+		context->context_priv->fragment = NULL;
+		context->context_priv->fragment_len = 0;
+		context->context_priv->fragment_n = 0;
+		context->context_priv->fragment_k = 0;
 	    }
 	}
 
-	if (context->fragment_n > 0 &&
-		context->fragment_n == context->fragment_k) {
+	if (context->context_priv->fragment_n > 0 &&
+		context->context_priv->fragment_n == context->context_priv->fragment_k) {
 	    /* We've got a complete message */
-	    *unfragmessagep = context->fragment;
-	    context->fragment = NULL;
-	    context->fragment_len = 0;
-	    context->fragment_n = 0;
-	    context->fragment_k = 0;
+	    *unfragmessagep = context->context_priv->fragment;
+	    context->context_priv->fragment = NULL;
+	    context->context_priv->fragment_len = 0;
+	    context->context_priv->fragment_n = 0;
+	    context->context_priv->fragment_k = 0;
 	    res = OTRL_FRAGMENT_COMPLETE;
 	}
     } else {
 	/* Unfragmented message, so discard any fragment we may have */
-	free(context->fragment);
-	context->fragment = NULL;
-	context->fragment_len = 0;
-	context->fragment_n = 0;
-	context->fragment_k = 0;
+	free(context->context_priv->fragment);
+	context->context_priv->fragment = NULL;
+	context->context_priv->fragment_len = 0;
+	context->context_priv->fragment_n = 0;
+	context->context_priv->fragment_k = 0;
 	res = OTRL_FRAGMENT_UNFRAGMENTED;
     }
 
@@ -861,7 +861,7 @@ gcry_error_t otrl_proto_fragment_create(int mms, int fragment_count,
 
     char **fragmentarray = malloc(fragment_count * sizeof(char*));
     if(!fragmentarray) return gcry_error(GPG_ERR_ENOMEM);
-    
+
     /*
      * Find the next message fragment and store it in the array.
      */
@@ -882,7 +882,7 @@ gcry_error_t otrl_proto_fragment_create(int mms, int fragment_count,
     	}
     	strncpy(fragdata, message, fragdatalen);
     	fragdata[fragdatalen] = 0;
-    	
+
     	fragmentmsg = malloc(fragdatalen+headerlen+1);
     	if(!fragmentmsg) {
 	    for (i=0; i<curfrag-1; free(fragmentarray[i++])) {}
@@ -891,19 +891,19 @@ gcry_error_t otrl_proto_fragment_create(int mms, int fragment_count,
     	    return gcry_error(GPG_ERR_ENOMEM);
     	}
 
-    	/* 
+    	/*
     	 * Create the actual fragment and store it in the array
     	 */
     	snprintf(fragmentmsg, fragdatalen + headerlen, "?OTR,%05hu,%05hu,%s,", curfrag, fragment_count, fragdata);
     	fragmentmsg[fragdatalen + headerlen] = 0;
 
     	fragmentarray[curfrag-1] = fragmentmsg;
-    	
+
     	free(fragdata);
     	index += fragdatalen;
 	message += fragdatalen;
     }
-    
+
     *fragments = fragmentarray;
     return gcry_error(GPG_ERR_NO_ERROR);
 }

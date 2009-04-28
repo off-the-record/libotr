@@ -1,6 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -20,8 +21,19 @@
 #ifndef __MESSAGE_H__
 #define __MESSAGE_H__
 
+#define OTR_ERROR_PREFIX "?OTR Error: "
+
+typedef enum {
+    OTRL_ERRCODE_NONE,
+    OTRL_ERRCODE_ENCRYPTION_ERROR,
+    OTRL_ERRCODE_MSG_NOT_IN_PRIVATE,
+    OTRL_ERRCODE_MSG_UNREADABLE,
+    OTRL_ERRCODE_MSG_MALFORMED,
+} OtrlErrorCode;
+
 /* These define the events used to indicate status of SMP to the UI */
 typedef enum {
+    OTRL_SMPEVENT_NONE,
     OTRL_SMPEVENT_ERROR,
     OTRL_SMPEVENT_ABORT,
     OTRL_SMPEVENT_CHEATED,
@@ -31,6 +43,26 @@ typedef enum {
     OTRL_SMPEVENT_SUCCESS,
     OTRL_SMPEVENT_FAILURE
 } OtrlSMPEvent;
+
+/* These define the events used to indicate the messages that need
+ * to be sent */
+typedef enum {
+    OTRL_MSGEVENT_NONE,
+    OTRL_MSGEVENT_ENCRYPTION_REQUIRED,
+    OTRL_MSGEVENT_ENCRYPTION_ERROR,
+    OTRL_MSGEVENT_CONNECTION_ENDED,
+    OTRL_MSGEVENT_SETUP_ERROR,
+    OTRL_MSGEVENT_MSG_REFLECTED,
+    OTRL_MSGEVENT_MSG_RESENT,
+    OTRL_MSGEVENT_RCVDMSG_NOT_IN_PRIVATE,
+    OTRL_MSGEVENT_RCVDMSG_UNREADABLE,
+    OTRL_MSGEVENT_RCVDMSG_MALFORMED,
+    OTRL_MSGEVENT_LOG_HEARTBEAT_RCVD,
+    OTRL_MSGEVENT_LOG_HEARTBEAT_SENT,
+    OTRL_MSGEVENT_RCVDMSG_GENERAL_ERR,
+    OTRL_MSGEVENT_RCVDMSG_UNENCRYPTED,
+    OTRL_MSGEVENT_RCVDMSG_UNRECOGNIZED
+} OtrlMessageEvent;
 
 typedef enum {
     OTRL_NOTIFY_ERROR,
@@ -61,32 +93,9 @@ typedef struct s_OtrlMessageAppOps {
     void (*inject_message)(void *opdata, const char *accountname,
 	    const char *protocol, const char *recipient, const char *message);
 
-    /* Display a notification message for a particular accountname /
-     * protocol / username conversation. */
-    void (*notify)(void *opdata, OtrlNotifyLevel level,
-	    const char *accountname, const char *protocol,
-	    const char *username, const char *title,
-	    const char *primary, const char *secondary);
-
-    /* Display an OTR control message for a particular accountname /
-     * protocol / username conversation.  Return 0 if you are able to
-     * successfully display it.  If you return non-0 (or if this
-     * function is NULL), the control message will be displayed inline,
-     * as a received message, or else by using the above notify()
-     * callback. */
-    int (*display_otr_message)(void *opdata, const char *accountname,
-	    const char *protocol, const char *username, const char *msg);
-
     /* When the list of ConnContexts changes (including a change in
      * state), this is called so the UI can be updated. */
     void (*update_context_list)(void *opdata);
-
-    /* Return a newly allocated string containing a human-friendly name
-     * for the given protocol id */
-    const char *(*protocol_name)(void *opdata, const char *protocol);
-
-    /* Deallocate a string allocated by protocol_name */
-    void (*protocol_name_free)(void *opdata, const char *protocol_name);
 
     /* A new fingerprint for the given user has been received. */
     void (*new_fingerprint)(void *opdata, OtrlUserState us,
@@ -105,9 +114,6 @@ typedef struct s_OtrlMessageAppOps {
     /* We have completed an authentication, using the D-H keys we
      * already knew.  is_reply indicates whether we initiated the AKE. */
     void (*still_secure)(void *opdata, ConnContext *context, int is_reply);
-
-    /* Log a message.  The passed message will end in "\n". */
-    void (*log_message)(void *opdata, const char *message);
 
     /* Find the maximum message size supported by this protocol. */
     int (*max_message_size)(void *opdata, ConnContext *context);
@@ -128,12 +134,104 @@ typedef struct s_OtrlMessageAppOps {
     void (*received_symkey)(void *opdata, ConnContext *context,
 	    unsigned int use, const unsigned char *usedata,
 	    size_t usedatalen, const unsigned char *symkey);
-    
-    /* Update the auth UI with respect to SMP events */
+
+    /* Return a string according to the error event. This string will then
+     * be concatenated to an OTR header to produce an OTR protocol error
+     * message. The following are the possible error events:
+     * - OTRL_ERRCODE_ENCRYPTION_ERROR
+     * 		occured while encrypting a message
+     * - OTRL_ERRCODE_MSG_NOT_IN_PRIVATE
+     * 		sent encrypted message to somebody who is not in
+     * 		a mutual OTR session
+     * - OTRL_ERRCODE_MSG_UNREADABLE
+     *		sent an unreadable encrypted message
+     * - OTRL_ERRCODE_MSG_MALFORMED
+     * 		message sent is malformed */
+    const char *(*otr_error_message)(void *opdata, ConnContext *context,
+        OtrlErrorCode err_code);
+
+    /* Deallocate a string returned by otr_error_message */
+    void (*otr_error_message_free)(void *opdata, const char *err_msg);
+
+    /* Return a string that will be prefixed to any resent message. If this
+     * function is not provided by the application then the default prefix,
+     * "[resent]", will be used.
+     * */
+    const char *(*resent_msg_prefix)(void *opdata, ConnContext *context);
+
+    /* Deallocate a string returned by resent_msg_prefix */
+    void (*resent_msg_prefix_free)(void *opdata, const char *prefix);
+
+    /* Update the authentication UI with respect to SMP events
+     * These are the possible events:
+     * - OTRL_SMPEVENT_ASK_FOR_SECRET
+     *      prompt the user to enter a shared secret. The sender application
+     *      should call otrl_message_initiate_smp, passing NULL as the question.
+     *      When the receiver application resumes the SM protocol by calling
+     *      otrl_message_respond_smp with the secret answer.
+     * - OTRL_SMPEVENT_ASK_FOR_ANSWER
+     *      (same as OTRL_SMPEVENT_ASK_FOR_SECRET but sender calls
+     *      otrl_message_initiate_smp_q instead)
+     * - OTRL_SMPEVENT_CHEATED
+     *      abort the current auth and update the auth progress dialog
+     *      with progress_percent. otrl_message_abort_smp should be called to
+     *      stop the SM protocol.
+     * - OTRL_SMPEVENT_INPROGRESS 	and
+     *   OTRL_SMPEVENT_SUCCESS 		and
+     *   OTRL_SMPEVENT_FAILURE    	and
+     *   OTRL_SMPEVENT_ABORT
+     *      update the auth progress dialog with progress_percent
+     * - OTRL_SMPEVENT_ERROR
+     *      (same as OTRL_SMPEVENT_CHEATED)
+     * */
     void (*handle_smp_event)(void *opdata, OtrlSMPEvent smp_event,
 	    ConnContext *context, unsigned short progress_percent,
 	    char *question);
 
+    /* Handle and send the appropriate message(s) to the sender/recipient
+     * depending on the message events. All the events only require an opdata,
+     * the event, and the context. The message and err will be NULL except for
+     * some events (see below). The possible events are:
+     * - OTRL_MSGEVENT_ENCRYPTION_REQUIRED
+     *      Our policy requires encryption but we are trying to send
+     *      an unencrypted message out.
+     * - OTRL_MSGEVENT_ENCRYPTION_ERROR
+     *      An error occured while encrypting a message and the message
+     *      was not sent.
+     * - OTRL_MSGEVENT_CONNECTION_ENDED
+     *      Message has not been sent because our buddy has ended the
+     *      private conversation. We should either close the connection,
+     *      or refresh it.
+     * - OTRL_MSGEVENT_SETUP_ERROR
+     *      A private conversation could not be set up. A gcry_error_t
+     *      will be passed.
+     * - OTRL_MSGEVENT_MSG_REFLECTED
+     *      Received our own OTR messages.
+     * - OTRL_MSGEVENT_MSG_RESENT
+     *      The previous message was resent.
+     * - OTRL_MSGEVENT_RCVDMSG_NOT_IN_PRIVATE
+     *      Received an encrypted message but cannot read
+     *      it because no private connection is established yet.
+     * - OTRL_MSGEVENT_RCVDMSG_UNREADABLE
+     *      Cannot read the received message.
+     * - OTRL_MSGEVENT_RCVDMSG_MALFORMED
+     *      The message received contains malformed data.
+     * - OTRL_MSGEVENT_LOG_HEARTBEAT_RCVD
+     *      Received a heartbeat.
+     * - OTRL_MSGEVENT_LOG_HEARTBEAT_SENT
+     *      Sent a heartbeat.
+     * - OTRL_MSGEVENT_RCVDMSG_GENERAL_ERR
+     *      Received a general OTR error. The argument 'message' will
+     *      also be passed and it will contain the OTR error message.
+     * - OTRL_MSGEVENT_RCVDMSG_UNENCRYPTED
+     *      Received an unencrypted message. The argument 'smessage' will
+     *      also be passed and it will contain the plaintext message.
+     * - OTRL_MSGEVENT_RCVDMSG_UNRECOGNIZED
+     *      Cannot recognize the type of OTR message received.
+     * */
+    void (*handle_msg_event)(void *opdata, OtrlMessageEvent msg_event,
+                ConnContext *context, const char *message,
+                gcry_error_t err);
 } OtrlMessageAppOps;
 
 /* Deallocate a message allocated by other otrl_message_* routines. */
@@ -146,24 +244,36 @@ void otrl_message_free(char *message);
  * pointer to the new ConnContext.  You can use this to add
  * application-specific information to the ConnContext using the
  * "context->app" field, for example.  If you don't need to do this, you
- * can pass NULL for the last two arguments of otrl_message_sending.  
+ * can pass NULL for the last two arguments of otrl_message_sending.
  *
  * tlvs is a chain of OtrlTLVs to append to the private message.  It is
  * usually correct to just pass NULL here.
  *
- * If this routine returns non-zero, then the library tried to encrypt
- * the message, but for some reason failed.  DO NOT send the message in
- * the clear in that case.
- * 
- * If *messagep gets set by the call to something non-NULL, then you
- * should replace your message with the contents of *messagep, and
- * send that instead.  Call otrl_message_free(*messagep) when you're
+ * convert_msg is a function that will be called on each msg to be sent. You
+ * can use it to perform some tweaks on your outgoing messages.
+ *
+ * If no fragmentation or msg injection is wanted, use OTRL_FRAGMENT_SEND_SKIP
+ * as the OtrlFragmentPolicy. In this case, this function will assign *messagep
+ * with the encrypted msg. If the routine returns non-zero, then the library
+ * tried to encrypt the message, but for some reason failed. DO NOT send the
+ * message in the clear in that case. If *messagep gets set by the call to
+ * something non-NULL, then you should replace your message with the contents
+ * of *messagep, and send that instead.
+ *
+ * Other fragmentation policies are OTRL_FRAGMENT_SEND_ALL,
+ * OTRL_FRAGMENT_SEND_ALL_BUT_LAST, or OTRL_FRAGMENT_SEND_ALL_BUT_FIRST. In these
+ * cases, the appropriate fragments will be automatically sent. For the last two
+ * policies, the remaining fragment will be passed in *original_msg.
+ *
+ * Call otrl_message_free(*messagep) if you don't need *messagep or when you're
  * done with it. */
 gcry_error_t otrl_message_sending(OtrlUserState us,
 	const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
-	const char *recipient, const char *message, OtrlTLV *tlvs,
-	char **messagep,
+	const char *recipient, char **original_msgp, OtrlTLV *tlvs,
+	char **messagep, OtrlFragmentPolicy fragPolicy,
+	void (*convert_msg)(void *convert_data, const char *source, char **target),
+	void *convert_data,
 	void (*add_appdata)(void *data, ConnContext *context),
 	void *data);
 
@@ -174,7 +284,10 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
  * a pointer to the new ConnContext.  You can use this to add
  * application-specific information to the ConnContext using the
  * "context->app" field, for example.  If you don't need to do this, you
- * can pass NULL for the last two arguments of otrl_message_receiving.  
+ * can pass NULL for the last two arguments of otrl_message_receiving.
+ *
+ * convert_msg is a function that will be called on each msg that is received.
+ * You can use it to perform some tweaks on your incoming messages.
  *
  * If otrl_message_receiving returns 1, then the message you received
  * was an internal protocol message, and no message should be delivered
@@ -195,15 +308,10 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
 	const char *sender, const char *message, char **newmessagep,
 	OtrlTLV **tlvsp,
+	void (*convert_msg)(void *convert_data, const char *source, char **target),
+	void *convert_data,
 	void (*add_appdata)(void *data, ConnContext *context),
 	void *data);
-
-/* Send a message to the network, fragmenting first if necessary.
- * All messages to be sent to the network should go through this
- * method immediately before they are sent, ie after encryption. */
-gcry_error_t otrl_message_fragment_and_send(const OtrlMessageAppOps *ops,
-	void *opdata, ConnContext *context, const char *message,
-	OtrlFragmentPolicy fragPolicy, char **returnFragment);
 
 /* Put a connection into the PLAINTEXT state, first sending the
  * other side a notice that we're doing so if we're currently ENCRYPTED,

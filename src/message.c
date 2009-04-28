@@ -1,6 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -42,6 +43,76 @@ extern unsigned int otrl_api_version;
  * resending in response to a rekey? */
 #define RESEND_INTERVAL 60
 
+/* Send a message to the network, fragmenting first if necessary.
+ * All messages to be sent to the network should go through this
+ * method immediately before they are sent, ie after encryption. */
+static gcry_error_t fragment_and_send(const OtrlMessageAppOps *ops,
+	void *opdata, ConnContext *context, const char *message,
+	OtrlFragmentPolicy fragPolicy, char **returnFragment)
+{
+    int mms = 0;
+    if (message && ops->inject_message) {
+    	int msglen;
+
+        if (otrl_api_version >= 0x030100 && ops->max_message_size) {
+	    mms = ops->max_message_size(opdata, context);
+        }
+    	msglen = strlen(message);
+
+	/* Don't incur overhead of fragmentation unless necessary */
+    	if(mms != 0 && msglen > mms) {
+	    char **fragments;
+	    gcry_error_t err;
+	    int i;
+	    int fragment_count = ((msglen - 1) / (mms -19)) + 1;
+		/* like ceil(msglen/(mms - 19)) */
+
+	    err = otrl_proto_fragment_create(mms, fragment_count, &fragments,
+		    message);
+	    if (err) {
+		return err;
+	    }
+
+	    /* Determine which fragments to send and which to return
+	     * based on given Fragment Policy.  If the first fragment
+	     * should be returned instead of sent, store it. */
+	    if (fragPolicy == OTRL_FRAGMENT_SEND_ALL_BUT_FIRST) {
+		*returnFragment = strdup(fragments[0]);
+	    } else {
+		ops->inject_message(opdata, context->accountname,
+			context->protocol, context->username, fragments[0]);
+	    }
+	    for (i=1; i<fragment_count-1; i++) {
+		ops->inject_message(opdata, context->accountname,
+			context->protocol, context->username, fragments[i]);
+	    }
+	    /* If the last fragment should be stored instead of sent,
+	     * store it */
+	    if (fragPolicy == OTRL_FRAGMENT_SEND_ALL_BUT_LAST) {
+		*returnFragment = strdup(fragments[fragment_count-1]);
+	    } else {
+		ops->inject_message(opdata, context->accountname,
+			context->protocol, context->username, fragments[fragment_count-1]);
+	    }
+	    /* Now free all fragment memory */
+	    otrl_proto_fragment_free(&fragments, fragment_count);
+
+	} else {
+	    /* No fragmentation necessary */
+	    if (fragPolicy == OTRL_FRAGMENT_SEND_ALL) {
+	    	ops->inject_message(opdata, context->accountname,
+		        context->protocol, context->username, message);
+	    } else {
+		/* Copy and return the entire given message. */
+		int l = strlen(message) + 1;
+		*returnFragment = malloc(sizeof(char)*l);
+		strcpy(*returnFragment, message);
+	    }
+	}
+    }
+    return gcry_error(GPG_ERR_NO_ERROR);
+}
+
 /* Deallocate a message allocated by other otrl_message_* routines. */
 void otrl_message_free(char *message)
 {
@@ -55,37 +126,51 @@ void otrl_message_free(char *message)
  * pointer to the new ConnContext.  You can use this to add
  * application-specific information to the ConnContext using the
  * "context->app" field, for example.  If you don't need to do this, you
- * can pass NULL for the last two arguments of otrl_message_sending.  
+ * can pass NULL for the last two arguments of otrl_message_sending.
  *
  * tlvs is a chain of OtrlTLVs to append to the private message.  It is
  * usually correct to just pass NULL here.
  *
- * If this routine returns non-zero, then the library tried to encrypt
- * the message, but for some reason failed.  DO NOT send the message in
- * the clear in that case.
- * 
- * If *messagep gets set by the call to something non-NULL, then you
- * should replace your message with the contents of *messagep, and
- * send that instead.  Call otrl_message_free(*messagep) when you're
+ * If no fragmentation or msg injection is wanted, use OTRL_FRAGMENT_SEND_SKIP
+ * as the OtrlFragmentPolicy. In this case, this function will assign *messagep
+ * with the encrypted msg. If the routine returns non-zero, then the library
+ * tried to encrypt the message, but for some reason failed. DO NOT send the
+ * message in the clear in that case. If *messagep gets set by the call to
+ * something non-NULL, then you should replace your message with the contents
+ * of *messagep, and send that instead.
+ *
+ * Other fragmentation policies are OTRL_FRAGMENT_SEND_ALL,
+ * OTRL_FRAGMENT_SEND_ALL_BUT_LAST, or OTRL_FRAGMENT_SEND_ALL_BUT_FIRST. In these
+ * cases, the appropriate fragments will be automatically sent. For the last two
+ * policies, the remaining fragment will be passed in *original_msg.
+ *
+ * Call otrl_message_free(*messagep) if you don't need *messagep or if you're
  * done with it. */
 gcry_error_t otrl_message_sending(OtrlUserState us,
 	const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
-	const char *recipient, const char *message, OtrlTLV *tlvs,
-	char **messagep,
+	const char *recipient, char **original_msgp, OtrlTLV *tlvs,
+	char **messagep, OtrlFragmentPolicy fragPolicy,
+	void (*convert_msg)(void *convert_data, const char *source, char **target),
+	void *convert_data,
 	void (*add_appdata)(void *data, ConnContext *context),
 	void *data)
 {
     struct context * context;
     char * msgtosend;
-    gcry_error_t err;
+    const char * err_msg;
+    gcry_error_t err_code, err;
     OtrlPolicy policy = OTRL_POLICY_DEFAULT;
     int context_added = 0;
 
     *messagep = NULL;
+    err = gcry_error(GPG_ERR_NO_ERROR);	/* Default to no error */
 
-    if (!accountname || !protocol || !recipient || !message || !messagep)
-        return gcry_error(GPG_ERR_NO_ERROR);
+    if (!accountname || !protocol || !recipient ||
+    		!original_msgp || !*original_msgp || !messagep) {
+    	err = gcry_error(GPG_ERR_NO_ERROR);
+    	goto fragment;
+    }
 
     /* See if we have a fingerprint for this user */
     context = otrl_context_find(us, recipient, accountname, protocol,
@@ -103,7 +188,8 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 
     /* Should we go on at all? */
     if ((policy & OTRL_POLICY_VERSION_MASK) == 0) {
-        return gcry_error(GPG_ERR_NO_ERROR);
+        err =  gcry_error(GPG_ERR_NO_ERROR);
+    	goto fragment;
     }
 
     /* XXX: Add flags to the policy specifying whether to treat a typed
@@ -111,13 +197,14 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
      * for (1) unencrypted conversations, (2) encrypted conversations. */
 
     /* If this is an OTR Query message, don't encrypt it. */
-    if (otrl_proto_message_type(message) == OTRL_MSGTYPE_QUERY) {
+    if (otrl_proto_message_type(*original_msgp) == OTRL_MSGTYPE_QUERY) {
 	/* Replace the "?OTR?" with a custom message */
 	char *bettermsg = otrl_proto_default_query_msg(accountname, policy);
 	if (bettermsg) {
 	    *messagep = bettermsg;
 	}
-	return gcry_error(GPG_ERR_NO_ERROR);
+	err = gcry_error(GPG_ERR_NO_ERROR);
+	goto fragment;
     }
 
     /* What is the current message disposition? */
@@ -127,38 +214,25 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 		/* We're trying to send an unencrypted message with a policy
 		 * that disallows that.  Don't do that, but try to start
 		 * up OTR instead. */
-		if ((!(ops->display_otr_message) ||
-			ops->display_otr_message(opdata, accountname,
-			    protocol, recipient, "Attempting to start a "
-			    "private conversation...")) && ops->notify) {
-		    const char *format = "You attempted to send an "
-			"unencrypted message to %s";
-		    char *primary = malloc(strlen(format) +
-			    strlen(recipient) - 1);
-		    if (primary) {
-			sprintf(primary, format, recipient);
-			ops->notify(opdata, OTRL_NOTIFY_WARNING, accountname,
-				protocol, recipient, "OTR Policy Violation",
-				primary,
-				"Unencrypted messages to this recipient are "
-				"not allowed.  Attempting to start a private "
-				"conversation.\n\nYour message will be "
-				"retransmitted when the private conversation "
-				"starts.");
-			free(primary);
-		    }
+		if (ops->handle_msg_event) {
+		    ops->handle_msg_event(opdata,
+			    OTRL_MSGEVENT_ENCRYPTION_REQUIRED,
+			    context, NULL, (gcry_error_t)NULL);
 		}
-		context->lastmessage = gcry_malloc_secure(strlen(message) + 1);
-		if (context->lastmessage) {
+
+		context->context_priv->lastmessage =
+			gcry_malloc_secure(strlen(*original_msgp) + 1);
+		if (context->context_priv->lastmessage) {
 		    char *bettermsg = otrl_proto_default_query_msg(accountname,
 			    policy);
-		    strcpy(context->lastmessage, message);
-		    context->lastsent = time(NULL);
-		    context->may_retransmit = 2;
+		    strcpy(context->context_priv->lastmessage, *original_msgp);
+		    context->context_priv->lastsent = time(NULL);
+		    context->context_priv->may_retransmit = 2;
 		    if (bettermsg) {
 			*messagep = bettermsg;
 		    } else {
-			return gcry_error(GPG_ERR_ENOMEM);
+			err = gcry_error(GPG_ERR_ENOMEM);
+			goto fragment;
 		    }
 		}
 	    } else {
@@ -167,7 +241,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 		    /* See if this user can speak OTR.  Append the
 		     * OTR_MESSAGE_TAG to the plaintext message, and see
 		     * if he responds. */
-		    size_t msglen = strlen(message);
+		    size_t msglen = strlen(*original_msgp);
 		    size_t basetaglen = strlen(OTRL_MESSAGE_TAG_BASE);
 		    size_t v1taglen = (policy & OTRL_POLICY_ALLOW_V1) ?
 			strlen(OTRL_MESSAGE_TAG_V1) : 0;
@@ -176,7 +250,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 		    char *taggedmsg = malloc(msglen + basetaglen + v1taglen
 			    +v2taglen + 1);
 		    if (taggedmsg) {
-			strcpy(taggedmsg, message);
+			strcpy(taggedmsg, *original_msgp);
 			strcpy(taggedmsg + msglen, OTRL_MESSAGE_TAG_BASE);
 			if (v1taglen) {
 			    strcpy(taggedmsg + msglen + basetaglen,
@@ -195,59 +269,83 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 	    }
 	    break;
 	case OTRL_MSGSTATE_ENCRYPTED:
+	    /* convert the original message if necessary */
+	    if (convert_msg) {
+	    	/* using msgtosend as a temporary placeholder */
+	        msgtosend = *original_msgp;
+	        convert_msg(convert_data, msgtosend, original_msgp);
+	        free(msgtosend);
+	        msgtosend = NULL;
+	    }
+
 	    /* Create the new, encrypted message */
-	    err = otrl_proto_create_data(&msgtosend, context, message, tlvs,
-		    0, NULL);
-	    if (!err) {
-		context->lastsent = time(NULL);
+	    err_code = otrl_proto_create_data(&msgtosend, context,
+		    *original_msgp, tlvs, 0, NULL);
+	    if (!err_code) {
+		context->context_priv->lastsent = time(NULL);
 		*messagep = msgtosend;
 	    } else {
 		/* Uh, oh.  Whatever we do, *don't* send the message in the
 		 * clear. */
-		*messagep = strdup("?OTR Error: Error occurred encrypting "
-			"message");
-		if ((!(ops->display_otr_message) ||
-			ops->display_otr_message(opdata, accountname,
-			    protocol, recipient, "An error occurred when "
-			    "encrypting your message.  The message was not "
-			    "sent.")) && ops->notify) {
-		    ops->notify(opdata, OTRL_NOTIFY_ERROR, 
-			    accountname, protocol, recipient,
-			    "Error encrypting message",
-			    "An error occurred when encrypting your message",
-			    "The message was not sent.");
+		if (ops->handle_msg_event) {
+		ops->handle_msg_event(opdata, OTRL_MSGEVENT_ENCRYPTION_ERROR,
+		    context, NULL, (gcry_error_t)NULL);
 		}
-		if (!(*messagep)) {
-		    return gcry_error(GPG_ERR_ENOMEM);
+		if (ops->otr_error_message) {
+		   err_msg = ops->otr_error_message(opdata, context,
+			OTRL_ERRCODE_ENCRYPTION_ERROR);
+		   *messagep = malloc(strlen(OTR_ERROR_PREFIX) +
+			strlen(err_msg) + 1);
+		    if (*messagep) {
+			strcpy(*messagep, OTR_ERROR_PREFIX);
+			strcat(*messagep, err_msg);
+		    }
+		    if (ops->otr_error_message_free) {
+			ops->otr_error_message_free(opdata, err_msg);
+		    }
+		    if (!(*messagep)) {
+			err = gcry_error(GPG_ERR_ENOMEM);
+			goto fragment;
+		    }
 		}
 	    }
 	    break;
 	case OTRL_MSGSTATE_FINISHED:
-	    *messagep = strdup("");
-	    if ((!(ops->display_otr_message) ||
-		    ops->display_otr_message(opdata, accountname,
-			protocol, recipient, "Your message was not sent.  "
-			"Either end your private conversation, or restart "
-			"it.")) && ops->notify) {
-		const char *fmt = "%s has already closed his/her private "
-		    "connection to you";
-		char *primary = malloc(strlen(fmt) + strlen(recipient) - 1);
-		if (primary) {
-		    sprintf(primary, fmt, recipient);
-		    ops->notify(opdata, OTRL_NOTIFY_ERROR, 
-			    accountname, protocol, recipient,
-			    "Private connection closed", primary,
-			    "Your message was not sent.  Either close your "
-			    "private connection to him, or refresh it.");
-		}
+	    if (ops->handle_msg_event) {
+		ops->handle_msg_event(opdata, OTRL_MSGEVENT_CONNECTION_ENDED,
+		    context, NULL, (gcry_error_t)NULL);
 	    }
+	    *messagep = strdup("");
 	    if (!(*messagep)) {
-		return gcry_error(GPG_ERR_ENOMEM);
+		err = gcry_error(GPG_ERR_ENOMEM);
+		goto fragment;
 	    }
 	    break;
     }
 
-    return gcry_error(GPG_ERR_NO_ERROR);
+fragment:
+    if (fragPolicy == OTRL_FRAGMENT_SEND_SKIP ) {
+    	/* Do not fragment/inject. Default behaviour of libotr3.2.0 */
+    	return err;
+    } else {
+	/* Fragment and send according to policy */
+    	if (err && *messagep == NULL) {
+	    /* Do not send plaintext */
+	    char *ourm = strdup("");
+	    free(*original_msgp);
+	    *original_msgp = ourm;
+    	} else if (*messagep) {
+	    ConnContext *conncontext = otrl_context_find(us, recipient,
+		    accountname, protocol, 0, NULL, NULL, NULL);
+	    free(*original_msgp);
+	    *original_msgp = NULL;
+	    if (conncontext) {
+		err = fragment_and_send(ops, NULL, conncontext, *messagep,
+			fragPolicy, original_msgp);
+	    }
+    	}
+    	return err;
+    }
 }
 
 /* If err == 0, send the last auth message for the given context to the
@@ -259,38 +357,15 @@ static gcry_error_t send_or_error_auth(const OtrlMessageAppOps *ops,
     if (!err) {
 	const char *msg = context->auth.lastauthmsg;
 	if (msg && *msg) {
-	    otrl_message_fragment_and_send(ops, opdata, context, msg, OTRL_FRAGMENT_SEND_ALL, NULL);
-	    /*if (ops->inject_message) {
-		ops->inject_message(opdata, context->accountname,
-			context->protocol, context->username, msg);
-	    }*/
+ 	    fragment_and_send(ops, opdata, context, msg,
+		    OTRL_FRAGMENT_SEND_ALL, NULL);
+	    context->context_priv->lastsent = time(NULL);
 	}
     } else {
-	const char *buf_format = "Error setting up private conversation: %s";
-	const char *strerr;
-	char *buf;
-	
-	switch(gcry_err_code(err)) {
-	    case GPG_ERR_INV_VALUE:
-		strerr = "Malformed message received";
-		break;
-	    default:
-		strerr = gcry_strerror(err);
-		break;
-	}
-	buf = malloc(strlen(buf_format) + strlen(strerr) - 1);
-	if (buf) {
-	    sprintf(buf, buf_format, strerr);
-	}
-	if ((!(ops->display_otr_message) ||
-		ops->display_otr_message(opdata, context->accountname,
-		    context->protocol, context->username, buf))
-		&& ops->notify) {
-	    ops->notify(opdata, OTRL_NOTIFY_ERROR, context->accountname,
-		    context->protocol, context->username, "OTR error",
-		    buf, NULL);
-	}
-	free(buf);
+     	if (ops->handle_msg_event) {
+	    ops->handle_msg_event(opdata, OTRL_MSGEVENT_SETUP_ERROR,
+		    context, NULL, err);
+     	}
     }
     return err;
 }
@@ -316,23 +391,12 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
 
     /* See if we're talking to ourselves */
     if (!gcry_mpi_cmp(auth->their_pub, auth->our_dh.pub)) {
-	/* Yes, we are. */
-	if ((!(edata->ops->display_otr_message) ||
-		edata->ops->display_otr_message(edata->opdata,
-		    edata->context->accountname, edata->context->protocol,
-		    edata->context->username,
-		    "We are receiving our own OTR messages.  "
-		    "You are either trying to talk to yourself, "
-		    "or someone is reflecting your messages back "
-		    "at you.")) && edata->ops->notify) {
-	    edata->ops->notify(edata->opdata, OTRL_NOTIFY_ERROR,
-		edata->context->accountname, edata->context->protocol,
-		edata->context->username, "OTR Error",
-		"We are receiving our own OTR messages.",
-		"You are either trying to talk to yourself, "
-		"or someone is reflecting your messages back "
-		"at you.");
-	}
+    	/* Yes, we are. */
+    	if (edata->ops->handle_msg_event) {
+	    edata->ops->handle_msg_event(edata->opdata,
+		    OTRL_MSGEVENT_MSG_REFLECTED, edata->context,
+		    NULL, (gcry_error_t)NULL);
+    	}
 	edata->ignore_message = 1;
 	return gcry_error(GPG_ERR_NO_ERROR);
     }
@@ -357,19 +421,19 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
     /* Is this a new session or just a refresh of an existing one? */
     if (edata->context->msgstate == OTRL_MSGSTATE_ENCRYPTED &&
 	    oldprint == found_print &&
-	    edata->context->our_keyid - 1 == edata->context->auth.our_keyid &&
-	    !gcry_mpi_cmp(edata->context->our_old_dh_key.pub,
+	    edata->context->context_priv->our_keyid - 1 == edata->context->auth.our_keyid &&
+	    !gcry_mpi_cmp(edata->context->context_priv->our_old_dh_key.pub,
 		edata->context->auth.our_dh.pub) &&
-	    ((edata->context->their_keyid > 0 &&
-	      edata->context->their_keyid ==
+	    ((edata->context->context_priv->their_keyid > 0 &&
+	      edata->context->context_priv->their_keyid ==
 		    edata->context->auth.their_keyid &&
-	      !gcry_mpi_cmp(edata->context->their_y,
+	      !gcry_mpi_cmp(edata->context->context_priv->their_y,
 		  edata->context->auth.their_pub)) ||
-	    (edata->context->their_keyid > 1 &&
-	     edata->context->their_keyid - 1 ==
+	    (edata->context->context_priv->their_keyid > 1 &&
+	     edata->context->context_priv->their_keyid - 1 ==
 		    edata->context->auth.their_keyid &&
-	     edata->context->their_old_y != NULL &&
-	     !gcry_mpi_cmp(edata->context->their_old_y,
+	     edata->context->context_priv->their_old_y != NULL &&
+	     !gcry_mpi_cmp(edata->context->context_priv->their_old_y,
 		 edata->context->auth.their_pub)))) {
 	/* This is just a refresh of the existing session. */
 	if (edata->ops->still_secure) {
@@ -390,35 +454,35 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
     edata->context->protocol_version =
 	edata->context->auth.protocol_version;
 
-    edata->context->their_keyid = edata->context->auth.their_keyid;
-    gcry_mpi_release(edata->context->their_y);
-    gcry_mpi_release(edata->context->their_old_y);
-    edata->context->their_y = gcry_mpi_copy(edata->context->auth.their_pub);
-    edata->context->their_old_y = NULL;
+    edata->context->context_priv->their_keyid = edata->context->auth.their_keyid;
+    gcry_mpi_release(edata->context->context_priv->their_y);
+    gcry_mpi_release(edata->context->context_priv->their_old_y);
+    edata->context->context_priv->their_y = gcry_mpi_copy(edata->context->auth.their_pub);
+    edata->context->context_priv->their_old_y = NULL;
 
-    if (edata->context->our_keyid - 1 != edata->context->auth.our_keyid ||
-	gcry_mpi_cmp(edata->context->our_old_dh_key.pub,
+    if (edata->context->context_priv->our_keyid - 1 != edata->context->auth.our_keyid ||
+	gcry_mpi_cmp(edata->context->context_priv->our_old_dh_key.pub,
 	    edata->context->auth.our_dh.pub)) {
-	otrl_dh_keypair_free(&(edata->context->our_dh_key));
-	otrl_dh_keypair_free(&(edata->context->our_old_dh_key));
-	otrl_dh_keypair_copy(&(edata->context->our_old_dh_key),
+	otrl_dh_keypair_free(&(edata->context->context_priv->our_dh_key));
+	otrl_dh_keypair_free(&(edata->context->context_priv->our_old_dh_key));
+	otrl_dh_keypair_copy(&(edata->context->context_priv->our_old_dh_key),
 		&(edata->context->auth.our_dh));
-	otrl_dh_gen_keypair(edata->context->our_old_dh_key.groupid,
-		&(edata->context->our_dh_key));
-	edata->context->our_keyid = edata->context->auth.our_keyid + 1;
+	otrl_dh_gen_keypair(edata->context->context_priv->our_old_dh_key.groupid,
+		&(edata->context->context_priv->our_dh_key));
+	edata->context->context_priv->our_keyid = edata->context->auth.our_keyid + 1;
     }
 
     /* Create the session keys from the DH keys */
-    otrl_dh_session_free(&(edata->context->sesskeys[0][0]));
-    err = otrl_dh_session(&(edata->context->sesskeys[0][0]),
-	&(edata->context->our_dh_key), edata->context->their_y);
+    otrl_dh_session_free(&(edata->context->context_priv->sesskeys[0][0]));
+    err = otrl_dh_session(&(edata->context->context_priv->sesskeys[0][0]),
+	&(edata->context->context_priv->our_dh_key), edata->context->context_priv->their_y);
     if (err) return err;
-    otrl_dh_session_free(&(edata->context->sesskeys[1][0]));
-    err = otrl_dh_session(&(edata->context->sesskeys[1][0]),
-	&(edata->context->our_old_dh_key), edata->context->their_y);
+    otrl_dh_session_free(&(edata->context->context_priv->sesskeys[1][0]));
+    err = otrl_dh_session(&(edata->context->context_priv->sesskeys[1][0]),
+	&(edata->context->context_priv->our_old_dh_key), edata->context->context_priv->their_y);
     if (err) return err;
 
-    edata->context->generation++;
+    edata->context->context_priv->generation++;
     edata->context->active_fingerprint = found_print;
     edata->context->msgstate = OTRL_MSGSTATE_ENCRYPTED;
 
@@ -450,51 +514,62 @@ static void maybe_resend(EncrData *edata)
 
     /* See if there's a message we sent recently that should be resent. */
     now = time(NULL);
-    if (edata->context->lastmessage != NULL &&
-	    edata->context->may_retransmit &&
-	    edata->context->lastsent >= (now - RESEND_INTERVAL)) {
+    if (edata->context->context_priv->lastmessage != NULL &&
+	    edata->context->context_priv->may_retransmit &&
+	    edata->context->context_priv->lastsent >= (now - RESEND_INTERVAL)) {
 	char *resendmsg;
-	int resending = (edata->context->may_retransmit == 1);
+	char *msg_to_send;
+	int resending = (edata->context->context_priv->may_retransmit == 1);
+
+	/* Initialize msg_to_send */
+	if (resending) {
+	    const char *resent_prefix;
+	    int used_ops_resentmp = 1;
+	    resent_prefix = edata->ops->resent_msg_prefix ?
+			    edata->ops->resent_msg_prefix(edata->opdata,
+				    edata->context) : NULL;
+	    if (!resent_prefix) {
+		resent_prefix = "[resent]"; /* Assign default prefix */
+		used_ops_resentmp = 0;
+	    }
+	    msg_to_send = malloc(
+		    strlen(edata->context->context_priv->lastmessage) +
+		    strlen(resent_prefix) + 2);
+	    if (msg_to_send) {
+		strcpy(msg_to_send, resent_prefix);
+		strcat(msg_to_send, " ");
+		strcat(msg_to_send, edata->context->context_priv->lastmessage);
+	    }
+	    if (used_ops_resentmp) {
+		edata->ops->resent_msg_prefix_free(edata->opdata,
+			resent_prefix);
+	    }
+	} else {
+	    msg_to_send = edata->context->context_priv->lastmessage;
+	}
 
 	/* Re-encrypt the message with the new keys */
 	err = otrl_proto_create_data(&resendmsg,
-		edata->context, edata->context->lastmessage, NULL, 0, NULL);
+		edata->context, msg_to_send, NULL, 0, NULL);
+	if (resending && msg_to_send) {
+		free(msg_to_send);
+	}
 	if (!err) {
-	    const char *format = "<b>The last message "
-		"to %s was resent.</b>";
-	    char *buf;
-
 	    /* Resend the message */
-	    otrl_message_fragment_and_send(edata->ops, edata->opdata, edata->context, resendmsg, OTRL_FRAGMENT_SEND_ALL, NULL);
+	    fragment_and_send(edata->ops, edata->opdata, edata->context,
+		    resendmsg, OTRL_FRAGMENT_SEND_ALL, NULL);
 	    free(resendmsg);
-	    edata->context->lastsent = now;
-
-	    if (!resending) {
-		/* We're actually just sending it
-		 * for the first time. */
-		edata->ignore_message = 1;
-	    } else {
-		/* Let the user know we resent it */
-		buf = malloc(strlen(format) +
-			strlen(edata->context->username) - 1);
-		if (buf) {
-		    sprintf(buf, format, edata->context->username);
-		    if (edata->ops->display_otr_message) {
-			if (!edata->ops->display_otr_message(
-				    edata->opdata, edata->context->accountname,
-				    edata->context->protocol,
-				    edata->context->username, buf)) {
-			    edata->ignore_message = 1;
-			}
-		    }
-		    if (edata->ignore_message != 1) {
-			*(edata->messagep) = buf;
-			edata->ignore_message = 0;
-		    } else {
-			free(buf);
-		    }
+	    edata->context->context_priv->lastsent = now;
+	    if (resending) {
+    		/* We're not sending it for the first time; let the user
+		 * know we resent it */
+		if (edata->ops->handle_msg_event) {
+		    edata->ops->handle_msg_event(edata->opdata,
+			    OTRL_MSGEVENT_MSG_RESENT, edata->context,
+			    NULL, (gcry_error_t)NULL);
 		}
 	    }
+	    edata->ignore_message = 1;
 	}
     }
 }
@@ -589,7 +664,7 @@ static void init_respond_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
     if (!err) {
         /*  Send it, and set the next expected message to the
 	 *  logical response */
-        err = otrl_message_fragment_and_send(ops, opdata, context,
+        err = fragment_and_send(ops, opdata, context,
 		sendsmp, OTRL_FRAGMENT_SEND_ALL, NULL);
         context->smstate->nextExpected =
 	    initiating ? OTRL_SMP_EXPECT2 : OTRL_SMP_EXPECT3;
@@ -633,7 +708,7 @@ void otrl_message_abort_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    (const unsigned char *)"");
     char *sendsmp = NULL;
     gcry_error_t err;
-    
+
     context->smstate->nextExpected = OTRL_SMP_EXPECT1;
 
     err = otrl_proto_create_data(&sendsmp,
@@ -641,7 +716,7 @@ void otrl_message_abort_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    OTRL_MSGFLAGS_IGNORE_UNREADABLE, NULL);
     if (!err) {
 	/* Send the abort signal so our buddy knows we've stopped */
-	err = otrl_message_fragment_and_send(ops, opdata, context,
+	err = fragment_and_send(ops, opdata, context,
 		sendsmp, OTRL_FRAGMENT_SEND_ALL, NULL);
     }
     free(sendsmp);
@@ -655,7 +730,10 @@ void otrl_message_abort_smp(OtrlUserState us, const OtrlMessageAppOps *ops,
  * a pointer to the new ConnContext.  You can use this to add
  * application-specific information to the ConnContext using the
  * "context->app" field, for example.  If you don't need to do this, you
- * can pass NULL for the last two arguments of otrl_message_receiving.  
+ * can pass NULL for the last two arguments of otrl_message_receiving.
+ *
+ * convert_msg is a function that will be called on each msg that is received.
+ * You can use it to perform some tweaks on your incoming messages.
  *
  * If otrl_message_receiving returns 1, then the message you received
  * was an internal protocol message, and no message should be delivered
@@ -676,6 +754,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
 	const char *sender, const char *message, char **newmessagep,
 	OtrlTLV **tlvsp,
+	void (*convert_msg)(void *convert_data, const char *source, char **target),
+	void *convert_data,
 	void (*add_appdata)(void *data, ConnContext *context),
 	void *data)
 {
@@ -763,8 +843,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    /* See if we should use an existing DH keypair, or generate
 	     * a fresh one. */
 	    if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED) {
-		our_dh = &(context->our_old_dh_key);
-		our_keyid = context->our_keyid - 1;
+		our_dh = &(context->context_priv->our_old_dh_key);
+		our_keyid = context->context_priv->our_keyid - 1;
 	    } else {
 		our_dh = NULL;
 		our_keyid = 0;
@@ -875,7 +955,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    maybe_resend(&edata);
 		}
 	    }
-	    
+
 	    if (edata.ignore_message == -1) edata.ignore_message = 1;
 	    break;
 
@@ -884,8 +964,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		/* See if we should use an existing DH keypair, or generate
 		 * a fresh one. */
 		if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED) {
-		    our_dh = &(context->our_old_dh_key);
-		    our_keyid = context->our_keyid - 1;
+		    our_dh = &(context->context_priv->our_old_dh_key);
+		    our_keyid = context->context_priv->our_keyid - 1;
 		} else {
 		    our_dh = NULL;
 		    our_keyid = 0;
@@ -913,7 +993,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    }
 		}
 	    }
-	    
+
 	    if (edata.ignore_message == -1) edata.ignore_message = 1;
 	    break;
 
@@ -923,8 +1003,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		OtrlTLV *tlvs, *tlv;
 		char *plaintext;
 		char *buf;
-		const char *format;
-		const char *displayaccountname;
+		const char *err_msg;
 		unsigned char *extrakey;
 		unsigned char flags;
 		NextExpectedSMP nextMsg;
@@ -938,92 +1017,76 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			edata.ignore_message = 1;
 			break;
 		    }
-
-		    /* Don't use g_strdup_printf here, because someone
-		     * (not us) is going to free() the *newmessagep pointer,
-		     * not g_free() it. */
-		    format = "<b>The encrypted message received from %s is "
-			"unreadable, as you are not currently communicating "
-			"privately.</b>";
-		    buf = malloc(strlen(format) + strlen(context->username)
-			    - 1);  /* Remove "%s", add username + '\0' */
-		    if (buf) {
-			sprintf(buf, format, context->username);
-			if (ops->display_otr_message) {
-			    if (!ops->display_otr_message(opdata, accountname,
-					protocol, sender, buf)) {
-				edata.ignore_message = 1;
-			    }
-			}
-			if (edata.ignore_message != 1) {
-			    *newmessagep = buf;
-			    edata.ignore_message = 0;
-			} else {
-			    free(buf);
-			}
+		    if (ops->handle_msg_event) {
+		    	ops->handle_msg_event(opdata,
+				OTRL_MSGEVENT_RCVDMSG_NOT_IN_PRIVATE,
+				context, NULL, (gcry_error_t)NULL);
 		    }
-		    format = "?OTR Error: You sent encrypted "
-			    "data to %s, who wasn't expecting it.";
-		    if (otrl_api_version >= 0x00030100 &&
-			    ops->account_name) {
-			displayaccountname = ops->account_name(opdata,
-				context->accountname, protocol);
-		    } else {
-			displayaccountname = NULL;
-		    }
-		    buf = malloc(strlen(format) + strlen(displayaccountname ?
-				displayaccountname : context->accountname)
-			    - 1);
-		    if (buf) {
-			sprintf(buf, format, displayaccountname ?
-				displayaccountname : context->accountname);
-			if (ops->inject_message) {
+		    edata.ignore_message = 1;
+		    if (ops->inject_message && ops->otr_error_message) {
+		    	err_msg = ops->otr_error_message(opdata, context,
+		    			OTRL_ERRCODE_MSG_NOT_IN_PRIVATE);
+		    	buf = malloc(strlen(OTR_ERROR_PREFIX) +
+		    			strlen(err_msg) + 1);
+		    	if (buf) {
+			    strcpy(buf, OTR_ERROR_PREFIX);
+			    strcat(buf, err_msg);
 			    ops->inject_message(opdata, accountname, protocol,
 				    sender, buf);
-			}
-			free(buf);
+			    free(buf);
+		    	}
+		    	if (ops->otr_error_message_free) {
+		    		ops->otr_error_message_free(opdata, err_msg);
+		    	}
 		    }
-		    if (displayaccountname && otrl_api_version >= 0x00030100 &&
-			    ops->account_name_free) {
-			ops->account_name_free(opdata, displayaccountname);
-		    }
-
 		    break;
 
 		case OTRL_MSGSTATE_ENCRYPTED:
 		    extrakey = gcry_malloc_secure(OTRL_EXTRAKEY_BYTES);
 		    err = otrl_proto_accept_data(&plaintext, &tlvs, context,
-			    message, &flags, extrakey);
+				    message, &flags, extrakey);
 		    if (err) {
 			int is_conflict =
-			    (gpg_err_code(err) == GPG_ERR_CONFLICT);
+				(gpg_err_code(err) == GPG_ERR_CONFLICT);
 			if ((flags & OTRL_MSGFLAGS_IGNORE_UNREADABLE)) {
 			    edata.ignore_message = 1;
 			    break;
 			}
-			format = is_conflict ? "We received an unreadable "
-			    "encrypted message from %s." :
-			    "We received a malformed data message from %s.";
-			buf = malloc(strlen(format) + strlen(sender) - 1);
-			if (buf) {
-			    sprintf(buf, format, sender);
-			    if ((!(ops->display_otr_message) ||
-				    ops->display_otr_message(opdata,
-					accountname, protocol, sender,
-					buf)) && ops->notify) {
-				ops->notify(opdata, OTRL_NOTIFY_ERROR,
-					accountname, protocol, sender,
-					"OTR Error", buf, NULL);
+			if (is_conflict) {
+			    if (ops->handle_msg_event) {
+				ops->handle_msg_event(opdata,
+					OTRL_MSGEVENT_RCVDMSG_UNREADABLE,
+					context, NULL, (gcry_error_t)NULL);
 			    }
-			    free(buf);
+			} else {
+			    if (ops->handle_msg_event) {
+				ops->handle_msg_event(opdata,
+					OTRL_MSGEVENT_RCVDMSG_MALFORMED,
+					context, NULL, (gcry_error_t)NULL);
+			    }
 			}
-			if (ops->inject_message) {
-			    ops->inject_message(opdata, accountname, protocol,
-				    sender, is_conflict ? "?OTR Error: "
-					    "You transmitted an unreadable "
-					    "encrypted message." :
-					    "?OTR Error: You transmitted "
-					    "a malformed data message");
+			if (ops->inject_message && ops->otr_error_message) {
+			    err_msg = ops->otr_error_message(opdata,
+					context,
+					is_conflict ?
+					    OTRL_ERRCODE_MSG_UNREADABLE :
+					    OTRL_ERRCODE_MSG_MALFORMED);
+			    if (err_msg) {
+				buf = malloc(strlen(OTR_ERROR_PREFIX) +
+						strlen(err_msg) + 1);
+				if (buf) {
+				    strcpy(buf, OTR_ERROR_PREFIX);
+				    strcat(buf, err_msg);
+				    ops->inject_message(opdata,
+					    accountname, protocol,
+					    sender, buf);
+				    free(buf);
+				}
+			    }
+			    if (ops->otr_error_message_free) {
+				ops->otr_error_message_free(opdata,
+					err_msg);
+			    }
 			}
 			edata.ignore_message = 1;
 			break;
@@ -1094,7 +1157,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			    }
 			}
 		    }
-		    
+
 		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1);
 		    if (tlv) {
 			if (nextMsg == OTRL_SMP_EXPECT1) {
@@ -1129,7 +1192,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			    }
 			}
 		    }
-		    
+
 		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP2);
 		    if (tlv) {
 			if (nextMsg == OTRL_SMP_EXPECT2) {
@@ -1139,7 +1202,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			    char *sendsmp;
 			    otrl_sm_step3(context->smstate, tlv->data,
 				    tlv->len, &nextmsg, &nextmsglen);
-			    
+
 			    if (context->smstate->sm_prog_state !=
 				    OTRL_SMP_PROG_CHEATED) {
 				/* Send msg with next smp msg content */
@@ -1150,7 +1213,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 				    OTRL_MSGFLAGS_IGNORE_UNREADABLE,
 				    NULL);
 				if (!err) {
-				err = otrl_message_fragment_and_send(ops,
+				err = fragment_and_send(ops,
 				    opdata, context, sendsmp,
 				    OTRL_FRAGMENT_SEND_ALL, NULL);
 				}
@@ -1182,9 +1245,9 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 					OTRL_SMPEVENT_ERROR, context,
 					0, NULL);
 			    }
-			}   
+			}
 		    }
-		    
+
 		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP3);
 		    if (tlv) {
 			if (nextMsg == OTRL_SMP_EXPECT3) {
@@ -1199,7 +1262,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 				set_smp_trust(ops, opdata, context,
 				    (err == gcry_error(GPG_ERR_NO_ERROR)));
 			    }
-			    
+
 			    if (context->smstate->sm_prog_state !=
 				    OTRL_SMP_PROG_CHEATED) {
 				/* Send msg with next smp msg content */
@@ -1210,7 +1273,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 				    OTRL_MSGFLAGS_IGNORE_UNREADABLE,
 				    NULL);
 				if (!err) {
-				err = otrl_message_fragment_and_send(ops,
+				err = fragment_and_send(ops,
 				    opdata, context, sendsmp,
 				    OTRL_FRAGMENT_SEND_ALL, NULL);
 				}
@@ -1246,9 +1309,9 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 					OTRL_SMPEVENT_ERROR, context,
 					0, NULL);
 			    }
-			}   
+			}
 		    }
-		    
+
 		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP4);
 		    if (tlv) {
 			if (nextMsg == OTRL_SMP_EXPECT4) {
@@ -1288,9 +1351,9 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 					OTRL_SMPEVENT_ERROR, context,
 					0, NULL);
 			    }
-			}   
+			}
 		    }
-			    
+
 		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP_ABORT);
 		    if (tlv) {
 			context->smstate->nextExpected = OTRL_SMP_EXPECT1;
@@ -1303,23 +1366,20 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    if (plaintext[0] == '\0') {
 			/* If it's a heartbeat (an empty message), don't
 			 * display it to the user, but log a debug message. */
-			format = "Heartbeat received from %s.\n";
-			buf = malloc(strlen(format) + strlen(sender) - 1);
-			if (buf) {
-			    sprintf(buf, format, sender);
-			    if (ops->log_message) {
-				ops->log_message(opdata, buf);
-			    }
-			    free(buf);
+			if (ops->handle_msg_event) {
+			    ops->handle_msg_event(opdata,
+				    OTRL_MSGEVENT_LOG_HEARTBEAT_RCVD,
+				    context, NULL, (gcry_error_t)NULL);
 			}
 			edata.ignore_message = 1;
-		    } else if (edata.ignore_message == 0 &&
-			    context->their_keyid > 0) {
+		    } else if (edata.ignore_message != 1 &&
+			    context->context_priv->their_keyid > 0) {
 			/* If it's *not* a heartbeat, and we haven't
 			 * sent anything in a while, also send a
 			 * heartbeat. */
 			time_t now = time(NULL);
-			if (context->lastsent < (now - HEARTBEAT_INTERVAL)) {
+			if (context->context_priv->lastsent <
+				(now - HEARTBEAT_INTERVAL)) {
 			    char *heartbeat;
 
 			    /* Create the heartbeat message */
@@ -1335,18 +1395,13 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 				}
 				free(heartbeat);
 
-				context->lastsent = now;
+				context->context_priv->lastsent = now;
 
-				/* Log a debug message */
-				format = "Heartbeat sent to %s.\n";
-				buf = malloc(strlen(format) + strlen(sender)
-					- 1);
-				if (buf) {
-				    sprintf(buf, format, sender);
-				    if (ops->log_message) {
-					ops->log_message(opdata, buf);
-				    }
-				    free(buf);
+				/* Log the heartbeat message */
+				if (ops->handle_msg_event) {
+				    ops->handle_msg_event(opdata,
+					OTRL_MSGEVENT_LOG_HEARTBEAT_SENT,
+					context, NULL, (gcry_error_t)NULL);
 				}
 			    }
 			}
@@ -1361,8 +1416,17 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    }
 
 		    if (edata.ignore_message != 1) {
-			*newmessagep = plaintext;
-			edata.ignore_message = 0;
+		    	*newmessagep = plaintext;
+		    	edata.ignore_message = 0;
+		    	/* convert the original message if necessary */
+		    	if (convert_msg && *newmessagep) {
+			    char *original_msg;
+			    original_msg = *newmessagep;
+			    convert_msg(convert_data, original_msg,
+				    newmessagep);
+			    free(original_msg);
+			    original_msg = NULL;
+		    	}
 		    } else {
 			free(plaintext);
 		    }
@@ -1382,27 +1446,31 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		free(msgtosend);
 	    }
 
-	    if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED) {
-		/* Mark the last message we sent as eligible for
-		 * retransmission */
-		context->may_retransmit = 1;
-	    }
+	if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED) {
+	    /* Mark the last message we sent as eligible for
+	     * retransmission */
+	    context->context_priv->may_retransmit = 1;
+	}
 
-	    /* In any event, display the error message, with the
-	     * display_otr_message callback, if possible */
-	    if (ops->display_otr_message) {
-		const char *otrerror = strstr(message, "?OTR Error:");
-		if (otrerror) {
-		    /* Skip the leading '?' */
-		    ++otrerror;
-		} else {
-		    otrerror = message;
-		}
-		if (!ops->display_otr_message(opdata, accountname, protocol,
-			    sender, otrerror)) {
-		    edata.ignore_message = 1;
-		}
+	/* In any event, display the error message, with the
+	 * display_otr_message callback, if possible */
+	if (ops->handle_msg_event) {
+	    /* Remove the OTR error prefix and pass the msg */
+	    const char *just_err_msg = strstr(message, OTR_ERROR_PREFIX);
+	    if (!just_err_msg) {
+		    just_err_msg = message;
+	    	} else {
+		    just_err_msg += (strlen(OTR_ERROR_PREFIX));
+		    if (*just_err_msg == ' ') {
+			/* Advance pointer to skip the space character */
+			just_err_msg++;
+		    }
+		    ops->handle_msg_event(opdata,
+			    OTRL_MSGEVENT_RCVDMSG_GENERAL_ERR,
+			    context, just_err_msg, (gcry_error_t)NULL);
+	    	}
 	    }
+	    edata.ignore_message = 1;
 	    break;
 
 	case OTRL_MSGTYPE_TAGGEDPLAINTEXT:
@@ -1459,49 +1527,25 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    if (context->msgstate != OTRL_MSGSTATE_PLAINTEXT ||
 		    (policy & OTRL_POLICY_REQUIRE_ENCRYPTION)) {
 		/* Not fine.  Let the user know. */
-
-		/* Don't use g_strdup_printf here, because someone
-		 * (not us) is going to free() the *message pointer,
-		 * not g_free() it. */
 		const char *plainmsg = (*newmessagep) ? *newmessagep : message;
-		const char *format = "<b>The following message received "
-		    "from %s was <i>not</i> encrypted: [</b>%s<b>]</b>";
-		char *buf = malloc(strlen(format) + strlen(context->username)
-			+ strlen(plainmsg) - 3);
-			/* Remove "%s%s", add username + message + '\0' */
-		if (buf) {
-		    sprintf(buf, format, context->username, plainmsg);
-		    if (ops->display_otr_message) {
-			if (!ops->display_otr_message(opdata, accountname,
-				    protocol, sender, buf)) {
-			    free(*newmessagep);
-			    *newmessagep = NULL;
-			    edata.ignore_message = 1;
-			}
-		    }
-		    if (edata.ignore_message != 1) {
-			free(*newmessagep);
-			*newmessagep = buf;
-			edata.ignore_message = 0;
-		    } else {
-			free(buf);
-		    }
+		if (ops->handle_msg_event) {
+		    ops->handle_msg_event(opdata,
+			    OTRL_MSGEVENT_RCVDMSG_UNENCRYPTED,
+			    context, plainmsg, (gcry_error_t)NULL);
 		}
+		free(*newmessagep);
+		*newmessagep = NULL;
+		edata.ignore_message = 1;
 	    }
 	    break;
 
 	case OTRL_MSGTYPE_UNKNOWN:
 	    /* We received an OTR message we didn't recognize.  Ignore
 	     * it, but make a log entry. */
-	    if (ops->log_message) {
-		const char *format = "Unrecognized OTR message received "
-		    "from %s.\n";
-		char *buf = malloc(strlen(format) + strlen(sender) - 1);
-		if (buf) {
-		    sprintf(buf, format, sender);
-		    ops->log_message(opdata, buf);
-		    free(buf);
-		}
+	    if (ops->handle_msg_event) {
+		ops->handle_msg_event(opdata,
+			OTRL_MSGEVENT_RCVDMSG_UNRECOGNIZED,
+			context, NULL, (gcry_error_t)NULL);
 	    }
 	    if (edata.ignore_message == -1) edata.ignore_message = 1;
 	    break;
@@ -1517,76 +1561,6 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
     return edata.ignore_message;
 }
 
-/* Send a message to the network, fragmenting first if necessary.
- * All messages to be sent to the network should go through this
- * method immediately before they are sent, ie after encryption. */
-gcry_error_t otrl_message_fragment_and_send(const OtrlMessageAppOps *ops,
-	void *opdata, ConnContext *context, const char *message,
-	OtrlFragmentPolicy fragPolicy, char **returnFragment)
-{
-    int mms = 0;
-    if (message && ops->inject_message) {
-    	int msglen;
-
-        if (otrl_api_version >= 0x030100 && ops->max_message_size) {
-	    mms = ops->max_message_size(opdata, context);
-        }
-    	msglen = strlen(message);
-
-	/* Don't incur overhead of fragmentation unless necessary */
-    	if(mms != 0 && msglen > mms) {
-	    char **fragments;
-	    gcry_error_t err;
-	    int i;
-	    int fragment_count = ((msglen - 1) / (mms -19)) + 1;
-		/* like ceil(msglen/(mms - 19)) */
-
-	    err = otrl_proto_fragment_create(mms, fragment_count, &fragments,
-		    message);
-	    if (err) {
-		return err;
-	    }
-
-	    /* Determine which fragments to send and which to return
-	     * based on given Fragment Policy.  If the first fragment
-	     * should be returned instead of sent, store it. */
-	    if (fragPolicy == OTRL_FRAGMENT_SEND_ALL_BUT_FIRST) {
-		*returnFragment = strdup(fragments[0]);
-	    } else {
-		ops->inject_message(opdata, context->accountname,
-			context->protocol, context->username, fragments[0]);
-	    }
-	    for (i=1; i<fragment_count-1; i++) {
-		ops->inject_message(opdata, context->accountname,
-			context->protocol, context->username, fragments[i]);
-	    }
-	    /* If the last fragment should be stored instead of sent,
-	     * store it */
-	    if (fragPolicy == OTRL_FRAGMENT_SEND_ALL_BUT_LAST) {
-		*returnFragment = strdup(fragments[fragment_count-1]);
-	    } else {
-		ops->inject_message(opdata, context->accountname,
-			context->protocol, context->username, fragments[fragment_count-1]);
-	    }
-	    /* Now free all fragment memory */
-	    otrl_proto_fragment_free(&fragments, fragment_count);
-
-	} else {
-	    /* No fragmentation necessary */
-	    if (fragPolicy == OTRL_FRAGMENT_SEND_ALL) {
-	    	ops->inject_message(opdata, context->accountname,
-		        context->protocol, context->username, message);
-	    } else {
-		/* Copy and return the entire given message. */
-		int l = strlen(message) + 1;
-		*returnFragment = malloc(sizeof(char)*l);
-		strcpy(*returnFragment, message);
-	    }
-	}
-    }
-    return gcry_error(GPG_ERR_NO_ERROR);
-}
-
 /* Put a connection into the PLAINTEXT state, first sending the
  * other side a notice that we're doing so if we're currently ENCRYPTED,
  * and we think he's logged in. */
@@ -1600,7 +1574,7 @@ void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
     if (!context) return;
 
     if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED &&
-	    context->their_keyid > 0 &&
+	    context->context_priv->their_keyid > 0 &&
 	    ops->is_logged_in &&
 	    ops->is_logged_in(opdata, accountname, protocol, username) == 1) {
 	if (ops->inject_message) {
@@ -1638,7 +1612,7 @@ gcry_error_t otrl_message_symkey(OtrlUserState us,
     }
 
     if (context->msgstate == OTRL_MSGSTATE_ENCRYPTED &&
-	    context->their_keyid > 0) {
+	    context->context_priv->their_keyid > 0) {
 	unsigned char *tlvdata = malloc(usedatalen+4);
 	char *encmsg = NULL;
 	gcry_error_t err;

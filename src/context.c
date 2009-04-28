@@ -1,6 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -38,10 +39,6 @@ static ConnContext * new_context(const char * user, const char * accountname,
     context->username = strdup(user);
     context->accountname = strdup(accountname);
     context->protocol = strdup(protocol);
-    context->fragment = NULL;
-    context->fragment_len = 0;
-    context->fragment_n = 0;
-    context->fragment_k = 0;
     context->msgstate = OTRL_MSGSTATE_PLAINTEXT;
     otrl_auth_new(&(context->auth));
 
@@ -55,34 +52,14 @@ static ConnContext * new_context(const char * user, const char * accountname,
     context->fingerprint_root.next = NULL;
     context->fingerprint_root.tous = NULL;
     context->active_fingerprint = NULL;
-    context->their_keyid = 0;
-    context->their_y = NULL;
-    context->their_old_y = NULL;
-    context->our_keyid = 0;
-    context->our_dh_key.groupid = 0;
-    context->our_dh_key.priv = NULL;
-    context->our_dh_key.pub = NULL;
-    context->our_old_dh_key.groupid = 0;
-    context->our_old_dh_key.priv = NULL;
-    context->our_old_dh_key.pub = NULL;
-    otrl_dh_session_blank(&(context->sesskeys[0][0]));
-    otrl_dh_session_blank(&(context->sesskeys[0][1]));
-    otrl_dh_session_blank(&(context->sesskeys[1][0]));
-    otrl_dh_session_blank(&(context->sesskeys[1][1]));
     memset(context->sessionid, 0, 20);
     context->sessionid_len = 0;
     context->protocol_version = 0;
-    context->numsavedkeys = 0;
-    context->preshared_secret = NULL;
-    context->preshared_secret_len = 0;
-    context->saved_mac_keys = NULL;
-    context->generation = 0;
-    context->lastsent = 0;
-    context->lastmessage = NULL;
-    context->may_retransmit = 0;
     context->otr_offer = OFFER_NOT;
     context->app_data = NULL;
     context->app_data_free = NULL;
+    context->context_priv = context_priv_new();
+    assert(context->context_priv != NULL);
     context->next = NULL;
     return context;
 }
@@ -174,61 +151,17 @@ void otrl_context_set_trust(Fingerprint *fprint, const char *trust)
     fprint->trust = trust ? strdup(trust) : NULL;
 }
 
-/* Set the preshared secret for a given fingerprint.  Note that this
- * currently only stores the secret in the ConnContext structure, but
- * doesn't yet do anything with it. */
-void otrl_context_set_preshared_secret(ConnContext *context,
-	const unsigned char *secret, size_t secret_len)
-{
-    free(context->preshared_secret);
-    context->preshared_secret = NULL;
-    context->preshared_secret_len = 0;
-
-    if (secret_len) {
-	context->preshared_secret = malloc(secret_len);
-	if (context->preshared_secret) {
-	    memmove(context->preshared_secret, secret, secret_len);
-	    context->preshared_secret_len = secret_len;
-	}
-    }
-}
-
 /* Force a context into the OTRL_MSGSTATE_FINISHED state. */
 void otrl_context_force_finished(ConnContext *context)
 {
     context->msgstate = OTRL_MSGSTATE_FINISHED;
     otrl_auth_clear(&(context->auth));
-    free(context->fragment);
-    context->fragment = NULL;
-    context->fragment_len = 0;
-    context->fragment_n = 0;
-    context->fragment_k = 0;
     context->active_fingerprint = NULL;
-    context->their_keyid = 0;
-    gcry_mpi_release(context->their_y);
-    context->their_y = NULL;
-    gcry_mpi_release(context->their_old_y);
-    context->their_old_y = NULL;
-    context->our_keyid = 0;
-    otrl_dh_keypair_free(&(context->our_dh_key));
-    otrl_dh_keypair_free(&(context->our_old_dh_key));
-    otrl_dh_session_free(&(context->sesskeys[0][0]));
-    otrl_dh_session_free(&(context->sesskeys[0][1]));
-    otrl_dh_session_free(&(context->sesskeys[1][0]));
-    otrl_dh_session_free(&(context->sesskeys[1][1]));
     memset(context->sessionid, 0, 20);
     context->sessionid_len = 0;
-    free(context->preshared_secret);
-    context->preshared_secret = NULL;
-    context->preshared_secret_len = 0;
     context->protocol_version = 0;
-    context->numsavedkeys = 0;
-    free(context->saved_mac_keys);
-    context->saved_mac_keys = NULL;
-    gcry_free(context->lastmessage);
-    context->lastmessage = NULL;
-    context->may_retransmit = 0;
     otrl_sm_state_free(context->smstate);
+    context_priv_force_finished(context->context_priv);
 }
 
 /* Force a context into the OTRL_MSGSTATE_PLAINTEXT state. */

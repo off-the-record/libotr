@@ -1,3 +1,21 @@
+2009-04-28:
+
+	* src/auth.c: pubkey_type should be shifted by 8, not 16.  It
+	doesn't matter right now, because it's always 0, but still.
+	(Thanks to Can Tang.)
+
+2008-08-15:
+
+	* src/Makefile.am:
+	* src/context.c:
+	* src/context.h:
+	* src/context_priv.c:
+	* src/context_priv.h:
+	* src/message.c:
+	* src/message.h:
+	* src/proto.c:
+	* src/proto.h: Willy Lew's updates of the libotr API
+
 2008-08-06:
 
 	* src/proto.c: gcc 4.2 with -O2 assumes that integer overflow
