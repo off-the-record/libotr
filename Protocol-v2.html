@@ -189,7 +189,10 @@ run SMP to detect impersonation or man-in-the-middle attacks.
 As above, all exponentiations are done modulo a particular 1536-bit
 prime, and g<sub>1</sub> is a generator of that group.  All sent values
 include zero-knowledge proofs that they were generated according to
-this protocol, as indicated in the detailed description below.</p>
+this protocol, as indicated in the detailed description below.
+In the zero-knowledge proofs the D values are calculated modulo
+q = (p - 1) / 2, where p is the same 1536-bit prime as elsewhere.
+The random exponents are 1536-bit numbers.</p>
 <p>Suppose Alice and Bob have secret information x and y respectively,
 and they wish to know whether x = y.  The Socialist Millionaires' Protocol
 allows them to compare x and y without revealing any other information
@@ -385,7 +388,8 @@ types of keys produce signatures in different formats.  The format for a
 signature made by a DSA public key is as follows:</p>
 <dl>
 <dt>DSA signature (SIG):</dt>
-<dd>      (len is the length of the DSA public parameter q)
+<dd>      (len is the length of the DSA public parameter q, which in
+current implementations must be 20 bytes, or 160 bits)
 <br />      len byte unsigned r, big-endian
 <br />      len byte unsigned s, big-endian</dd>
 </dl>
@@ -646,7 +650,7 @@ information x and y respectively to check whether (x==y) without revealing
 any additional information about the secrets.  The protocol used by OTR is
 based on the work of Boudot, Schoenmakers and Traore (2001).  A full 
 justification for its use in OTR is made by Alexander and Goldberg,
-in a paper to be published this year.  The following is a technical account
+in a paper published in 2007.  The following is a technical account
 of what is transmitted during the course of the protocol.</p>
 <h4>Secret information</h4>
 <p>The secret information x and y compared during this protocol contains
@@ -774,10 +778,10 @@ to generate zero-knowledge proofs that this message was created honestly.</li>
 g<sub>3b</sub> = g<sub>1</sub><sup>b<sub>3</sub></sup></li>
 <li>Generate a zero-knowledge proof that the exponent b<sub>2</sub> is
 known by setting c2 = SHA256(3, g<sub>1</sub><sup>r2</sup>) and
-D2 = r2 - b<sub>2</sub> c2.</li>
+D2 = r2 - b<sub>2</sub> c2 mod q.</li>
 <li>Generate a zero-knowledge proof that the exponent b<sub>3</sub> is
 known by setting c3 = SHA256(4, g<sub>1</sub><sup>r3</sup>) and
-D3 = r3 - b<sub>3</sub> c3.</li>
+D3 = r3 - b<sub>3</sub> c3 mod q.</li>
 <li>Compute g<sub>2</sub> = g<sub>2a</sub><sup>b<sub>2</sub></sup> and
 g<sub>3</sub> = g<sub>3a</sub><sup>b<sub>3</sub></sup></li>
 <li>Compute P<sub>b</sub> = g<sub>3</sub><sup>r4</sup> and
@@ -785,12 +789,12 @@ Q<sub>b</sub> = g<sub>1</sub><sup>r4</sup> g<sub>2</sub><sup>y</sup></li>
 <li>Generate a zero-knowledge proof that P<sub>b</sub> and Q<sub>b</sub>
 were created according to the protocol by setting 
 cP = SHA256(5, g<sub>3</sub><sup>r5</sup>, g<sub>1</sub><sup>r5</sup> 
-g<sub>2</sub><sup>r6</sup>), D5 = r5 - r4 cP and D6 = r6 - y cP.</li>
+g<sub>2</sub><sup>r6</sup>), D5 = r5 - r4 cP mod q and D6 = r6 - y cP mod q.</li>
 <li>Store the values of g<sub>3a</sub>, g<sub>2</sub>, g<sub>3</sub>,
 b<sub>3</sub>, P<sub>b</sub> and Q<sub>b</sub> for use later in the
 protocol.</li>
 <li>Send Alice a type 3 TLV (SMP message 2) containing g<sub>2b</sub>, 
-c2, d2, g<sub>3b</sub>, c3, d3, P<sub>b</sub>, Q<sub>b</sub>, cP, D5
+c2, D2, g<sub>3b</sub>, c3, D3, P<sub>b</sub>, Q<sub>b</sub>, cP, D5
 and D6, in that order.</li>
 </ol>
 Set smpstate to SMPSTATE_EXPECT3.</dd>
@@ -832,8 +836,8 @@ g<sub>2b</sub><sup>c2</sup>).</li>
 <li>Check that c3 = SHA256(4, g<sub>1</sub><sup>D3</sup> 
 g<sub>3b</sub><sup>c3</sup>).</li>
 <li>Check that cP = SHA256(5, g<sub>3</sub><sup>D5</sup> 
-P<sub>b</sub><sup>cP</sup>, g<sub>2</sub><sup>d6</sup> 
-Q<sub>b</sub><sup>cP</sup>).</li>
+P<sub>b</sub><sup>cP</sup>, g<sub>1</sub><sup>D5</sup>
+g<sub>2</sub><sup>D6</sup> Q<sub>b</sub><sup>cP</sup>).</li>
 </ol>
 Create a type 4 TLV (SMP message 3) and send it to Bob:
 <ol>
@@ -847,15 +851,15 @@ Q<sub>a</sub> = g<sub>1</sub><sup>r4</sup> g<sub>2</sub><sup>x</sup></li>
 <li>Generate a zero-knowledge proof that P<sub>a</sub> and Q<sub>a</sub>
 were created according to the protocol by setting 
 cP = SHA256(6, g<sub>3</sub><sup>r5</sup>, g<sub>1</sub><sup>r5</sup> 
-g<sub>2</sub><sup>r6</sup>), D5 = r5 - r4 cP and D6 = r6 - x cP.</li>
+g<sub>2</sub><sup>r6</sup>), D5 = r5 - r4 cP mod q and D6 = r6 - x cP mod q.</li>
 <li>Compute R<sub>a</sub> = (Q<sub>a</sub> / Q<sub>b</sub>)
 <sup>a<sub>3</sub></sup></li>
 <li>Generate a zero-knowledge proof that R<sub>a</sub> was created 
 according to the protocol by setting cR = SHA256(7, g<sub>1</sub><sup>r7</sup>, 
 (Q<sub>a</sub> / Q<sub>b</sub>)<sup>r7</sup>) and 
-D7 = r7 - a<sub>3</sub> cR.</li>
+D7 = r7 - a<sub>3</sub> cR mod q.</li>
 <li>Store the values of g<sub>3b</sub>, (P<sub>a</sub> / P<sub>b</sub>), 
-(Q<sub>a</sub> / Q<sub>b</sub>) and R<sub>b</sub> for use later in the
+(Q<sub>a</sub> / Q<sub>b</sub>) and R<sub>a</sub> for use later in the
 protocol.</li>
 <li>Send Bob a type 4 TLV (SMP message 3) containing P<sub>a</sub>, 
 Q<sub>a</sub>, cP, D5, D6, R<sub>a</sub>, cR and D7 in that order.</li>
@@ -890,8 +894,8 @@ to Bob.</dd>
 <dd>Verify Alice's zero-knowledge proofs for P<sub>a</sub>, Q<sub>a</sub> 
 and R<sub>a</sub>:
 <ol>
-<li>Check that cP = SHA256(5, g<sub>3</sub><sup>D5</sup> 
-P<sub>a</sub><sup>cP</sup>, g<sub>2</sub><sup>d6</sup> 
+<li>Check that cP = SHA256(6, g<sub>3</sub><sup>D5</sup> 
+P<sub>a</sub><sup>cP</sup>, g<sub>1</sub><sup>D5</sup> g<sub>2</sub><sup>D6</sup> 
 Q<sub>a</sub><sup>cP</sup>).</li>
 <li>Check that cR = SHA256(7, g<sub>1</sub><sup>D7</sup>
 g<sub>3a</sub><sup>cR</sup>, (Q<sub>a</sub> / Q<sub>b</sub>)<sup>D7</sup> 
@@ -907,7 +911,7 @@ this message was created honestly.</li>
 <li>Generate a zero-knowledge proof that R<sub>b</sub> was created 
 according to the protocol by setting cR = SHA256(8, g<sub>1</sub><sup>r7</sup>, 
 (Q<sub>a</sub> / Q<sub>b</sub>)<sup>r7</sup>) and 
-D7 = r7 - b<sub>3</sub> cR.</li>
+D7 = r7 - b<sub>3</sub> cR mod q.</li>
 <li>Send Alice a type 5 TLV (SMP message 4) containing R<sub>b</sub>, 
 cR and D7 in that order.</li>
 </ol>
@@ -976,14 +980,14 @@ was created according to the protocol.</li>
 g<sub>3a</sub> = g<sub>1</sub><sup>a<sub>3</sub></sup></li>
 <li>Generate a zero-knowledge proof that the exponent a<sub>2</sub> is
 known by setting c2 = SHA256(1, g<sub>1</sub><sup>r2</sup>) and
-D2 = r2 - a<sub>2</sub> c2.</li>
+D2 = r2 - a<sub>2</sub> c2 mod q.</li>
 <li>Generate a zero-knowledge proof that the exponent a<sub>3</sub> is
 known by setting c3 = SHA256(2, g<sub>1</sub><sup>r3</sup>) and
-D3 = r3 - a<sub>3</sub> c3.</li>
+D3 = r3 - a<sub>3</sub> c3 mod q.</li>
 <li>Store the values of x, a<sub>2</sub> and a<sub>3</sub> 
 for use later in the protocol.</li>
 <li>Send Bob a type 2 TLV (SMP message 1) containing g<sub>2a</sub>, 
-c2, d2, g<sub>3a</sub>, c3 and D3 in that order.</li>
+c2, D2, g<sub>3a</sub>, c3 and D3 in that order.</li>
 </ol>
 Set smpstate to SMPSTATE_EXPECT2.</dd>
 </dl>
@@ -1076,7 +1080,7 @@ they each compute seven values based on s:</p>
 (4-byte big-endian len, len-byte big-endian value).  Let this
 (4+len)-byte value be "secbytes".</li>
 <li>For a given byte b, define h2(b) to be the 256-bit output of the
-SHA256 hash of the (5+len) bytes consisting of the byte b, followed by
+SHA256 hash of the (5+len) bytes consisting of the byte b followed by
 secbytes.</li>
 <li>Let ssid be the first 64 bits of h2(0x00).</li>
 <li>Let c be the first 128 bits of h2(0x01), and let c' be the second
