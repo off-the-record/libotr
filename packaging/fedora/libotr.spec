@@ -1,8 +1,8 @@
 Summary: Off-The-Record Messaging library and toolkit
 Name: libotr
-Version: 3.1.0
+Version: 4.0.0
 Release: 1%{?dist}
-License: GPL and LGPL
+License: GPLv2 and LGPLv2
 Group: System Environment/Libraries
 Source0: http://otr.cypherpunks.ca/%{name}-%{version}.tar.gz
 Url: http://otr.cypherpunks.ca/
@@ -31,6 +31,10 @@ The devel package contains the libotr library and the include files
 %setup -q
 
 %build
+if [ \! -f configure ]; then
+	echo "Building from pre-release"
+	autoreconf -s -i
+fi
 
 %configure --with-pic --disable-rpath
 make %{?_smp_mflags} all
@@ -62,12 +66,17 @@ rm -rf $RPM_BUILD_ROOT
 %doc ChangeLog
 %{_libdir}/libotr.so
 %{_libdir}/libotr.a
+%{_libdir}/pkgconfig/libotr.pc
 %dir %{_includedir}/libotr
 %{_includedir}/libotr/*
 %{_datadir}/aclocal/*
 
 
 %changelog
+* Thu Jun 11 2009 Paul Wouters <paul@xelerance.com> - 4.0.0-1
+- Upgraded to 4.0.0.
+- Fix license tag
+
 * Thu Jul 26 2007 Paul Wouters <paul@cypherpunks.ca> 3.1.0-preview2
 - Upgraded to current version
 
