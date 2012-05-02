@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Willy Lew,
  *  			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
@@ -36,7 +36,7 @@ typedef struct s_OtrlTLV {
 /* The sender has thrown away his OTR session keys with you */
 #define OTRL_TLV_DISCONNECTED    0x0001
 
-/* The message contains a step in the Socialist Millionaires' Protocol. */ 
+/* The message contains a step in the Socialist Millionaires' Protocol. */
 #define OTRL_TLV_SMP1            0x0002
 #define OTRL_TLV_SMP2            0x0003
 #define OTRL_TLV_SMP3            0x0004

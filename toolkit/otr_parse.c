@@ -1,6 +1,7 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *                           Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -48,7 +49,15 @@ static void parse(const char *msg)
 		printf("Invalid D-H Commit Message\n\n");
 		break;
 	    }
+
 	    printf("D-H Commit Message:\n");
+
+	    dump_data(stdout, "\tVersion", &(cmsg->version), 1);
+	    if (cmsg->version == 3) {
+		dump_int(stdout, "\tSender instance", cmsg->sender_instance);
+		dump_int(stdout, "\tReceiver instance",
+			cmsg->receiver_instance);
+	    }
 	    dump_data(stdout, "\tEncrypted Key", cmsg->enckey,
 		    cmsg->enckeylen);
 	    dump_data(stdout, "\tHashed Key", cmsg->hashkey,
@@ -63,6 +72,12 @@ static void parse(const char *msg)
 		break;
 	    }
 	    printf("D-H Key Message:\n");
+	    dump_data(stdout, "\tVersion", &(kmsg->version), 1);
+	    if (kmsg->version == 3) {
+		dump_int(stdout, "\tSender instance", kmsg->sender_instance);
+		dump_int(stdout, "\tReceiver instance",
+			kmsg->receiver_instance);
+	    }
 	    dump_mpi(stdout, "\tD-H Key", kmsg->y);
 	    printf("\n");
 	    free_key(kmsg);
@@ -74,6 +89,12 @@ static void parse(const char *msg)
 		break;
 	    }
 	    printf("Reveal Signature Message:\n");
+	    dump_data(stdout, "\tVersion", &(rmsg->version), 1);
+	    if (rmsg->version == 3) {
+		dump_int(stdout, "\tSender instance", rmsg->sender_instance);
+		dump_int(stdout, "\tReceiver instance",
+			rmsg->receiver_instance);
+	    }
 	    dump_data(stdout, "\tKey", rmsg->key, rmsg->keylen);
 	    dump_data(stdout, "\tEncrypted Signature",
 		    rmsg->encsig, rmsg->encsiglen);
@@ -88,6 +109,12 @@ static void parse(const char *msg)
 		break;
 	    }
 	    printf("Signature Message:\n");
+	    dump_data(stdout, "\tVersion", &(smsg->version), 1);
+	    if (smsg->version == 3) {
+		dump_int(stdout, "\tSender instance", smsg->sender_instance);
+		dump_int(stdout, "\tReceiver instance",
+			smsg->receiver_instance);
+	    }
 	    dump_data(stdout, "\tEncrypted Signature",
 		    smsg->encsig, smsg->encsiglen);
 	    dump_data(stdout, "\tMAC", smsg->mac, 20);
@@ -120,9 +147,18 @@ static void parse(const char *msg)
 		break;
 	    }
 	    printf("Data Message:\n");
+
+	    dump_data(stdout, "\tVersion", &(datamsg->version), 1);
 	    if (datamsg->flags >= 0) {
 		dump_int(stdout, "\tFlags", datamsg->flags);
 	    }
+
+	    if (datamsg->version == 3) {
+		dump_int(stdout, "\tSender instance", datamsg->sender_instance);
+		dump_int(stdout, "\tReceiver instance",
+			datamsg->receiver_instance);
+	    }
+
 	    dump_int(stdout, "\tSender keyid", datamsg->sender_keyid);
 	    dump_int(stdout, "\tRcpt keyid", datamsg->rcpt_keyid);
 	    dump_mpi(stdout, "\tDH y", datamsg->y);

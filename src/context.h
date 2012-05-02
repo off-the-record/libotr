@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *  			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *  			      Willy Lew, Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -29,6 +29,10 @@
 #include "auth.h"
 #include "sm.h"
 
+typedef struct context ConnContext;    /* Forward declare */
+
+#include "instag.h"
+
 typedef enum {
     OTRL_MSGSTATE_PLAINTEXT,           /* Not yet started an encrypted
 					  conversation */
@@ -50,7 +54,7 @@ typedef struct s_fingerprint {
     char *trust;                       /* The trust level of the fingerprint */
 } Fingerprint;
 
-typedef struct context {
+struct context {
     struct context * next;             /* Linked list pointer */
     struct context ** tous;            /* A pointer to the pointer to us */
 
@@ -65,15 +69,39 @@ typedef struct context {
 					  this account... */
     char * protocol;                   /* ... and this protocol */
 
+    struct context *m_context;         /* If this is a child context, this
+					  field will point to the master
+					  context. Otherwise it will point to
+					  itself. */
+    struct context *recent_rcvd_child; /* If this is a master context, this
+					  points to the child context that
+					  has received a message most recently.
+					  By default, it will point to the
+					  master context. In child contexts
+					  this field is NULL. */
+    struct context *recent_sent_child; /* Similar to above, but it points to
+					  the child who has sent most
+					  recently. */
+    struct context *recent_child;      /* Similar to above, but will point to
+					  the most recent of recent_rcvd_child
+					  and recent_sent_child */
+
+    otrl_instag_t our_instance;        /* Our instance tag for this computer*/
+    otrl_instag_t their_instance;      /* The user's instance tag */
+
     OtrlMessageState msgstate;         /* The state of message disposition
 					  with this user */
     OtrlAuthInfo auth;                 /* The state of ongoing
 					  authentication with this user */
 
     Fingerprint fingerprint_root;      /* The root of a linked list of
-					  Fingerprints entries */
+					  Fingerprints entries. This list will
+					  only be populated in master contexts.
+					  For child contexts,
+					  fingerprint_root.next will always
+					  point to NULL. */
     Fingerprint *active_fingerprint;   /* Which fingerprint is in use now?
-                                          A pointer into the above list */
+					  A pointer into the above list */
 
     unsigned char sessionid[20];       /* The sessionid and bold half */
     size_t sessionid_len;              /* determined when this private */
@@ -95,20 +123,28 @@ typedef struct context {
     void (*app_data_free)(void *);
 
     OtrlSMState *smstate;              /* The state of the current
-                                          socialist millionaires exchange */
-} ConnContext;
+					  socialist millionaires exchange */
+};
 
 #include "userstate.h"
 
-/* Look up a connection context by name/account/protocol from the given
- * OtrlUserState.  If add_if_missing is true, allocate and return a new
- * context if one does not currently exist.  In that event, call
+/* Look up a connection context by name/account/protocol/instance from the
+ * given OtrlUserState.  If add_if_missing is true, allocate and return a
+ * new context if one does not currently exist.  In that event, call
  * add_app_data(data, context) so that app_data and app_data_free can be
- * filled in by the application, and set *addedp to 1. */
+ * filled in by the application, and set *addedp to 1.
+ * In the 'their_instance' field note that you can also specify a 'meta-
+ * instance' value such as OTRL_INSTAG_MASTER, OTRL_INSTAL_RECENT,
+ * OTRL_INSTAG_RECENT_RECEIVED and OTRL_INSTAG_RECENT_SENT. */
 ConnContext * otrl_context_find(OtrlUserState us, const char *user,
-	const char *accountname, const char *protocol, int add_if_missing,
-	int *addedp,
+	const char *accountname, const char *protocol,
+	otrl_instag_t their_instance, int add_if_missing, int *addedp,
 	void (*add_app_data)(void *data, ConnContext *context), void *data);
+
+/* This method gets called after sending or receiving a message, to update the
+ * master context's "recent context" pointers. */
+void otrl_context_update_recent_child(ConnContext *context,
+	unsigned int sent_msg);
 
 /* Find a fingerprint in a given context, perhaps adding it if not
  * present. */
@@ -132,8 +168,11 @@ void otrl_context_force_plaintext(ConnContext *context);
 void otrl_context_forget_fingerprint(Fingerprint *fprint,
 	int and_maybe_context);
 
-/* Forget a whole context, so long as it's PLAINTEXT. */
-void otrl_context_forget(ConnContext *context);
+/* Forget a whole context, so long as it's PLAINTEXT. If a context has child
+ * instances, don't remove this instance unless children are also all in
+ * PLAINTEXT state. In this case, the children will also be removed.
+ * Returns 0 on success, 1 on failure. */
+int otrl_context_forget(ConnContext *context);
 
 /* Forget all the contexts in a given OtrlUserState. */
 void otrl_context_forget_all(OtrlUserState us);

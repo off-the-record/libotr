@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Willy Lew,
  *  			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
@@ -26,6 +26,7 @@
 
 /* libotr headers */
 #include "dh.h"
+
 
 static const char* DH1536_MODULUS_S = "0x"
     "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
@@ -91,7 +92,7 @@ void otrl_dh_keypair_free(DH_keypair *kp)
 
 /*
  * Generate a DH keypair for a specified group.
- */ 
+ */
 gcry_error_t otrl_dh_gen_keypair(unsigned int groupid, DH_keypair *kp)
 {
     unsigned char *secbuf = NULL;

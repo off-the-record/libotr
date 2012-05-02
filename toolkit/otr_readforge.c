@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     if (!aeskey) {
 	usage(argv[0]);
     }
-    
+
     if (aeskeylen != 16) {
 	fprintf(stderr, "The AES key must be 32 hex chars long.\n");
 	usage(argv[0]);
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "No OTR Data Message found on stdin.\n");
 	exit(1);
     }
-    
+
     if (otrl_proto_message_type(otrmsg) != OTRL_MSGTYPE_DATA) {
 	fprintf(stderr, "OTR Non-Data Message found on stdin.\n");
 	exit(1);
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
 	free(datamsg->encmsg);
 	datamsg->encmsg = ciphertext;
 	datamsg->encmsglen = newlen;
-	
+
 	newdatamsg = remac_datamsg(datamsg, mackey);
 
 	printf("%s\n", newdatamsg);

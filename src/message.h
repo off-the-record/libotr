@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *  			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *  			      Willy Lew, Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -61,7 +61,8 @@ typedef enum {
     OTRL_MSGEVENT_LOG_HEARTBEAT_SENT,
     OTRL_MSGEVENT_RCVDMSG_GENERAL_ERR,
     OTRL_MSGEVENT_RCVDMSG_UNENCRYPTED,
-    OTRL_MSGEVENT_RCVDMSG_UNRECOGNIZED
+    OTRL_MSGEVENT_RCVDMSG_UNRECOGNIZED,
+    OTRL_MSGEVENT_RCVDMSG_FOR_OTHER_INSTANCE
 } OtrlMessageEvent;
 
 typedef enum {
@@ -69,6 +70,11 @@ typedef enum {
     OTRL_NOTIFY_WARNING,
     OTRL_NOTIFY_INFO
 } OtrlNotifyLevel;
+
+typedef enum {
+    OTRL_CONVERT_SENDING,
+    OTRL_CONVERT_RECEIVING
+} OtrlConvertType;
 
 typedef struct s_OtrlMessageAppOps {
     /* Return the OTR policy for the given context. */
@@ -148,7 +154,7 @@ typedef struct s_OtrlMessageAppOps {
      * - OTRL_ERRCODE_MSG_MALFORMED
      * 		message sent is malformed */
     const char *(*otr_error_message)(void *opdata, ConnContext *context,
-        OtrlErrorCode err_code);
+	OtrlErrorCode err_code);
 
     /* Deallocate a string returned by otr_error_message */
     void (*otr_error_message_free)(void *opdata, const char *err_msg);
@@ -228,10 +234,27 @@ typedef struct s_OtrlMessageAppOps {
      *      also be passed and it will contain the plaintext message.
      * - OTRL_MSGEVENT_RCVDMSG_UNRECOGNIZED
      *      Cannot recognize the type of OTR message received.
-     * */
+     * - OTRL_MSGEVENT_RCVDMSG_FOR_OTHER_INSTANCE
+     *      Received and discarded a message intended for another instance. */
     void (*handle_msg_event)(void *opdata, OtrlMessageEvent msg_event,
-                ConnContext *context, const char *message,
-                gcry_error_t err);
+		ConnContext *context, const char *message,
+		gcry_error_t err);
+
+     /* Create a instance tag for the given accountname/protocol if
+      * desired. */
+    void (*create_instag)(void *opdata, const char *accountname,
+		const char *protocol);
+
+     /* Called immediately before a data message is encrypted, and after a data
+      * message is decrypted. The OtrlConvertType parameter has the value
+      * OTRL_CONVERT_SENDING or OTRL_CONVERT_RECEIVING to differentiate these
+      * cases. */
+    void (*convert_msg)(void *opdata, ConnContext *context,
+		OtrlConvertType convert_type, char ** dest, const char *src);
+
+     /* Deallocate a string returned by convert_msg. */
+    void (*convert_free)(void *opdata, ConnContext *context, char *dest);
+
 } OtrlMessageAppOps;
 
 /* Deallocate a message allocated by other otrl_message_* routines. */
@@ -249,8 +272,13 @@ void otrl_message_free(char *message);
  * tlvs is a chain of OtrlTLVs to append to the private message.  It is
  * usually correct to just pass NULL here.
  *
- * convert_msg is a function that will be called on each msg to be sent. You
- * can use it to perform some tweaks on your outgoing messages.
+ * If non-NULL, ops->convert_msg will be called just before encrypting a
+ * message.
+ *
+ * "instag" specifies the instance tag of the buddy (protocol version 3 only).
+ * Meta-instances may also be specified (e.g., OTRL_INSTAG_MOST_SECURE).
+ * If "contextp" is not NULL, it will be set to the ConnContext used for
+ * sending the message.
  *
  * If no fragmentation or msg injection is wanted, use OTRL_FRAGMENT_SEND_SKIP
  * as the OtrlFragmentPolicy. In this case, this function will assign *messagep
@@ -261,19 +289,18 @@ void otrl_message_free(char *message);
  * of *messagep, and send that instead.
  *
  * Other fragmentation policies are OTRL_FRAGMENT_SEND_ALL,
- * OTRL_FRAGMENT_SEND_ALL_BUT_LAST, or OTRL_FRAGMENT_SEND_ALL_BUT_FIRST. In these
- * cases, the appropriate fragments will be automatically sent. For the last two
- * policies, the remaining fragment will be passed in *original_msg.
+ * OTRL_FRAGMENT_SEND_ALL_BUT_LAST, or OTRL_FRAGMENT_SEND_ALL_BUT_FIRST. In
+ * these cases, the appropriate fragments will be automatically sent. For the
+ * last two policies, the remaining fragment will be passed in *original_msg.
  *
  * Call otrl_message_free(*messagep) if you don't need *messagep or when you're
  * done with it. */
 gcry_error_t otrl_message_sending(OtrlUserState us,
 	const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
-	const char *recipient, char **original_msgp, OtrlTLV *tlvs,
-	char **messagep, OtrlFragmentPolicy fragPolicy,
-	void (*convert_msg)(void *convert_data, const char *source, char **target),
-	void *convert_data,
+	const char *recipient, otrl_instag_t instag, const char *original_msg,
+	OtrlTLV *tlvs, char **messagep, OtrlFragmentPolicy fragPolicy,
+	ConnContext **contextp,
 	void (*add_appdata)(void *data, ConnContext *context),
 	void *data);
 
@@ -286,8 +313,11 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
  * "context->app" field, for example.  If you don't need to do this, you
  * can pass NULL for the last two arguments of otrl_message_receiving.
  *
- * convert_msg is a function that will be called on each msg that is received.
- * You can use it to perform some tweaks on your incoming messages.
+ * If non-NULL, ops->convert_msg will be called after a data message is 
+ * decrypted.
+ *
+ * If "contextp" is not NULL, it will be set to the ConnContext used for 
+ * receiving the message.
  *
  * If otrl_message_receiving returns 1, then the message you received
  * was an internal protocol message, and no message should be delivered
@@ -307,18 +337,23 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
 	const char *sender, const char *message, char **newmessagep,
-	OtrlTLV **tlvsp,
-	void (*convert_msg)(void *convert_data, const char *source, char **target),
-	void *convert_data,
+	OtrlTLV **tlvsp, ConnContext **contextp,
 	void (*add_appdata)(void *data, ConnContext *context),
 	void *data);
 
 /* Put a connection into the PLAINTEXT state, first sending the
  * other side a notice that we're doing so if we're currently ENCRYPTED,
- * and we think he's logged in. */
+ * and we think he's logged in. Affects only the specified instance. */
 void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
 	void *opdata, const char *accountname, const char *protocol,
-	const char *username);
+	const char *username, otrl_instag_t instance);
+
+/* Put a connection into the PLAINTEXT state, first sending the
+ * other side a notice that we're doing so if we're currently ENCRYPTED,
+ * and we think he's logged in. Affects all matching instances. */
+void otrl_message_disconnect_all_instances(OtrlUserState us,
+	const OtrlMessageAppOps *ops, void *opdata, const char *accountname,
+	const char *protocol, const char *username);
 
 /* Initiate the Socialist Millionaires' Protocol */
 void otrl_message_initiate_smp(OtrlUserState us, const OtrlMessageAppOps *ops,

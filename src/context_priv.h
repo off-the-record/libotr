@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Willy Lew,
+ *			     Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -73,6 +73,9 @@ typedef struct context_priv {
 
 	/* The last time a Data Message was sent */
 	time_t lastsent;
+
+	/* The last time a Data Message was received */
+	time_t lastrecv;
 
 	/* The plaintext of the last Data Message sent */
 	char *lastmessage;

@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *  			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *  			      Willy Lew, Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -39,8 +39,8 @@ OtrlUserState otrl_userstate_create(void)
     if (!us) return NULL;
     us->context_root = NULL;
     us->privkey_root = NULL;
+    us->instag_root = NULL;
     us->pending_root = NULL;
-
     return us;
 }
 
@@ -50,5 +50,6 @@ void otrl_userstate_free(OtrlUserState us)
     otrl_context_forget_all(us);
     otrl_privkey_forget_all(us);
     otrl_privkey_pending_forget_all(us);
+    otrl_instag_forget_all(us);
     free(us);
 }

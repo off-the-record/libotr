@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Willy Lew,
  *  			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
@@ -74,7 +74,7 @@ void otrl_dh_keypair_free(DH_keypair *kp);
 
 /*
  * Generate a DH keypair for a specified group.
- */ 
+ */
 gcry_error_t otrl_dh_gen_keypair(unsigned int groupid, DH_keypair *kp);
 
 /*

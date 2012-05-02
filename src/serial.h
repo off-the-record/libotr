@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *  			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *  			      Willy Lew, Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -81,6 +81,27 @@
 	    (x) = gcry_mpi_set_ui(NULL, 0); \
 	} \
 	bufp += mpilen; lenp -= mpilen; \
+    } while(0)
+
+/* Write version and msg type into bufp*/
+#define write_header(version, msgtype) do { \
+	bufp[0] = 0x00; \
+        bufp[1] = version & 0xff; \
+        bufp[2] = msgtype; \
+        debug_data("Header", bufp, 3); \
+        bufp += 3; lenp -= 3; \
+    } while(0)
+
+/* Verify msg header is v1, v2 or v3 and has type x,
+*  increment bufp past msg header */
+#define skip_header(x) do { \
+        require_len(3); \
+        if ((bufp[0] != 0x00) || (bufp[2] != x)) \
+	    goto invval; \
+        if ((bufp[1] == 0x01) || (bufp[1] == 0x02) || \
+                (bufp[1] == 0x03)) { \
+	    bufp += 3; lenp -= 3; \
+	} else goto invval; \
     } while(0)
 
 #endif

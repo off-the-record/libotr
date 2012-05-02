@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *  			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  			     Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -80,7 +80,7 @@ gcry_error_t otrl_privkey_generate_finish_FILEp(OtrlUserState us,
 /* Call this from the main thread only, in the event that the background
  * thread generating the key is cancelled.  The newkey is deallocated,
  * and must not be used further. */
-void otrl_privkey_generate_cancel(OtrlUserState us, void *newkey);
+void otrl_privkey_generate_cancelled(OtrlUserState us, void *newkey);
 
 /* Generate a private DSA key for a given account, storing it into a
  * file on disk, and loading it into the given OtrlUserState.  Overwrite any

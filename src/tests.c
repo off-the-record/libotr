@@ -4,6 +4,7 @@
 #include "proto.h"
 #include "privkey.h"
 #include "message.h"
+#include "instag.h"
 
 #define ALICE "alice"
 #define BOB "bob"
@@ -11,7 +12,6 @@
 
 static OtrlPolicy ALICEPOLICY = OTRL_POLICY_DEFAULT &~ OTRL_POLICY_ALLOW_V1;
 static OtrlPolicy BOBPOLICY = OTRL_POLICY_DEFAULT;
-
 void receiving(const char *from, const char *to, const char *msg);
 
 typedef struct s_node {
@@ -21,6 +21,18 @@ typedef struct s_node {
 
 static MsgNode *noderoot = NULL;
 static MsgNode **nodeend = &noderoot;
+
+void otrl_sm_init(void) {}
+void otrl_sm_state_new(OtrlSMState *smst) {}
+void otrl_sm_state_init(OtrlSMState *smst) {}
+void otrl_sm_state_free(OtrlSMState *smst) {}
+gcry_error_t otrl_sm_step1(OtrlSMAliceState *astate, const unsigned char* secret, int secretlen, unsigned char** output, int* outputlen) {return gcry_error(GPG_ERR_NO_ERROR);}
+gcry_error_t otrl_sm_step2a(OtrlSMBobState *bstate, const unsigned char* input, const int inputlen, int received_question) {return gcry_error(GPG_ERR_NO_ERROR);}
+gcry_error_t otrl_sm_step2b(OtrlSMBobState *bstate, const unsigned char* secret, int secretlen, unsigned char **output, int* outputlen) {return gcry_error(GPG_ERR_NO_ERROR);}
+gcry_error_t otrl_sm_step3(OtrlSMAliceState *astate, const unsigned char* input, const int inputlen, unsigned char **output, int* outputlen) {return gcry_error(GPG_ERR_NO_ERROR);}
+gcry_error_t otrl_sm_step4(OtrlSMBobState *bstate, const unsigned char* input, const int inputlen, unsigned char **output, int* outputlen) {return gcry_error(GPG_ERR_NO_ERROR);}
+gcry_error_t otrl_sm_step5(OtrlSMAliceState *astate, const unsigned char* input, const int inputlen) {return gcry_error(GPG_ERR_NO_ERROR);}
+
 
 static void dispatch(void)
 {
@@ -136,7 +148,7 @@ static void sending(const char *from, const char *to, const char *msg)
     char *newmsg;
 
     err = otrl_message_sending(us, &ops, NULL, from, PROTO, to, msg,
-	    tlvs, &newmsg, NULL, NULL);
+	    tlvs, &newmsg, NULL, NULL, NULL);
 
     if (!err) {
 	inject(from, to, newmsg ? newmsg : msg);
@@ -146,14 +158,18 @@ static void sending(const char *from, const char *to, const char *msg)
     otrl_tlv_free(tlvs);
 }
 
-void test(int vers, int both)
+static void test(int vers, int both)
 {
     printf("\n\n*** Testing version %d, %s ***\n\n", vers,
 	    both ? "simultaneous start" : "Alice start");
 
     otrl_context_forget_all(us);
-    ALICEPOLICY = vers == 1 ? (OTRL_POLICY_DEFAULT &~ OTRL_POLICY_ALLOW_V2) :
-	OTRL_POLICY_DEFAULT;
+    if (vers == 1)
+	ALICEPOLICY = OTRL_POLICY_ALLOW_V1;
+    else if (vers == 2)
+	ALICEPOLICY = OTRL_POLICY_ALLOW_V2;
+    else
+	ALICEPOLICY = OTRL_POLICY_DEFAULT;
     sending(ALICE, BOB, "?OTR?");
     if (both) {
 	sending(BOB, ALICE, "?OTR?");
@@ -170,7 +186,7 @@ void test_unreadable(void)
     printf("\n\n*** Testing Bob receiving unreadable messages from "
 	    "Alice ***\n\n");
 
-    bobcontext = otrl_context_find(us, ALICE, BOB, PROTO, 0, NULL, NULL, NULL);
+    bobcontext = otrl_context_find(us, ALICE, BOB, PROTO, 0, 0, NULL, NULL, NULL);
     otrl_context_force_plaintext(bobcontext);
     sending(ALICE, BOB, "unreadable text");
     dispatch();
@@ -188,8 +204,8 @@ void test_crash1(void)
     sending(ALICE, BOB, "?OTR?");
     dispatch();
 
-    alicecontext = otrl_context_find(us, BOB, ALICE, PROTO, 0, NULL, NULL, NULL);
-    bobcontext = otrl_context_find(us, ALICE, BOB, PROTO, 0, NULL, NULL, NULL);
+    alicecontext = otrl_context_find(us, BOB, ALICE, PROTO, 0, 0, NULL, NULL, NULL);
+    bobcontext = otrl_context_find(us, ALICE, BOB, PROTO, 0, 0, NULL, NULL, NULL);
 
     sending(ALICE, BOB, "Hi!"); dispatch();
     sending(BOB, ALICE, "There!"); dispatch();
@@ -213,12 +229,16 @@ void test_refresh(int vers)
     printf("\n\n*** Testing refresh ***\n\n");
 
     otrl_context_forget_all(us);
-    ALICEPOLICY = vers == 1 ? (OTRL_POLICY_DEFAULT &~ OTRL_POLICY_ALLOW_V2) :
-	OTRL_POLICY_DEFAULT;
+    if (vers == 1)
+	ALICEPOLICY = OTRL_POLICY_ALLOW_V1;
+    else if (vers == 2)
+	ALICEPOLICY = OTRL_POLICY_ALLOW_V2;
+    else
+	ALICEPOLICY = OTRL_POLICY_DEFAULT;
     sending(ALICE, BOB, "?OTR?"); dispatch();
 
-    alicecontext = otrl_context_find(us, BOB, ALICE, PROTO, 0, NULL, NULL, NULL);
-    bobcontext = otrl_context_find(us, ALICE, BOB, PROTO, 0, NULL, NULL, NULL);
+    alicecontext = otrl_context_find(us, BOB, ALICE, PROTO, 0, 0, NULL, NULL, NULL);
+    bobcontext = otrl_context_find(us, ALICE, BOB, PROTO, 0, 0, NULL, NULL, NULL);
     printf("%p %p\n", alicecontext, bobcontext);
 
     sending(ALICE, BOB, "Hi!"); dispatch();
@@ -236,13 +256,16 @@ int main(int argc, char **argv)
     us = otrl_userstate_create();
 
     otrl_privkey_read(us, "/home/iang/.gaim/otr.private_key");
+    otrl_instag_read(us, "inst.txt");
 
     test(1,0);
     test(2,0);
+    test(3,0);
     test(1,1);
     test(2,1);
     test_unreadable();
     test_crash1();
+    test_refresh(3);
     test_refresh(2);
     test_refresh(1);
 

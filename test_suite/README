@@ -1,0 +1,22 @@
+OTR TEST SUITE
+
+BEFORE RUNNING
+This test suite is known to run with Python 2.7.1. The OTR C client first needs to compiled and statically linked with
+various versions of libotr.  See the README file in "otr_c_client" for more information about this.
+
+TESTS
+Two tests are currently included. 
+
+otr_test_general.py
+This test establishes OTR sessions between pairs of all 3.X versions of OTR clients. It also tests multiple 4.0 clients
+corresponding to one account establishing OTR sessions with another account with multiple 4.0 clients. 
+
+otr_test_mixed.py
+This test establishes OTR sessions with multple 4.0 clients corresponding to one account with another accout with 
+multiple 4.0 clients.  This test also includes another 3.X with one of these accounts.  All 3.X versions are tested.
+
+RUNNING
+Executing one of the above files directly will execute the corresponding test. The underlying instant messaging server
+will be started and stopped as necessary.
+
+After each test, "Test succeeded" or "Test failed" will be printed.

@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *  			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *  			      Willy Lew, Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -28,12 +28,15 @@
 #include "privkey.h"
 #include "auth.h"
 #include "serial.h"
+#include "proto.h"
+#include "context.h"
 
 /*
  * Initialize the fields of an OtrlAuthInfo (already allocated).
  */
-void otrl_auth_new(OtrlAuthInfo *auth)
+void otrl_auth_new(struct context *context)
 {
+    OtrlAuthInfo *auth = &(context->auth);
     auth->authstate = OTRL_AUTHSTATE_NONE;
     otrl_dh_keypair_init(&(auth->our_dh));
     auth->our_keyid = 0;
@@ -55,6 +58,7 @@ void otrl_auth_new(OtrlAuthInfo *auth)
     memset(auth->secure_session_id, 0, 20);
     auth->secure_session_id_len = 0;
     auth->lastauthmsg = NULL;
+    auth->context = context;
 }
 
 /*
@@ -95,11 +99,11 @@ void otrl_auth_clear(OtrlAuthInfo *auth)
 }
 
 /*
- * Start a fresh AKE (version 2) using the given OtrlAuthInfo.  Generate
+ * Start a fresh AKE (version 2 or 3) using the given OtrlAuthInfo.  Generate
  * a fresh DH keypair to use.  If no error is returned, the message to
  * transmit will be contained in auth->lastauthmsg.
  */
-gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth)
+gcry_error_t otrl_auth_start_v23(OtrlAuthInfo *auth, int version)
 {
     gcry_error_t err = gcry_error(GPG_ERR_NO_ERROR);
     const enum gcry_mpi_format format = GCRYMPI_FMT_USG;
@@ -112,6 +116,8 @@ gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth)
     /* Clear out this OtrlAuthInfo and start over */
     otrl_auth_clear(auth);
     auth->initiated = 1;
+    auth->protocol_version = version;
+    auth->context->protocol_version = version;
 
     otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
     auth->our_keyid = 1;
@@ -152,15 +158,22 @@ gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth)
     enc = NULL;
 
     /* Now serialize the message */
-    lenp = 3 + 4 + auth->encgx_len + 4 + 32;
+    lenp = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4 
+	    + auth->encgx_len + 4 + 32;
     bufp = malloc(lenp);
     if (bufp == NULL) goto memerr;
     buf = bufp;
     buflen = lenp;
 
-    memmove(bufp, "\x00\x02\x02", 3); /* header */
-    debug_data("Header", bufp, 3);
-    bufp += 3; lenp -= 3;
+    /* Header */
+    write_header(auth->protocol_version, '\x02');
+    if (auth->protocol_version == 3) {
+	/* instance tags */
+	write_int(auth->context->our_instance);
+	debug_int("Sender instag", bufp-4);
+	write_int(auth->context->their_instance);
+	debug_int("Recipient instag", bufp-4);
+    }
 
     /* Encrypted g^x */
     write_int(auth->encgx_len);
@@ -206,15 +219,21 @@ static gcry_error_t create_key_message(OtrlAuthInfo *auth)
     size_t npub;
 
     gcry_mpi_print(format, NULL, 0, &npub, auth->our_dh.pub);
-    buflen = 3 + 4 + npub;
+    buflen = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4 + npub;
     buf = malloc(buflen);
     if (buf == NULL) goto memerr;
     bufp = buf;
     lenp = buflen;
 
-    memmove(bufp, "\x00\x02\x0a", 3); /* header */
-    debug_data("Header", bufp, 3);
-    bufp += 3; lenp -= 3;
+    /* header */
+    write_header(auth->protocol_version, '\x0a');
+    if (auth->protocol_version == 3) {
+	/* instance tags */
+	write_int(auth->context->our_instance);
+	debug_int("Sender instag", bufp-4);
+	write_int(auth->context->their_instance);
+	debug_int("Recipient instag", bufp-4);
+    }
 
     /* g^y */
     write_mpi(auth->our_dh.pub, npub, "g^y");
@@ -239,7 +258,7 @@ memerr:
  * keypair to use.
  */
 gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
-	const char *commitmsg)
+	const char *commitmsg, int version)
 {
     gcry_error_t err = gcry_error(GPG_ERR_NO_ERROR);
     unsigned char *buf = NULL, *bufp = NULL, *encbuf = NULL;
@@ -255,9 +274,14 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
     lenp = buflen;
 
     /* Header */
-    require_len(3);
-    if (memcmp(bufp, "\x00\x02\x02", 3)) goto invval;
-    bufp += 3; lenp -= 3;
+    auth->protocol_version = version;
+    auth->context->protocol_version = version;
+    skip_header('\x02');
+
+    if (version == 3) {
+	require_len(8);
+	bufp += 8; lenp -= 8;
+    }
 
     /* Encrypted g^x */
     read_int(enclen);
@@ -282,10 +306,12 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
 	case OTRL_AUTHSTATE_NONE:
 	case OTRL_AUTHSTATE_AWAITING_SIG:
 	case OTRL_AUTHSTATE_V1_SETUP:
-
 	    /* Store the incoming information */
 	    otrl_auth_clear(auth);
+	    auth->protocol_version = version;
+
 	    otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
+
 	    auth->our_keyid = 1;
 	    auth->encgx = encbuf;
 	    encbuf = NULL;
@@ -296,7 +322,6 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
 	    err = create_key_message(auth);
 	    if (err) goto err;
 	    auth->authstate = OTRL_AUTHSTATE_AWAITING_REVEALSIG;
-
 	    break;
 
 	case OTRL_AUTHSTATE_AWAITING_DHKEY:
@@ -310,6 +335,7 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
 	    } else {
 		/* Ours loses.  Use the incoming parameters instead. */
 		otrl_auth_clear(auth);
+		auth->protocol_version = version;
 		otrl_dh_gen_keypair(DH1536_GROUP_ID, &(auth->our_dh));
 		auth->our_keyid = 1;
 		auth->encgx = encbuf;
@@ -373,7 +399,7 @@ static gcry_error_t calculate_pubkey_auth(unsigned char **authbufp,
 
     /* How big is the total structure to be MAC'd? */
     totallen = 4 + ourpublen + 4 + theirpublen + 2 + privkey->pubkey_datalen
-	+ 4;
+	    + 4;
     buf = malloc(totallen);
     if (buf == NULL) goto memerr;
 
@@ -582,16 +608,23 @@ static gcry_error_t create_revealsig_message(OtrlAuthInfo *auth,
 	    auth->our_dh.pub, auth->their_pub, privkey, auth->our_keyid);
     if (err) goto err;
 
-    buflen = 3 + 4 + 16 + 4 + authlen + 20;
+    buflen = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4 + 16 
+	    + 4 + authlen + 20;
     buf = malloc(buflen);
     if (buf == NULL) goto memerr;
 
     bufp = buf;
     lenp = buflen;
 
-    memmove(bufp, "\x00\x02\x11", 3); /* header */
-    debug_data("Header", bufp, 3);
-    bufp += 3; lenp -= 3;
+    /* header */
+    write_header(auth->protocol_version, '\x11');
+    if (auth->protocol_version == 3) {
+	/* instance tags */
+	write_int(auth->context->our_instance);
+	debug_int("Sender instag", bufp-4);
+	write_int(auth->context->their_instance);
+	debug_int("Recipient instag", bufp-4);
+    }
 
     /* r */
     write_int(16);
@@ -654,16 +687,23 @@ static gcry_error_t create_signature_message(OtrlAuthInfo *auth,
 	    auth->our_keyid);
     if (err) goto err;
 
-    buflen = 3 + 4 + authlen + 20;
+    buflen = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4 
+	    + authlen + 20;
     buf = malloc(buflen);
     if (buf == NULL) goto memerr;
 
     bufp = buf;
     lenp = buflen;
 
-    memmove(bufp, "\x00\x02\x12", 3); /* header */
-    debug_data("Header", bufp, 3);
-    bufp += 3; lenp -= 3;
+    /* header */
+    write_header(auth->protocol_version, '\x12');
+    if (auth->protocol_version == 3) {
+	/* instance tags */
+	write_int(auth->context->our_instance);
+	debug_int("Sender instag", bufp-4);
+	write_int(auth->context->their_instance);
+	debug_int("Recipient instag", bufp-4);
+    }
 
     /* Encrypted authenticator */
     startmac = bufp;
@@ -711,9 +751,11 @@ gcry_error_t otrl_auth_handle_key(OtrlAuthInfo *auth, const char *keymsg,
     unsigned char *buf = NULL, *bufp = NULL;
     size_t buflen, lenp;
     gcry_mpi_t incoming_pub = NULL;
-    int res;
+    int res, msg_version;
 
     *havemsgp = 0;
+
+    msg_version = otrl_proto_message_version(keymsg);
 
     res = otrl_base64_otr_decode(keymsg, &buf, &buflen);
     if (res == -1) goto memerr;
@@ -723,8 +765,12 @@ gcry_error_t otrl_auth_handle_key(OtrlAuthInfo *auth, const char *keymsg,
     lenp = buflen;
 
     /* Header */
-    if (memcmp(bufp, "\x00\x02\x0a", 3)) goto invval;
-    bufp += 3; lenp -= 3;
+    skip_header('\x0a');
+
+    if (msg_version == 3) {
+	require_len(8);
+	bufp += 8; lenp -= 8;
+    }
 
     /* g^y */
     read_mpi(incoming_pub);
@@ -735,6 +781,13 @@ gcry_error_t otrl_auth_handle_key(OtrlAuthInfo *auth, const char *keymsg,
 
     switch(auth->authstate) {
 	case OTRL_AUTHSTATE_AWAITING_DHKEY:
+	    /* The other party may also be establishing a session with
+	    another instance running a different version. Ignore any
+	    DHKEY messages we aren't expecting. */
+	    if (msg_version != auth->protocol_version) {
+	      goto err;
+	    }
+
 	    /* Store the incoming public key */
 	    gcry_mpi_release(auth->their_pub);
 	    auth->their_pub = incoming_pub;
@@ -808,6 +861,7 @@ gcry_error_t otrl_auth_handle_revealsig(OtrlAuthInfo *auth,
     gcry_mpi_t incoming_pub = NULL;
     unsigned char ctr[16], hashbuf[32];
     int res;
+    unsigned char version;
 
     *havemsgp = 0;
 
@@ -818,9 +872,16 @@ gcry_error_t otrl_auth_handle_revealsig(OtrlAuthInfo *auth,
     bufp = buf;
     lenp = buflen;
 
+    require_len(3);
+    version = bufp[1];
+
     /* Header */
-    if (memcmp(bufp, "\x00\x02\x11", 3)) goto invval;
-    bufp += 3; lenp -= 3;
+    skip_header('\x11');
+
+    if (version == 3) {
+	require_len(8);
+	bufp += 8; lenp -= 8;
+    }
 
     /* r */
     read_int(rlen);
@@ -898,6 +959,7 @@ gcry_error_t otrl_auth_handle_revealsig(OtrlAuthInfo *auth,
 	    /* Check the MAC */
 	    gcry_md_reset(auth->mac_m2);
 	    gcry_md_write(auth->mac_m2, authstart, authend - authstart);
+
 	    if (memcmp(macstart,
 			gcry_md_read(auth->mac_m2, GCRY_MD_SHA256),
 			20)) goto invval;
@@ -921,7 +983,6 @@ gcry_error_t otrl_auth_handle_revealsig(OtrlAuthInfo *auth,
 
 	    /* No error?  Then we've completed our end of the
 	     * authentication. */
-	    auth->protocol_version = 2;
 	    auth->session_id_half = OTRL_SESSIONID_SECOND_HALF_BOLD;
 	    if (auth_succeeded) err = auth_succeeded(auth, asdata);
 	    *havemsgp = 1;
@@ -974,6 +1035,7 @@ gcry_error_t otrl_auth_handle_signature(OtrlAuthInfo *auth,
     unsigned char *authstart, *authend, *macstart;
     size_t buflen, lenp, authlen;
     int res;
+    unsigned char version;
 
     *havemsgp = 0;
 
@@ -984,9 +1046,16 @@ gcry_error_t otrl_auth_handle_signature(OtrlAuthInfo *auth,
     bufp = buf;
     lenp = buflen;
 
+    require_len(3);
+    version = bufp[1];
+
     /* Header */
-    if (memcmp(bufp, "\x00\x02\x12", 3)) goto invval;
-    bufp += 3; lenp -= 3;
+    skip_header('\x12');
+
+    if (version == 3) {
+	require_len(8);
+	bufp += 8; lenp -= 8;
+    }
 
     /* auth */
     authstart = bufp;
@@ -1026,7 +1095,6 @@ gcry_error_t otrl_auth_handle_signature(OtrlAuthInfo *auth,
 
 	    /* No error?  Then we've completed our end of the
 	     * authentication. */
-	    auth->protocol_version = 2;
 	    auth->session_id_half = OTRL_SESSIONID_FIRST_HALF_BOLD;
 	    if (auth_succeeded) err = auth_succeeded(auth, asdata);
 	    free(auth->lastauthmsg);
@@ -1153,6 +1221,7 @@ gcry_error_t otrl_auth_start_v1(OtrlAuthInfo *auth, DH_keypair *our_dh,
     /* Clear out this OtrlAuthInfo and start over */
     otrl_auth_clear(auth);
     auth->initiated = 1;
+    auth->protocol_version = 1;
 
     /* Import the given DH keypair, or else create a fresh one */
     if (our_dh) {
@@ -1248,7 +1317,7 @@ gcry_error_t otrl_auth_handle_v1_key_exchange(OtrlAuthInfo *auth,
     pubs = NULL;
     free(buf);
     buf = NULL;
-    
+
     if (auth->authstate != OTRL_AUTHSTATE_V1_SETUP && received_reply == 0x01) {
 	/* They're replying to something we never sent.  We must be
 	 * logged in more than once; ignore the message. */
@@ -1314,17 +1383,87 @@ err:
     return err;
 }
 
+/*
+ * Copy relevant information from the master OtrlAuthInfo to an
+ * instance OtrlAuthInfo in response to a D-H Commit with a new
+ * instance. The fields copied will depend on the state of the
+ * master auth.
+ */
+gcry_error_t otrl_auth_copy_on_commit(OtrlAuthInfo *m_auth,
+	OtrlAuthInfo *auth)
+{
+    switch(m_auth->authstate) {
+	case OTRL_AUTHSTATE_NONE:
+	case OTRL_AUTHSTATE_AWAITING_REVEALSIG:
+	    auth->authstate = OTRL_AUTHSTATE_NONE;
+	    break;
+	case OTRL_AUTHSTATE_AWAITING_DHKEY:
+	    /* We sent a D-H Commit Message, and we also received one.
+	     *  Copy our D_H Commit and auth state */
+	    otrl_dh_keypair_free(&(auth->our_dh));
+	    auth->initiated = m_auth->initiated;
+	    otrl_dh_keypair_copy(&(auth->our_dh), &(m_auth->our_dh));
+	    auth->our_keyid = m_auth->our_keyid;
+	    memmove(auth->r, m_auth->r, 16);
+	    if (auth->encgx) free(auth->encgx);
+	    auth->encgx = malloc(m_auth->encgx_len);
+	    memmove(auth->encgx, m_auth->encgx, m_auth->encgx_len);
+	    memmove(auth->hashgx, m_auth->hashgx, 32);
+
+	    auth->authstate = OTRL_AUTHSTATE_AWAITING_DHKEY;
+	    break;
+
+	default:
+	    /* This bad state will be detected and handled later */
+	    break;
+    }
+}
+
+/*
+ * Copy relevant information from the master OtrlAuthInfo to an
+ * instance OtrlAuthInfo in response to a D-H Key with a new
+ * instance. The fields copied will depend on the state of the
+ * master auth.
+ */
+gcry_error_t otrl_auth_copy_on_key(OtrlAuthInfo *m_auth,
+	OtrlAuthInfo *auth)
+{
+    switch(m_auth->authstate) {
+	case OTRL_AUTHSTATE_AWAITING_DHKEY:
+	case OTRL_AUTHSTATE_AWAITING_SIG:
+	    /* Copy our D-H Commit information to the new instance */
+	    otrl_dh_keypair_free(&(auth->our_dh));
+	    auth->initiated = m_auth->initiated;
+	    otrl_dh_keypair_copy(&(auth->our_dh), &(m_auth->our_dh));
+	    auth->our_keyid = m_auth->our_keyid;
+	    memmove(auth->r, m_auth->r, 16);
+	    if (auth->encgx) free(auth->encgx);
+	    auth->encgx = malloc(m_auth->encgx_len);
+	    memmove(auth->encgx, m_auth->encgx, m_auth->encgx_len);
+	    memmove(auth->hashgx, m_auth->hashgx, 32);
+
+	    auth->authstate = OTRL_AUTHSTATE_AWAITING_DHKEY;
+	    break;
+
+	default:
+	    /* This bad state will be detected and handled later */
+	    break;
+    }
+}
+
 #ifdef OTRL_TESTING_AUTH
 #include "mem.h"
 #include "privkey.h"
 
-#define CHECK_ERR if (err) { printf("Error: %s\n", gcry_strerror(err)); return 1; }
+#define CHECK_ERR if (err) { printf("Error: %s\n", gcry_strerror(err)); \
+			return 1; }
 
 static gcry_error_t starting(const OtrlAuthInfo *auth, void *asdata)
 {
     char *name = asdata;
 
-    fprintf(stderr, "\nStarting ENCRYPTED mode for %s (v%d).\n", name, auth->protocol_version);
+    fprintf(stderr, "\nStarting ENCRYPTED mode for %s (v%d).\n",
+	    name, auth->protocol_version);
 
     fprintf(stderr, "\nour_dh (%d):", auth->our_keyid);
     gcry_mpi_dump(auth->our_dh.pub);
@@ -1359,7 +1498,7 @@ int main(int argc, char **argv)
 
     printf("\n\n  ***** V2 *****\n\n");
 
-    err = otrl_auth_start_v2(&bob, NULL, 0);
+    err = otrl_auth_start_v23(&bob, NULL, 0);
     CHECK_ERR
     printf("\nBob: %d\n%s\n\n", strlen(bob.lastauthmsg), bob.lastauthmsg);
     err = otrl_auth_handle_commit(&alice, bob.lastauthmsg, NULL, 0);
@@ -1376,7 +1515,8 @@ int main(int argc, char **argv)
 	    alicepriv, starting, "Alice");
     CHECK_ERR
     if (havemsg) {
-	printf("\nAlice: %d\n%s\n\n", strlen(alice.lastauthmsg), alice.lastauthmsg);
+	printf("\nAlice: %d\n%s\n\n", strlen(alice.lastauthmsg),
+		alice.lastauthmsg);
     } else {
 	printf("\nIGNORE\n\n");
     }
@@ -1393,7 +1533,8 @@ int main(int argc, char **argv)
 	    &havemsg, alicepriv, NULL, 0, starting, "Alice");
     CHECK_ERR
     if (havemsg) {
-	printf("\nAlice: %d\n%s\n\n", strlen(alice.lastauthmsg), alice.lastauthmsg);
+	printf("\nAlice: %d\n%s\n\n", strlen(alice.lastauthmsg),
+		alice.lastauthmsg);
     } else {
 	printf("\nIGNORE\n\n");
     }

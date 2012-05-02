@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *  			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *  			      Willy Lew, Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -246,10 +246,10 @@ gcry_error_t otrl_privkey_read_FILEp(OtrlUserState us, FILE *privf)
 	char *name, *proto;
 	gcry_sexp_t accounts;
 	OtrlPrivKey *p;
-	
+
 	/* Get the ith "account" S-exp */
 	accounts = gcry_sexp_nth(allkeys, i);
-	
+
 	/* It's really an "account" S-exp? */
 	token = gcry_sexp_nth_data(accounts, 0, &tokenlen);
 	if (tokenlen != 7 || strncmp(token, "account", 7)) {
@@ -424,7 +424,7 @@ static gcry_error_t sexp_write(FILE *privf, gcry_sexp_t sexp)
 	return gcry_error(GPG_ERR_ENOMEM);
     }
     gcry_sexp_sprint(sexp, GCRYSEXP_FMT_ADVANCED, buf, buflen);
-    
+
     fprintf(privf, "%s", buf);
     free(buf);
 
@@ -500,7 +500,7 @@ gcry_error_t otrl_privkey_generate_start(OtrlUserState us,
 gcry_error_t otrl_privkey_generate_calculate(void *newkey)
 {
     struct s_pending_privkey_calc *ppc =
-	(struct s_pending_privkey_calc *)newkey;
+	    (struct s_pending_privkey_calc *)newkey;
     gcry_error_t err;
     gcry_sexp_t key, parms;
     static const char *parmstr = "(genkey (dsa (nbits 4:1024)))";
@@ -546,10 +546,10 @@ static FILE* privkey_fopen(const char *filename, gcry_error_t *errp)
 /* Call this from the main thread only, in the event that the background
  * thread generating the key is cancelled.  The newkey is deallocated,
  * and must not be used further. */
-void otrl_privkey_generate_cancel(OtrlUserState us, void *newkey)
+void otrl_privkey_generate_cancelled(OtrlUserState us, void *newkey)
 {
     struct s_pending_privkey_calc *ppc =
-	(struct s_pending_privkey_calc *)newkey;
+	    (struct s_pending_privkey_calc *)newkey;
 
     if (us) {
 	pending_forget(pending_find(us, ppc->accountname, ppc->protocol));
@@ -586,7 +586,7 @@ gcry_error_t otrl_privkey_generate_finish_FILEp(OtrlUserState us,
 	void *newkey, FILE *privf)
 {
     struct s_pending_privkey_calc *ppc =
-	(struct s_pending_privkey_calc *)newkey;
+	    (struct s_pending_privkey_calc *)newkey;
     gcry_error_t ret = gcry_error(GPG_ERR_INV_VALUE);
 
     if (ppc && us && privf) {
@@ -612,7 +612,7 @@ gcry_error_t otrl_privkey_generate_finish_FILEp(OtrlUserState us,
 	ret = otrl_privkey_read_FILEp(us, privf);
     }
 
-    otrl_privkey_generate_cancel(us, newkey);
+    otrl_privkey_generate_cancelled(us, newkey);
 
     return ret;
 }
@@ -751,7 +751,7 @@ gcry_error_t otrl_privkey_read_fingerprints_FILEp(OtrlUserState us,
 	}
 	/* Get the context for this user, adding if not yet present */
 	context = otrl_context_find(us, username, accountname, protocol,
-		1, NULL, add_app_data, data);
+		OTRL_INSTAG_MASTER, 1, NULL, add_app_data, data);
 	/* Add the fingerprint if not already there */
 	fng = otrl_context_find_fingerprint(context, fingerprint, 1, NULL);
 	otrl_context_set_trust(fng, trust);
@@ -790,7 +790,10 @@ gcry_error_t otrl_privkey_write_fingerprints_FILEp(OtrlUserState us,
     if (!storef) return gcry_error(GPG_ERR_NO_ERROR);
 
     for(context = us->context_root; context; context = context->next) {
-	/* Don't both with the first (fingerprintless) entry. */
+	/* Fingerprints are only stored in the master contexts */
+	if (context->their_instance != OTRL_INSTAG_MASTER) continue;
+
+	/* Don't bother with the first (fingerprintless) entry. */
 	for (fprint = context->fingerprint_root.next; fprint;
 		fprint = fprint->next) {
 	    int i;
@@ -929,3 +932,4 @@ gcry_error_t otrl_privkey_verify(const unsigned char *sigbuf, size_t siglen,
 
     return err;
 }
+

@@ -1,3 +1,44 @@
+2012-04-30:
+
+	* AUTHORS:
+	* README:
+	* toolkit/otr_parse.c:
+	* toolkit/otr_remac.c:
+	* toolkit/parse.c:
+	* toolkit/parse.h:
+	* src/auth.c:
+	* src/auth.h:
+	* src/context.c:
+	* src/context.h:
+	* src/message.c:
+	* src/message.h:
+	* src/privkey.c:
+	* src/privkey.h:
+	* src/proto.c:
+	* src/proto.h:
+	* src/serial.h:
+	* src/tests.c:
+	* src/userstate.c:
+	* src/userstate.h: More changes for instance tags (Rob Smits).
+
+2009-06-11:
+
+	* src/auth.c:
+	* src/auth.h:
+	* src/context.c:
+	* src/context.h:
+	* src/context_priv.h:
+	* src/message.c:
+	* src/message.h:
+	* src/privkey.c:
+	* src/privkey.h:
+	* src/proto.c:
+	* src/proto.h:
+	* src/serial.h:
+	* src/tests.c:
+	* src/userstate.c:
+	* src/userstate.h: Core instance tag functionality (Lisa Du).
+
 2009-09-30:
 
 	* Protocol-v2.html: Edits from Göran Weinholt

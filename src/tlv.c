@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Willy Lew,
  *  			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *

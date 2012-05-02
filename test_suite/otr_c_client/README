@@ -1,0 +1,10 @@
+The Makefile is currently set up to find pre-compiled libotr static libraries in a ./libs directory. 
+You will need to change the header include directories as appropriate.
+
+It expects the following files (copied and renamed from the appropriate versions):
+
+libotr3.0.a
+libotr3.1.a
+libotr3.2.a
+libotr4.0.a
+

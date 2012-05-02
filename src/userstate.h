@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *  			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *  			      Willy Lew, Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -23,12 +23,14 @@
 
 typedef struct s_OtrlUserState* OtrlUserState;
 
+#include "instag.h"
 #include "context.h"
 #include "privkey-t.h"
 
 struct s_OtrlUserState {
     ConnContext *context_root;
     OtrlPrivKey *privkey_root;
+    OtrlInsTag *instag_root;
     OtrlPendingPrivKey *pending_root;
 };
 

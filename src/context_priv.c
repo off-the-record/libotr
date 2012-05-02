@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Willy Lew,
  *			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
@@ -44,6 +44,7 @@ ConnContextPriv *context_priv_new()
 	context_priv->generation = 0;
 	context_priv->lastsent = 0;
 	context_priv->lastmessage = NULL;
+	context_priv->lastrecv = 0;
 	context_priv->may_retransmit = 0;
 	context_priv->their_keyid = 0;
 	context_priv->their_y = NULL;

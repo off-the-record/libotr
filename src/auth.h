@@ -1,7 +1,7 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
- *  			     Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *  			      Willy Lew, Lisa Du, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This library is free software; you can redistribute it and/or
@@ -24,6 +24,7 @@
 #include <gcrypt.h>
 #include "dh.h"
 
+
 typedef enum {
     OTRL_AUTHSTATE_NONE,
     OTRL_AUTHSTATE_AWAITING_DHKEY,
@@ -34,6 +35,8 @@ typedef enum {
 
 typedef struct {
     OtrlAuthState authstate;              /* Our state */
+
+    struct context *context;              /* The context which points to us */
 
     DH_keypair our_dh;                    /* Our D-H key */
     unsigned int our_keyid;               /* ...and its keyid */
@@ -46,6 +49,7 @@ typedef struct {
 
     gcry_mpi_t their_pub;                 /* Their D-H public key */
     unsigned int their_keyid;             /*  ...and its keyid */
+
 
     gcry_cipher_hd_t enc_c, enc_cp;       /* c and c' encryption keys */
     gcry_md_hd_t mac_m1, mac_m1p;         /* m1 and m1' MAC keys */
@@ -78,7 +82,7 @@ typedef struct {
 /*
  * Initialize the fields of an OtrlAuthInfo (already allocated).
  */
-void otrl_auth_new(OtrlAuthInfo *auth);
+void otrl_auth_new(struct context *context);
 
 /*
  * Clear the fields of an OtrlAuthInfo (but leave it allocated).
@@ -86,11 +90,11 @@ void otrl_auth_new(OtrlAuthInfo *auth);
 void otrl_auth_clear(OtrlAuthInfo *auth);
 
 /*
- * Start a fresh AKE (version 2) using the given OtrlAuthInfo.  Generate
+ * Start a fresh AKE (version 2 or 3) using the given OtrlAuthInfo.  Generate
  * a fresh DH keypair to use.  If no error is returned, the message to
  * transmit will be contained in auth->lastauthmsg.
  */
-gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth);
+gcry_error_t otrl_auth_start_v23(OtrlAuthInfo *auth, int version);
 
 /*
  * Handle an incoming D-H Commit Message.  If no error is returned, the
@@ -98,7 +102,7 @@ gcry_error_t otrl_auth_start_v2(OtrlAuthInfo *auth);
  * keypair to use.
  */
 gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
-	const char *commitmsg);
+	const char *commitmsg, int version);
 
 /*
  * Handle an incoming D-H Key Message.  If no error is returned, and
@@ -154,5 +158,23 @@ gcry_error_t otrl_auth_handle_v1_key_exchange(OtrlAuthInfo *auth,
 	DH_keypair *our_dh, unsigned int our_keyid,
 	gcry_error_t (*auth_succeeded)(const OtrlAuthInfo *auth, void *asdata),
 	void *asdata);
+
+/*
+ * Copy relevant information from the master OtrlAuthInfo to an
+ * instance OtrlAuthInfo in response to a D-H Commit with a new
+ * instance. The fields copied will depend on the state of the
+ * master auth.
+ */
+gcry_error_t otrl_auth_copy_on_commit(OtrlAuthInfo *m_auth,
+	OtrlAuthInfo *auth);
+
+/*
+ * Copy relevant information from the master OtrlAuthInfo to an
+ * instance OtrlAuthInfo in response to a D-H Key with a new
+ * instance. The fields copied will depend on the state of the
+ * master auth.
+ */
+gcry_error_t otrl_auth_copy_on_key(OtrlAuthInfo *m_auth,
+	OtrlAuthInfo *auth);
 
 #endif

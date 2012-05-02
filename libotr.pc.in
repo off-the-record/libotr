@@ -5,7 +5,7 @@ includedir=@includedir@
 
 Name: libotr
 Description: Off-the-Record Messaging Library
-Version: 3.1.0
+Version: @VERSION@
 URL: http://otr.cypherpunks.ca/
 Libs: -L${libdir} -lotr
 Cflags: -I${includedir}

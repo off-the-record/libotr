@@ -1,6 +1,7 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *                           Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -37,6 +38,9 @@ typedef struct s_DataMsg {
     unsigned char *raw;         /* The base64-decoded data; must be free()d */
     size_t rawlen;
     int flags;
+    unsigned char version;
+    unsigned int sender_instance;
+    unsigned int receiver_instance;
     unsigned int sender_keyid;
     unsigned int rcpt_keyid;
     gcry_mpi_t y;
@@ -52,6 +56,9 @@ typedef struct s_DataMsg {
 
 typedef struct s_CommitMsg {
     unsigned char *raw;         /* The base64-decoded data; must be free()d */
+    unsigned char version;
+    unsigned int sender_instance;
+    unsigned int receiver_instance;
     unsigned char *enckey;
     size_t enckeylen;
     unsigned char *hashkey;
@@ -60,11 +67,17 @@ typedef struct s_CommitMsg {
 
 typedef struct s_KeyMsg {
     unsigned char *raw;         /* The base64-decoded data; must be free()d */
+    unsigned char version;
+    unsigned int sender_instance;
+    unsigned int receiver_instance;
     gcry_mpi_t y;
 } * KeyMsg;
 
 typedef struct s_RevealSigMsg {
     unsigned char *raw;         /* The base64-decoded data; must be free()d */
+    unsigned char version;
+    unsigned int sender_instance;
+    unsigned int receiver_instance;
     unsigned char *key;
     size_t keylen;
     unsigned char *encsig;
@@ -74,6 +87,9 @@ typedef struct s_RevealSigMsg {
 
 typedef struct s_SignatureMsg {
     unsigned char *raw;         /* The base64-decoded data; must be free()d */
+    unsigned char version;
+    unsigned int sender_instance;
+    unsigned int receiver_instance;
     unsigned char *encsig;
     size_t encsiglen;
     unsigned char mac[20];
@@ -131,8 +147,10 @@ char *remac_datamsg(DataMsg datamsg, unsigned char mackey[20]);
 
 /* Assemble a new Data Message from its pieces.  Return a
  * newly-allocated string containing the base64 representation. */
-char *assemble_datamsg(unsigned char mackey[20], int flags,
-	unsigned int sender_keyid, unsigned int rcpt_keyid, gcry_mpi_t y,
+char *assemble_datamsg(unsigned char mackey[20],
+	unsigned char version, unsigned int sender_instance,
+	unsigned int receiver_instance, int flags, unsigned int sender_keyid,
+	unsigned int rcpt_keyid, gcry_mpi_t y,
 	unsigned char ctr[8], unsigned char *encmsg, size_t encmsglen,
 	unsigned char *mackeys, size_t mackeyslen);
 

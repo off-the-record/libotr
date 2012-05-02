@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging library
- *  Copyright (C) 2004-2009  Ian Goldberg, Chris Alexander, Willy Lew,
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Willy Lew,
  *  			     Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
@@ -28,30 +28,30 @@ AUTHOR:         Bob Trower 08/04/01
 
 LICENCE:        Copyright (c) 2001 Bob Trower, Trantor Standard Systems Inc.
 
-                Permission is hereby granted, free of charge, to any person
-                obtaining a copy of this software and associated
-                documentation files (the "Software"), to deal in the
-                Software without restriction, including without limitation
-                the rights to use, copy, modify, merge, publish, distribute,
-                sublicense, and/or sell copies of the Software, and to
-                permit persons to whom the Software is furnished to do so,
-                subject to the following conditions:
+		Permission is hereby granted, free of charge, to any person
+		obtaining a copy of this software and associated
+		documentation files (the "Software"), to deal in the
+		Software without restriction, including without limitation
+		the rights to use, copy, modify, merge, publish, distribute,
+		sublicense, and/or sell copies of the Software, and to
+		permit persons to whom the Software is furnished to do so,
+		subject to the following conditions:
 
-                The above copyright notice and this permission notice shall
-                be included in all copies or substantial portions of the
-                Software.
+		The above copyright notice and this permission notice shall
+		be included in all copies or substantial portions of the
+		Software.
 
-                THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
-                KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
-                WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-                PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
-                OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-                OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-                OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-                SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+		THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+		KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+		WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+		PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
+		OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+		OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+		OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+		SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 VERSION HISTORY:
-                Bob Trower 08/04/01 -- Create Version 0.00.00B
+		Bob Trower 08/04/01 -- Create Version 0.00.00B
 
 \******************************************************************* */
 
@@ -88,9 +88,9 @@ static void encodeblock( char *out, const unsigned char *in, size_t len )
     out[0] = cb64[ in0 >> 2 ];
     out[1] = cb64[ ((in0 & 0x03) << 4) | ((in1 & 0xf0) >> 4) ];
     out[2] = len > 1 ? cb64[ ((in1 & 0x0f) << 2) | ((in2 & 0xc0) >> 6) ]
-	             : '=';
+		     : '=';
     out[3] = len > 2 ? cb64[ in2 & 0x3f ]
-	             : '=';
+		     : '=';
 }
 
 /*
@@ -120,7 +120,7 @@ size_t otrl_base64_encode(char *base64data, const unsigned char *data,
 }
 
 static size_t decode(unsigned char *out, const char *in, size_t b64len)
-{   
+{
     size_t written = 0;
     unsigned char c = 0;
 
@@ -228,9 +228,10 @@ int otrl_base64_otr_decode(const char *msg, unsigned char **bufp,
     if (!otrtag) {
 	return -2;
     }
+
     endtag = strchr(otrtag, '.');
     if (endtag) {
-        msglen = endtag-otrtag;
+	msglen = endtag-otrtag;
     } else {
 	return -2;
     }
@@ -241,6 +242,7 @@ int otrl_base64_otr_decode(const char *msg, unsigned char **bufp,
     if (!rawmsg && rawlen > 0) {
 	return -1;
     }
+
     rawlen = otrl_base64_decode(rawmsg, otrtag+5, msglen-5);  /* actual size */
 
     *bufp = rawmsg;

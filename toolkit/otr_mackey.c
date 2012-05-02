@@ -1,6 +1,6 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     if (!argbuf) {
 	usage(argv[0]);
     }
-    
+
     if (argbuflen != 16) {
 	fprintf(stderr, "The AES key must be 32 hex chars long.\n");
 	usage(argv[0]);

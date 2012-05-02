@@ -1,6 +1,7 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2008  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
+ *                           Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -39,7 +40,7 @@ void dump_mpi(FILE *stream, const char *title, gcry_mpi_t val)
 {
     size_t plen;
     unsigned char *d;
-    
+
     gcry_mpi_print(GCRYMPI_FMT_USG, NULL, 0, &plen, val);
     d = malloc(plen);
     gcry_mpi_print(GCRYMPI_FMT_USG, d, plen, NULL, val);
@@ -64,7 +65,7 @@ static unsigned char *decode(const char *msg, size_t *lenp)
 {
     const char *header, *footer;
     unsigned char *raw;
-	
+
     /* Find the header */
     header = strstr(msg, "?OTR:");
     if (!header) return NULL;
@@ -200,8 +201,18 @@ CommitMsg parse_commit(const char *msg)
     cmsg->raw = raw;
 
     require_len(3);
-    if (memcmp(bufp, "\x00\x02\x02", 3)) goto inv;
-    bufp += 3; lenp -= 3;
+
+    cmsg->version = bufp[1];
+
+    if (!memcmp(bufp, "\x00\x03\x02", 3)) {
+	bufp += 3; lenp -= 3;
+	read_int(cmsg->sender_instance);
+	read_int(cmsg->receiver_instance);
+    } else if (!memcmp(bufp, "\x00\x02\x02", 3)) {
+	bufp += 3; lenp -= 3;
+	cmsg->sender_instance = 0;
+	cmsg->receiver_instance = 0;
+    } else goto inv;
 
     read_int(cmsg->enckeylen);
     cmsg->enckey = malloc(cmsg->enckeylen);
@@ -249,8 +260,18 @@ KeyMsg parse_key(const char *msg)
     kmsg->raw = raw;
 
     require_len(3);
-    if (memcmp(bufp, "\x00\x02\x0a", 3)) goto inv;
-    bufp += 3; lenp -= 3;
+
+    kmsg->version = bufp[1];
+
+    if (!memcmp(bufp, "\x00\x03\x0a", 3)) {
+	bufp += 3; lenp -= 3;
+	read_int(kmsg->sender_instance);
+	read_int(kmsg->receiver_instance);
+    } else if (!memcmp(bufp, "\x00\x02\x0a", 3)) {
+	bufp += 3; lenp -= 3;
+	kmsg->sender_instance = 0;
+	kmsg->receiver_instance = 0;
+    } else goto inv;
 
     read_mpi(kmsg->y);
 
@@ -290,8 +311,18 @@ RevealSigMsg parse_revealsig(const char *msg)
     rmsg->raw = raw;
 
     require_len(3);
-    if (memcmp(bufp, "\x00\x02\x11", 3)) goto inv;
-    bufp += 3; lenp -= 3;
+
+    rmsg->version = bufp[1];
+
+    if (!memcmp(bufp, "\x00\x03\x11", 3)) {
+	bufp += 3; lenp -= 3;
+	read_int(rmsg->sender_instance);
+	read_int(rmsg->receiver_instance);
+    } else if (!memcmp(bufp, "\x00\x02\x11", 3)) {
+	bufp += 3; lenp -= 3;
+	rmsg->sender_instance = 0;
+	rmsg->receiver_instance = 0;
+    } else goto inv;
 
     read_int(rmsg->keylen);
     rmsg->key = malloc(rmsg->keylen);
@@ -341,8 +372,18 @@ SignatureMsg parse_signature(const char *msg)
     smsg->raw = raw;
 
     require_len(3);
-    if (memcmp(bufp, "\x00\x02\x12", 3)) goto inv;
-    bufp += 3; lenp -= 3;
+
+    smsg->version = bufp[1];
+
+    if (!memcmp(bufp, "\x00\x03\x12", 3)) {
+	bufp += 3; lenp -= 3;
+	read_int(smsg->sender_instance);
+	read_int(smsg->receiver_instance);
+    } else if (!memcmp(bufp, "\x00\x02\x12", 3)) {
+	bufp += 3; lenp -= 3;
+	smsg->sender_instance = 0;
+	smsg->receiver_instance = 0;
+    } else goto inv;
 
     read_int(smsg->encsiglen);
     smsg->encsig = malloc(smsg->encsiglen);
@@ -389,18 +430,28 @@ DataMsg parse_datamsg(const char *msg)
     datam->macstart = bufp;
 
     require_len(3);
-    if (memcmp(bufp, "\x00\x01\x03", 3) && memcmp(bufp, "\x00\x02\x03", 3))
-	goto inv;
+    if (memcmp(bufp, "\x00\x01\x03", 3) && memcmp(bufp, "\x00\x03\x03", 3) &&
+	memcmp(bufp, "\x00\x02\x03", 3)) goto inv;
+
     version = bufp[1];
+
+    datam->sender_instance = 0;
+    datam->receiver_instance = 0;
+    datam->version = version;
+    datam->flags = -1;
     bufp += 3; lenp -= 3;
 
-    if (version == 2) {
+    if (version == 3) {
+	read_int(datam->sender_instance);
+	read_int(datam->receiver_instance);
+    }
+
+    if (version == 2 || version == 3) {
 	require_len(1);
 	datam->flags = bufp[0];
 	bufp += 1; lenp -= 1;
-    } else {
-	datam->flags = -1;
     }
+
     read_int(datam->sender_keyid);
     read_int(datam->rcpt_keyid);
     read_mpi(datam->y);
@@ -413,9 +464,10 @@ DataMsg parse_datamsg(const char *msg)
     read_raw(datam->mac, 20);
     read_int(datam->mackeyslen);
     datam->mackeys = malloc(datam->mackeyslen);
-    if (!datam->mackeys && datam->mackeyslen > 0) goto inv;
-    read_raw(datam->mackeys, datam->mackeyslen);
 
+    if (!datam->mackeys && datam->mackeyslen > 0) goto inv;
+
+    read_raw(datam->mackeys, datam->mackeyslen);
     if (lenp != 0) goto inv;
 
     return datam;
@@ -435,11 +487,12 @@ char *remac_datamsg(DataMsg datamsg, unsigned char mackey[20])
     size_t base64len;
     char *outmsg;
     unsigned char *raw, *bufp;
-    unsigned char version = (datamsg->flags >= 0 ? 2 : 1);
-    
+    unsigned char version = datamsg->version;
+
     /* Calculate the size of the message that will result */
     gcry_mpi_print(GCRYMPI_FMT_USG, NULL, 0, &ylen, datamsg->y);
-    rawlen = 3 + (version == 2 ? 1 : 0) + 4 + 4 + 4 + ylen + 8 + 4 +
+    rawlen = 3 + (version == 3 ? 8 : 0) + (version == 2 ||
+	version == 3 ? 1 : 0) + 4 + 4 + 4 + ylen + 8 + 4 +
 	datamsg->encmsglen + 20 + 4 + datamsg->mackeyslen;
 
     /* Construct the new raw message (note that some of the pieces may
@@ -457,16 +510,22 @@ char *remac_datamsg(DataMsg datamsg, unsigned char mackey[20])
     datamsg->raw = raw;
     datamsg->rawlen = rawlen;
 
-    if (version == 1) {
-	memmove(bufp, "\x00\x01\x03", 3);
-    } else {
-	memmove(bufp, "\x00\x02\x03", 3);
-    }
+
+    memmove(bufp, "\x00", 1);
+    memmove(bufp+1, &version, 1);
+    memmove(bufp+2, "\x03", 1);
     bufp += 3; lenp -= 3;
-    if (version == 2) {
+
+    if (version == 3) {
+	write_int(datamsg->sender_instance);
+	write_int(datamsg->receiver_instance);
+    }
+
+    if (version == 2 || version == 3) {
 	bufp[0] = datamsg->flags;
 	bufp += 1; lenp -= 1;
     }
+
     write_int(datamsg->sender_keyid);
     write_int(datamsg->rcpt_keyid);
     write_mpi(datamsg->y, ylen);
@@ -482,7 +541,7 @@ char *remac_datamsg(DataMsg datamsg, unsigned char mackey[20])
     write_raw(datamsg->mac, 20);
     write_int(datamsg->mackeyslen);
     write_raw(datamsg->mackeys, datamsg->mackeyslen);
-    
+
     if (lenp != 0) {
 	fprintf(stderr, "Error creating OTR Data Message.\n");
 	exit(1);
@@ -500,15 +559,20 @@ char *remac_datamsg(DataMsg datamsg, unsigned char mackey[20])
 
 /* Assemble a new Data Message from its pieces.  Return a
  * newly-allocated string containing the base64 representation. */
-char *assemble_datamsg(unsigned char mackey[20], int flags,
-	unsigned int sender_keyid, unsigned int rcpt_keyid, gcry_mpi_t y,
+char *assemble_datamsg(unsigned char mackey[20],
+	unsigned char version, unsigned int sender_instance,
+	unsigned int receiver_instance, int flags, unsigned int sender_keyid,
+	unsigned int rcpt_keyid, gcry_mpi_t y,
 	unsigned char ctr[8], unsigned char *encmsg, size_t encmsglen,
 	unsigned char *mackeys, size_t mackeyslen)
 {
     DataMsg datam = calloc(1, sizeof(struct s_DataMsg));
     char *newmsg = NULL;
     if (!datam) goto inv;
+    datam->version = version;
     datam->flags = flags;
+    datam->sender_instance = sender_instance;
+    datam->receiver_instance = receiver_instance;
     datam->sender_keyid = sender_keyid;
     datam->rcpt_keyid = rcpt_keyid;
     datam->y = gcry_mpi_copy(y);
