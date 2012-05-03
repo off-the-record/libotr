@@ -100,7 +100,6 @@ gcry_error_t otrl_instag_read_FILEp(OtrlUserState us, FILE *instf)
 	char *prevpos;
 	char *pos;
 	unsigned int instag = 0;
-	int i;
 
 	p = malloc(sizeof(*p));
 	if (!p) {
@@ -195,6 +194,8 @@ otrl_instag_t otrl_instag_get_new()
 	result = *instag;
 	gcry_free(instag);
     }
+
+    return result;
 }
 
 /* Generate a new instance tag for the given account and write to file

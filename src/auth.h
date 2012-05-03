@@ -165,8 +165,7 @@ gcry_error_t otrl_auth_handle_v1_key_exchange(OtrlAuthInfo *auth,
  * instance. The fields copied will depend on the state of the
  * master auth.
  */
-gcry_error_t otrl_auth_copy_on_commit(OtrlAuthInfo *m_auth,
-	OtrlAuthInfo *auth);
+void otrl_auth_copy_on_commit(OtrlAuthInfo *m_auth, OtrlAuthInfo *auth);
 
 /*
  * Copy relevant information from the master OtrlAuthInfo to an
@@ -174,7 +173,6 @@ gcry_error_t otrl_auth_copy_on_commit(OtrlAuthInfo *m_auth,
  * instance. The fields copied will depend on the state of the
  * master auth.
  */
-gcry_error_t otrl_auth_copy_on_key(OtrlAuthInfo *m_auth,
-	OtrlAuthInfo *auth);
+void otrl_auth_copy_on_key(OtrlAuthInfo *m_auth, OtrlAuthInfo *auth);
 
 #endif

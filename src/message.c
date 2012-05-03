@@ -109,7 +109,6 @@ static gcry_error_t fragment_and_send(const OtrlMessageAppOps *ops,
 			context->protocol, context->username, message);
 	    } else {
 		/* Copy and return the entire given message. */
-		int l = strlen(message) + 1;
 		*returnFragment = strdup(message);
 	    }
 	}

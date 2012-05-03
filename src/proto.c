@@ -279,7 +279,6 @@ unsigned int otrl_proto_query_bestversion(const char *otrquerymsg,
 {
     char *otrtag;
     unsigned int query_versions = 0;
-    unsigned int query_position = 0;
 
 
     otrtag = strstr(otrquerymsg, "?OTR");
@@ -430,7 +429,7 @@ int otrl_proto_message_version(const char *message)
 gcry_error_t otrl_proto_instance(const char *otrmsg,
 	unsigned int *instance_from, unsigned int *instance_to)
 {
-    gcry_error_t err;
+    gcry_error_t err = gcry_error(GPG_ERR_NO_ERROR);
 
     const char *otrtag = otrmsg;
     unsigned char *bufp = NULL;
@@ -882,7 +881,7 @@ OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
     tag = strstr(msg, "?OTR|");
     if (tag) {
 	sscanf(tag, "?OTR|%*x|%*x,%hu,%hu,%n%*[^,],%n", &k, &n, &start, &end);
-    } else if (tag = strstr(msg, "?OTR,")) {
+    } else if ((tag = strstr(msg, "?OTR,")) != NULL) {
 	sscanf(tag, "?OTR,%hu,%hu,%n%*[^,],%n", &k, &n, &start, &end);
     } else {
 	/* Unfragmented message, so discard any fragment we may have */
