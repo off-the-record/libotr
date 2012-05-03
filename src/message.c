@@ -128,11 +128,11 @@ static void populate_context_instag(OtrlUserState us, const OtrlMessageAppOps
 	p_instag = otrl_instag_find(us, accountname, protocol);
     }
 
-    if (!p_instag || p_instag->instag < OTRL_MIN_VALID_INSTAG) {
-	p_instag->instag = otrl_instag_get_new();
+    if (p_instag && p_instag->instag >= OTRL_MIN_VALID_INSTAG) {
+	context->our_instance = p_instag->instag;
+    } else {
+	context->our_instance = otrl_instag_get_new();
     }
-
-    context->our_instance = p_instag->instag;
 }
 
 /* Deallocate a message allocated by other otrl_message_* routines. */
