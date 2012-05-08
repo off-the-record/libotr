@@ -262,7 +262,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 		if (ops->handle_msg_event) {
 		    ops->handle_msg_event(opdata,
 			    OTRL_MSGEVENT_ENCRYPTION_REQUIRED,
-			    context, NULL, (gcry_error_t)NULL);
+			    context, NULL, gcry_error(GPG_ERR_NO_ERROR));
 		}
 
 		context->context_priv->lastmessage =
@@ -355,7 +355,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 		if (ops->handle_msg_event) {
 		    ops->handle_msg_event(opdata,
 			    OTRL_MSGEVENT_ENCRYPTION_ERROR,
-			    context, NULL, (gcry_error_t)NULL);
+			    context, NULL, gcry_error(GPG_ERR_NO_ERROR));
 		}
 		if (ops->otr_error_message) {
 		    err_msg = ops->otr_error_message(opdata, context,
@@ -379,7 +379,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 	case OTRL_MSGSTATE_FINISHED:
 	    if (ops->handle_msg_event) {
 		ops->handle_msg_event(opdata, OTRL_MSGEVENT_CONNECTION_ENDED,
-		    context, NULL, (gcry_error_t)NULL);
+		    context, NULL, gcry_error(GPG_ERR_NO_ERROR));
 	    }
 	    *messagep = strdup("");
 	    if (!(*messagep)) {
@@ -453,7 +453,7 @@ static gcry_error_t go_encrypted(const OtrlAuthInfo *auth, void *asdata)
 	if (edata->ops->handle_msg_event) {
 	    edata->ops->handle_msg_event(edata->opdata,
 		    OTRL_MSGEVENT_MSG_REFLECTED, edata->context,
-		    NULL, (gcry_error_t)NULL);
+		    NULL, gcry_error(GPG_ERR_NO_ERROR));
 	}
 	edata->ignore_message = 1;
 	return gcry_error(GPG_ERR_NO_ERROR);
@@ -633,7 +633,7 @@ static void maybe_resend(EncrData *edata)
 		if (edata->ops->handle_msg_event) {
 		    edata->ops->handle_msg_event(edata->opdata,
 			    OTRL_MSGEVENT_MSG_RESENT, edata->context,
-			    NULL, (gcry_error_t)NULL);
+			    NULL, gcry_error(GPG_ERR_NO_ERROR));
 		}
 	    }
 	    edata->ignore_message = 1;
@@ -794,7 +794,7 @@ static void message_malformed(const OtrlMessageAppOps *ops,
 	void *opdata, ConnContext *context) {
     if (ops->handle_msg_event) {
 	ops->handle_msg_event(opdata, OTRL_MSGEVENT_RCVDMSG_MALFORMED, context,
-	    NULL, (gcry_error_t)NULL);
+	    NULL, gcry_error(GPG_ERR_NO_ERROR));
     }
 
     if (ops->inject_message && ops->otr_error_message) {
@@ -920,7 +920,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    if (ops->handle_msg_event) {
 			ops->handle_msg_event(opdata,
 				OTRL_MSGEVENT_RCVDMSG_FOR_OTHER_INSTANCE,
-				m_context, NULL, (gcry_error_t)NULL);
+				m_context, NULL, gcry_error(GPG_ERR_NO_ERROR));
 		    }
 		    return 1;
 	    }
@@ -980,7 +980,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		if (ops->handle_msg_event) {
 		    ops->handle_msg_event(opdata,
 			    OTRL_MSGEVENT_RCVDMSG_FOR_OTHER_INSTANCE,
-			    m_context, NULL, (gcry_error_t)NULL);
+			    m_context, NULL, gcry_error(GPG_ERR_NO_ERROR));
 		}
 		return 1; /* ignore message intended for a different instance */
 	    }
@@ -1244,12 +1244,14 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			if (ops->handle_msg_event) {
 			    ops->handle_msg_event(opdata,
 				    OTRL_MSGEVENT_RCVDMSG_FOR_OTHER_INSTANCE,
-				    m_context, NULL, (gcry_error_t)NULL);
+				    m_context, NULL,
+				    gcry_error(GPG_ERR_NO_ERROR));
 			}
 		    } else if (ops->handle_msg_event) {
 			ops->handle_msg_event(opdata,
 				    OTRL_MSGEVENT_RCVDMSG_NOT_IN_PRIVATE,
-				    context, NULL, (gcry_error_t)NULL);
+				    context, NULL,
+				    gcry_error(GPG_ERR_NO_ERROR));
 		    }
 		    edata.ignore_message = 1;
 
@@ -1273,13 +1275,15 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			    if (ops->handle_msg_event) {
 				ops->handle_msg_event(opdata,
 					OTRL_MSGEVENT_RCVDMSG_UNREADABLE,
-					context, NULL, (gcry_error_t)NULL);
+					context, NULL,
+					gcry_error(GPG_ERR_NO_ERROR));
 			    }
 			} else {
 			    if (ops->handle_msg_event) {
 				ops->handle_msg_event(opdata,
 					OTRL_MSGEVENT_RCVDMSG_MALFORMED,
-					context, NULL, (gcry_error_t)NULL);
+					context, NULL,
+					gcry_error(GPG_ERR_NO_ERROR));
 			    }
 			}
 			if (ops->inject_message && ops->otr_error_message) {
@@ -1586,7 +1590,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			if (ops->handle_msg_event) {
 			    ops->handle_msg_event(opdata,
 				    OTRL_MSGEVENT_LOG_HEARTBEAT_RCVD,
-				    context, NULL, (gcry_error_t)NULL);
+				    context, NULL,
+				    gcry_error(GPG_ERR_NO_ERROR));
 			}
 			edata.ignore_message = 1;
 		    } else if (edata.ignore_message != 1 &&
@@ -1619,7 +1624,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 				if (ops->handle_msg_event) {
 				    ops->handle_msg_event(opdata,
 					    OTRL_MSGEVENT_LOG_HEARTBEAT_SENT,
-					    context, NULL, (gcry_error_t)NULL);
+					    context, NULL,
+					    gcry_error(GPG_ERR_NO_ERROR));
 				}
 			    }
 			}
@@ -1696,7 +1702,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    }
 		    ops->handle_msg_event(opdata,
 			    OTRL_MSGEVENT_RCVDMSG_GENERAL_ERR,
-			    context, just_err_msg, (gcry_error_t)NULL);
+			    context, just_err_msg,
+			    gcry_error(GPG_ERR_NO_ERROR));
 		    edata.ignore_message = 1;
 		}
 	    }
@@ -1764,7 +1771,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		if (ops->handle_msg_event) {
 		    ops->handle_msg_event(opdata,
 			    OTRL_MSGEVENT_RCVDMSG_UNENCRYPTED,
-			    context, plainmsg, (gcry_error_t)NULL);
+			    context, plainmsg, gcry_error(GPG_ERR_NO_ERROR));
 		    free(*newmessagep);
 		    *newmessagep = NULL;
 		    edata.ignore_message = 1;
@@ -1778,7 +1785,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    if (ops->handle_msg_event) {
 		ops->handle_msg_event(opdata,
 			OTRL_MSGEVENT_RCVDMSG_UNRECOGNIZED,
-			context, NULL, (gcry_error_t)NULL);
+			context, NULL, gcry_error(GPG_ERR_NO_ERROR));
 	    }
 	    if (edata.ignore_message == -1) edata.ignore_message = 1;
 	    break;
