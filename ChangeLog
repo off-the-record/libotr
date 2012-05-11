@@ -1,3 +1,14 @@
+2012-05-08:
+
+	* src/instag.c:
+	* src/message.c: Returning proper gcry types to avoid 
+	compile warnings.
+
+
+2012-05-03:
+
+	* src/instag.c: Fixed otrl_instag_new().
+
 2012-04-30:
 
 	* AUTHORS:
