@@ -15,7 +15,11 @@ PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 protocol.  The main changes over version 2 include:</p>
 <ul>
 <li>Both fragmented and unfragmented messages contain sender and
-recipient instance tags.</li>
+recipient instance tags. This avoids an issue on IM networks that
+always relay all messages to all sessions of a client who is logged
+in multiple times. In this situation, OTR clients can attempt to
+establish an OTR session indefinitely if there are interleaving
+messages from each of the sessions.</li>
 <li>An extra symmetric key is derived during AKE. This may be used for
 secure communication over a different channel (e.g., file transfer,
 voice chat).</li>
@@ -32,7 +36,7 @@ or is willing (using a whitespace-tagged plaintext message) to use OTR
 to communicate.  Either mechanism should convey the version(s) of OTR
 that Alice is willing to use.</li>
 <li>Bob initiates the authenticated key exchange (AKE) with Alice.
-Version 2 and 3 of OTR uses a variant of the SIGMA protocol as its AKE.</li>
+Versions 2 and 3 of OTR use a variant of the SIGMA protocol as its AKE.</li>
 <li>Alice and Bob exchange Data Messages to send information to each
 other.</li>
 </ol>
@@ -185,10 +189,7 @@ run SMP to detect impersonation or man-in-the-middle attacks.
 As above, all exponentiations are done modulo a particular 1536-bit
 prime, and g<sub>1</sub> is a generator of that group.  All sent values
 include zero-knowledge proofs that they were generated according to
-this protocol, as indicated in the detailed description below.
-In the zero-knowledge proofs the D values are calculated modulo
-q = (p - 1) / 2, where p is the same 1536-bit prime as elsewhere.
-The random exponents are 1536-bit numbers.</p>
+this protocol, as indicated in the detailed description below.</p>
 <p>Suppose Alice and Bob have secret information x and y respectively,
 and they wish to know whether x = y.  The Socialist Millionaires' Protocol
 allows them to compare x and y without revealing any other information
@@ -275,7 +276,7 @@ but none should be listed more than once.</li>
 <dt>"?OTRv2?"</dt>
 <dd>Version 2 only</dd>
 <dt>"?OTRv23?"</dt>
-<dd>Version 2 and 3</dd>
+<dd>Versions 2 and 3</dd>
 <dt>"?OTR?v2?"</dt>
 <dd>Versions 1 and 2</dd>
 <dt>"?OTRv24x?"</dt>
@@ -404,16 +405,18 @@ keys will have the same fingerprint.</p>
 <p>Clients include instance tags in all OTR version 3 messages. Instance
 tags are 32-bit values that are intended to be persistent. If the same
 client is logged into the same account from multiple locations, the
-intention is that he or she will have different instance tags at each
+intention is that the client will have different instance tags at each
 location. As shown below, OTR version 3 messages (fragmented and
 unfragmented) include the source and destination instance tags. If a client
-receives a message that lists a destination instance tag different from his
-own, he should discard it.</p>
-<p>The first valid instance tag is 0x00000100. It is appropriate to set the
+receives a message that lists a destination instance tag different from its
+own, the client should discard the message.</p>
+<p>The smallest valid instance tag is 0x00000100. It is appropriate to set the
 destination instance tag to '0' when an actual destination instance tag is
 not known at the time the message is prepared. If a client receives a
-message with the sender instance tag set to less than 0x00000100, he should
-discard the message.
+message with the sender instance tag set to less than 0x00000100, it should
+discard the message. Similarly, if a client receives a message with the
+recipient instance tag set to greater than 0 but less than 0x00000100, it
+should discard the message.
 </p>
 
 <p>This avoids an issue on IM networks that always relay all messages to
@@ -434,7 +437,7 @@ it.</p>
 <dt>Sender Instance tag (INT)</dt>
 <dd>The instance tag of the person sending this message.</dd>
 <dt>Receiver Instance tag (INT)</dt>
-<dd>The instance tag of the intended receiptient.
+<dd>The instance tag of the intended recipient.
 For a commit message this will often be 0, since the other party
 may not have identified their instance tag yet.</dd>
 <dt>Encrypted g<sup>x</sup> (DATA)</dt>
@@ -462,7 +465,7 @@ simply consists of Alice's D-H encryption key.</p>
 <dt>Sender Instance tag (INT)</dt>
 <dd>The instance tag of the person sending this message.</dd>
 <dt>Receiver Instance tag (INT)</dt>
-<dd>The instance tag of the intended receiptient.</dd>
+<dd>The instance tag of the intended recipient.</dd>
 <dt>g<sup>y</sup> (MPI)</dt>
 <dd>Choose a random value y (at least 320 bits), and calculate
 g<sup>y</sup>.</dd>
@@ -481,7 +484,7 @@ Alice.</p>
 <dt>Sender Instance tag (INT)</dt>
 <dd>The instance tag of the person sending this message.</dd>
 <dt>Receiver Instance tag (INT)</dt>
-<dd>The instance tag of the intended receiptient.</dd>
+<dd>The instance tag of the intended recipient.</dd>
 <dt>Revealed key (DATA)</dt>
 <dd>This is the value r picked earlier.</dd>
 <dt>Encrypted signature (DATA)</dt>
@@ -526,7 +529,7 @@ authenticating herself and the channel parameters to him.</p>
 <dt>Sender Instance tag (INT)</dt>
 <dd>The instance tag of the person sending this message.</dd>
 <dt>Receiver Instance tag (INT)</dt>
-<dd>The instance tag of the intended receiptient.</dd>
+<dd>The instance tag of the intended recipient.</dd>
 <dt>Encrypted signature (DATA)</dt>
 <dd>This field is calculated as follows:
 <ul>
@@ -617,8 +620,8 @@ client to abort the protocol.  The associated length should be zero and
 the associated value should be empty.  If you receive a TLV of this type,
 you should change the SMP state to SMP_EXPECT1 (see below).</dd>
 <dt>Type 7: SMP Message 1Q</dt>
-<dd>Like a SMP Message 1, but whose value begins with a user-specified
-question.</dd>
+<dd>Like a SMP Message 1, but whose value begins with a NULL-terminated
+user-specified question.</dd>
 <dt>Type 8: Extra symmetric key</dt>
 <dd>The value begins with a 4-byte indication of what this symmetric key
 will be used for (file transfer, voice encryption, etc.). After that, the
@@ -653,7 +656,7 @@ rotations.)</p>
 <dt>Sender Instance tag (INT)</dt>
 <dd>The instance tag of the person sending this message.</dd>
 <dt>Receiver Instance tag (INT)</dt>
-<dd>The instance tag of the intended receiptient.</dd>
+<dd>The instance tag of the intended recipient.</dd>
 <dt>Flags (BYTE)</dt>
 <dd>The bitwise-OR of the flags for this message.  Usually you should
 set this to 0x00.  The only currently defined flag is:<dl>
@@ -813,6 +816,8 @@ to Alice.</dd>
 <dd>Verify Alice's zero-knowledge proofs for g<sub>2a</sub> and
 g<sub>3a</sub>:
 <ol>
+<li>Check that both g<sub>2a</sub> and g<sub>3a</sub> &gt;= 2 and
+&lt;= modulus-2.</li>
 <li>Check that c2 = SHA256(1, g<sub>1</sub><sup>D2</sup> 
 g<sub>2a</sub><sup>c2</sup>).</li>
 <li>Check that c3 = SHA256(2, g<sub>1</sub><sup>D3</sup> 
@@ -831,7 +836,9 @@ to generate zero-knowledge proofs that this message was created honestly.</li>
 g<sub>3b</sub> = g<sub>1</sub><sup>b<sub>3</sub></sup></li>
 <li>Generate a zero-knowledge proof that the exponent b<sub>2</sub> is
 known by setting c2 = SHA256(3, g<sub>1</sub><sup>r2</sup>) and
-D2 = r2 - b<sub>2</sub> c2 mod q.</li>
+D2 = r2 - b<sub>2</sub> c2 mod q. In the zero-knowledge proofs the D values
+are calculated modulo q = (p - 1) / 2, where p is the same 1536-bit prime
+as elsewhere. The random exponents are 1536-bit numbers.</li>
 <li>Generate a zero-knowledge proof that the exponent b<sub>3</sub> is
 known by setting c3 = SHA256(4, g<sub>1</sub><sup>r3</sup>) and
 D3 = r3 - b<sub>3</sub> c3 mod q.</li>
@@ -884,6 +891,9 @@ to Bob.</dd>
 <dd>Verify Bob's zero-knowledge proofs for g<sub>2b</sub>, 
 g<sub>3b</sub>, P<sub>b</sub> and Q<sub>b</sub>:
 <ol>
+<li>Check that g<sub>2b</sub>,
+g<sub>3b</sub>, P<sub>b</sub> and Q<sub>b</sub> are &gt;= 2 and
+&lt;= modulus-2.</li>
 <li>Check that c2 = SHA256(3, g<sub>1</sub><sup>D2</sup> 
 g<sub>2b</sub><sup>c2</sup>).</li>
 <li>Check that c3 = SHA256(4, g<sub>1</sub><sup>D3</sup> 
@@ -947,6 +957,8 @@ to Bob.</dd>
 <dd>Verify Alice's zero-knowledge proofs for P<sub>a</sub>, Q<sub>a</sub> 
 and R<sub>a</sub>:
 <ol>
+<li>Check that P<sub>a</sub>, Q<sub>a</sub> and R<sub>a</sub> are &gt;= 2 and
+&lt;= modulus-2.</li>
 <li>Check that cP = SHA256(6, g<sub>3</sub><sup>D5</sup> 
 P<sub>a</sub><sup>cP</sup>, g<sub>1</sub><sup>D5</sup> g<sub>2</sub><sup>D6</sup> 
 Q<sub>a</sub><sup>cP</sup>).</li>
@@ -998,6 +1010,8 @@ to Bob.</dd>
 <dt>If smpstate is SMPSTATE_EXPECT4:</dt>
 <dd>Verify Bob's zero-knowledge proof for R<sub>b</sub>:
 <ol>
+<li>Check that R<sub>b</sub> is &gt;= 2 and
+&lt;= modulus-2.</li>
 <li>Check that cR = SHA256(8, g<sub>1</sub><sup>D7</sup>
 g<sub>3b</sub><sup>cR</sup>, (Q<sub>a</sub> / Q<sub>b</sub>)<sup>D7</sup> 
 R<sub>b</sub><sup>cR</sup>).</li> 
@@ -1263,7 +1277,8 @@ fragmentation on outgoing messages is optional.</p>
     piece.</li>
     <li>If the recipient's own instance tag does not match the listed
     receiver instance tag, and the listed receiver instance tag is not
-    zero, the recipient should discard the message.</li>
+    zero, the recipient should discard the message and optionally pass
+    along a warning for the user.</li>
     <li>Let (K,N) be your currently stored fragment number, and F be your
       currently stored fragment.  [If you have no currently stored
       fragment, then K = N = 0 and F = "".]</li>
@@ -1373,7 +1388,7 @@ just as Alice hits Enter.)</dd>
 </dl>
 <h4>Authentication state</h4>
 <p>The authentication state variable, authstate, can take one of four
-values:</p>
+values (plus one extra for OTR version 1 compatibility):</p>
 <dl>
 <dt>AUTHSTATE_NONE</dt>
 <dd>This state indicates that the authentication protocol is not
@@ -1387,6 +1402,10 @@ own D-H Key Message, she enters this state to await Bob's reply.</dd>
 <dt>AUTHSTATE_AWAITING_SIG</dt>
 <dd>After Bob receives Alice's D-H Key Message, and replies with his own
 Reveal Signature Message, he enters this state to await Alice's reply.</dd>
+<dt>AUTHSTATE_V1_SETUP</dt>
+<dd>For OTR version 1 compatibility, if Bob sends a version 1 Key
+Exchange Message to Alice, he enters this state to await Alice's
+reply.</dd>
 </dl>
 <p>After:</p>
 <ul>
@@ -1411,6 +1430,10 @@ to send non-encrypted messages to Bob, ever.</p>
 <p>The policies that can be set (on a global or per-correspondent basis)
 are any combination of the following boolean flags:</p>
 <dl>
+<dt>ALLOW_V1</dt>
+<dd>Allow version 1 of the OTR protocol to be used (in general this
+document will not address OTR protocol version 1, see previous
+protocol documents for these details).</dd>
 <dt>ALLOW_V2</dt>
 <dd>Allow version 2 of the OTR protocol to be used.</dd>
 <dt>ALLOW_V3</dt>
@@ -1449,11 +1472,15 @@ are any combination of the following boolean flags:</p>
 </ul></li>
 </ul>
 <p>The following sections will outline what actions to take in each
-case.  They all assume that at least one of ALLOW_V2 or ALLOW_V3 is set;
-if not, then OTR is completely disabled, and no special handling of
-messages should be done at all. For version 3 messages, someone receiving
-a message with a recipient instance tag specified that does not equal
-their own should discard the message.</p>
+case.  They all assume that at least one of ALLOW_V1, ALLOW_V2 or
+ALLOW_V3 is set; if not, then OTR is completely disabled, and no
+special handling of messages should be done at all. For version 1
+messages, please refer to previous OTR protocol documents. For version
+3 messages, someone receiving a message with a recipient instance tag
+specified that does not equal their own should discard the message
+and optionally warn the user. The exception here is the D-H Commit
+Message where the recipient instance tag may be 0, indicating that no
+particular instance is specified.</p>
 <h4>Receiving plaintext without the whitespace tag</h4>
 <dl>
 <dt>If msgstate is MSGSTATE_PLAINTEXT:</dt>

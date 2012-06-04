@@ -976,7 +976,10 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
     if (version == 3) {
 	err = otrl_proto_instance(otrtag, &their_instance, &our_instance);
 	if (!err) {
-	    if (our_instance && context->our_instance != our_instance) {
+	    if ((msgtype == OTRL_MSGTYPE_DH_COMMIT && our_instance &&
+		    context->our_instance != our_instance) ||
+		    (msgtype != OTRL_MSGTYPE_DH_COMMIT &&
+		    context->our_instance != our_instance)) {
 		if (ops->handle_msg_event) {
 		    ops->handle_msg_event(opdata,
 			    OTRL_MSGEVENT_RCVDMSG_FOR_OTHER_INSTANCE,

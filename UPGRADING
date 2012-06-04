@@ -29,49 +29,54 @@ history or motivation for each.
 
 2.1. Instance Tags
 
-Clients generate instance tags that are intended to be persistent. If the same
-client is logged into the same account from multiple locations, the intention is
-that he or she will have different instance tags at each location. OTR wire
-messages (fragmented and unfragmented) include the source and destination
-instance tags after the OTR/fragment header portion. If a client receives a
-message that lists a destination instance tag different from his own, he will
-discard it (and issue a callback notifying the application of the event).
+Clients generate instance tags that are intended to be persistent. If
+the same client is logged into the same account from multiple locations,
+the intention is that he or she will have different instance tags at
+each location. OTR wire messages (fragmented and unfragmented) include
+the source and destination instance tags. If a client receives a message
+that lists a destination instance tag different from his own, the client
+will discard it (and issue a callback notifying the application of the
+event).
 
-This avoids an issue on IM networks that always relay all messages to all
-sessions of a client who is logged in multiple times. In this situation, OTR
-clients can attempt to establish an OTR session indefinitely if there are
-interleaving messages from each of the sessions.
+This avoids an issue on IM networks that always relay all messages to
+all sessions of a client who is logged in multiple times. In this
+situation, OTR clients can attempt to establish an OTR session
+indefinitely if there are interleaving messages from each of the
+sessions.
 
 2.2. Asynchronous Private Key Generation
 
-Key generation can happen in a separate thread without blocking an application.
+Key generation can happen in a separate thread without blocking an
+application.
 
 2.3. Extra Symmetric Key
 
-An extra symmetric key is kept synchronized during a conversation with a buddy.
-Either side can send a signal that they wish to use this key for some external
-purpose (e.g. things like a file transfer, in some other channel of
-communication).
+An extra symmetric key is kept synchronized during a conversation with a
+buddy.  Either side can send a signal that they wish to use this key for
+some external purpose (e.g. things like a file transfer, in some other
+channel of communication).
 
 2.4. Convert Operations
 
-There is now a callback that is made immediately before a message is encrypted
-and immediately after a message is decrypted. This callback can tweak the
-plaintext message as needed. For example, this could allow an application to
-convert formatting on a message if this would normally be done on the plaintext
-by some other entity while the message is in transit.
+There is now a callback that is made immediately before a message is
+encrypted and immediately after a message is decrypted. This callback
+can tweak the plaintext message as needed. For example, this could allow
+an application to convert formatting on a message if this would normally
+be done on the plaintext by some other entity while the message is in
+transit.
 
 2.5. SMP, Error, and Message Event Callbacks
 
-To avoid hard-coded English phrases in libotr, a lot of the operation which
-used to pass back strings are replaced by operations that pass back event codes.
+To avoid hard-coded English phrases in libotr, operations which used to
+pass back strings are replaced by operations that pass back event codes.
 
 2.6. Fragmentation Changes
 
-In libotr version 3.2.0, you would need to call otrl_message_sending() to
-receive an encrypted message, and then call fragment_and_send() to get libotr
-to fragment and inject that message. In libotr 4.0.0, the functionality of
-fragment_and_send() has been integrated into otrl_message_sending().
+In libotr version 3.2.0, you would need to call otrl_message_sending()
+to create an encrypted message, and then call fragment_and_send() to get
+libotr to fragment and inject that message. In libotr 4.0.0, the
+functionality of fragment_and_send() has been integrated into
+otrl_message_sending().
 
 3. Required Changes
 
@@ -86,9 +91,10 @@ void (*notify)(void *opdata, OtrlNotifyLevel level,
 	const char *username, const char *title,
 	const char *primary, const char *secondary);
 
-The notify() operation was removed since it was used to pass in hardcoded
-English strings. This has been replaced by error and message event callbacks,
-described below, which pass event codes rather than hardcoded strings.
+The notify() operation was removed since it was used to pass in
+hardcoded English strings. This has been replaced by error and message
+event callbacks, described below, which pass event codes rather than
+hardcoded strings.
 
 
 /* Display an OTR control message for a particular accountname /
@@ -100,8 +106,8 @@ described below, which pass event codes rather than hardcoded strings.
 int (*display_otr_message)(void *opdata, const char *accountname,
 	const char *protocol, const char *username, const char *msg);
 
-The display_otr_message() operation was removed for the same reasons as above
-for the notify() operation.
+The display_otr_message() operation was removed for the same reasons as
+above for the notify() operation.
 
 
 /* Return a newly allocated string containing a human-friendly name
@@ -111,14 +117,15 @@ const char *(*protocol_name)(void *opdata, const char *protocol);
 /* Deallocate a string allocated by protocol_name */
 void (*protocol_name_free)(void *opdata, const char *protocol_name);
 
-The above operations are no longer required, as they were used when preparing
-messages shown to users.
+The above operations are no longer required, as they were used when
+preparing messages shown to users.
 
 
 /* Log a message.  The passed message will end in "\n". */
 void (*log_message)(void *opdata, const char *message);
 
-The log_message() operation was also replaced by message event callbacks.
+The log_message() operation was also replaced by message event
+callbacks.
 
 3.1.2. Added Operations
 
@@ -131,9 +138,9 @@ void (*received_symkey)(void *opdata, ConnContext *context,
 	unsigned int use, const unsigned char *usedata,
 	size_t usedatalen, const unsigned char *symkey);
 
-This is called when a remote buddy has specified a use for the current symmetric
-key. If your application does not use the extra symmetric key it does not need
-to provide an implementation for this operation.
+This is called when a remote buddy has specified a use for the current
+symmetric key. If your application does not use the extra symmetric key
+it does not need to provide an implementation for this operation.
 
 
 /* Return a string according to the error event. This string will then
@@ -154,10 +161,11 @@ const char *(*otr_error_message)(void *opdata, ConnContext *context,
 /* Deallocate a string returned by otr_error_message */
 void (*otr_error_message_free)(void *opdata, const char *err_msg);
 
-These methods are for producing human-readable error message that will be sent
-to the remote buddy when one of these error conditions occurs. They will be
-appended to the string "?OTR Error: ". Implementing this operation is not
-required, but depending on your application it may be a good idea.
+These methods are for producing human-readable error message that will
+be sent to the remote buddy when one of these error conditions occurs.
+They will be appended to the string "?OTR Error: ". Implementing this
+operation is not required, but depending on your application it may be a
+good idea.
 
 
 /* Return a string that will be prefixed to any resent message. If this
@@ -169,8 +177,8 @@ const char *(*resent_msg_prefix)(void *opdata, ConnContext *context);
 /* Deallocate a string returned by resent_msg_prefix */
 void (*resent_msg_prefix_free)(void *opdata, const char *prefix);
 
-These operations give the option of chosing an alternative to the English
-string "[resent]", when a message is resent.
+These operations give the option of chosing an alternative to the
+English string "[resent]", when a message is resent.
 
 
 /* Update the authentication UI with respect to SMP events
@@ -188,7 +196,7 @@ string "[resent]", when a message is resent.
  *      with progress_percent. otrl_message_abort_smp should be called to
  *      stop the SM protocol.
  * - OTRL_SMPEVENT_INPROGRESS 	and
- *   OTRL_SMPEVENT_SUCCESS 		and
+ *   OTRL_SMPEVENT_SUCCESS 	and
  *   OTRL_SMPEVENT_FAILURE    	and
  *   OTRL_SMPEVENT_ABORT
  *      update the auth progress dialog with progress_percent
@@ -199,12 +207,14 @@ void (*handle_smp_event)(void *opdata, OtrlSMPEvent smp_event,
 	ConnContext *context, unsigned short progress_percent,
 	char *question);
 
-These SMP events are initiated by otrl_message_receiving() when it has received
-an SMP TLV from a remote buddy. If you application is implementing support for
-SMP authentication it should handle these events appropriately.
+These SMP events are initiated by otrl_message_receiving() when it has
+received an SMP TLV from a remote buddy. If you application is
+implementing support for SMP authentication it should handle these
+events appropriately.
 
-Previously applications had to manually check, upon receiving messages, whether
-the message contained any SMP TLVs that are relevant to the current SMP state.
+Previously applications had to manually check, upon receiving messages,
+whether the message contained any SMP TLVs that are relevant to the
+current SMP state.
 
 /* Handle and send the appropriate message(s) to the sender/recipient
  * depending on the message events. All the events only require an opdata,
@@ -252,11 +262,11 @@ void (*handle_msg_event)(void *opdata, OtrlMessageEvent msg_event,
 	ConnContext *context, const char *message,
 	gcry_error_t err);
 
-This operation is called when some type of exceptional event has occured that
-your application may want to be aware of. Your application may want to write
-an event to a log file, display a message to the user, or ignore the event.
-While it is not required to implement this operation, it is probably a good
-idea.
+This operation is called when some type of exceptional event has occured
+that your application may want to be aware of. Your application may want
+to write an event to a log file, display a message to the user, or
+ignore the event.  While it is not required to implement this operation,
+it is probably a good idea.
 
 
 /* Create a instance tag for the given accountname/protocol if
@@ -264,19 +274,20 @@ idea.
 void (*create_instag)(void *opdata, const char *accountname,
 	const char *protocol);
 
-This is called when the library notices this account name and protocol pair does
-not have an instance tag. Similar to create_privkey(), your application may
-simply open a file handle and call:
+This is called when the library notices this account name and protocol
+pair does not have an instance tag. Similar to create_privkey(), your
+application may simply open a file handle and call:
 gcry_error_t otrl_instag_generate_FILEp(OtrlUserState us, FILE *instf,
         const char *accountname, const char *protocol)
 
-If you don't provide an implementation for this operation, a new 
-non-persistent instance tag will be randomly generated. One benefit to having a
-persisted instance tag is that if your application closes and re-opens during
-a private conversation, further messages you receive from this buddy will
-correctly raise the OTRL_MSGEVENT_RCVDMSG_UNREADABLE event instead of raising
-OTRL_MSGEVENT_RCVDMSG_FOR_OTHER_INSTANCE because destination instance tag is now
-different from your own.
+If you don't provide an implementation for this operation, a new
+non-persistent instance tag will be randomly generated. One benefit to
+having a persisted instance tag is that if your application closes and
+re-opens during a private conversation, further messages you receive
+from this buddy will correctly raise the
+OTRL_MSGEVENT_RCVDMSG_UNREADABLE event instead of raising
+OTRL_MSGEVENT_RCVDMSG_FOR_OTHER_INSTANCE because destination instance
+tag is now different from your own.
 
 
 /* Called immediately before a data message is encrypted, and after a data
@@ -289,32 +300,33 @@ void (*convert_msg)(void *opdata, ConnContext *context,
 /* Deallocate a string returned by convert_msg. */
 void (*convert_free)(void *opdata, ConnContext *context, char *dest);
 
-The convert_msg() operation is called immediately before a message is encrypted
-and immediately after a message is decrypted. This callback can tweak the
-plaintext message as needed. One use case would be for an application to tweak
-formatting on the plaintext if, for example, this is something that would
-normally be done on the plaintext by some other entity while the message is in
-transit.
+The convert_msg() operation is called immediately before a message is
+encrypted and immediately after a message is decrypted. This callback
+can tweak the plaintext message as needed. One use case would be for an
+application to tweak formatting on the plaintext if, for example, this
+is something that would normally be done on the plaintext by some other
+entity while the message is in transit.
 
 
 3.2. Instance Tags
 
-If your application allows the same user to be logged in multiple times from
-different locations, it should probably be aware of instance tags. A user can
-maintain multiple concurrent OTR conversations with a buddy who is logged in
-multiple times. Only one of the buddy's sessions can be a client who is running
-OTR protocol version 2. When a user has a conversation with a buddy who is
-running OTR protocol version 2, the conversation is associated with a
-ConnContext that lists "their_instance" as OTRL_INSTAG_MASTER (which has a value
-of 0). Each version 3 conversation with the same buddy will have its own
-ConnContext, which you can differentiate by the value in the "their_instance"
-field.
+If your application allows the same user to be logged in multiple times
+from different locations, it should probably be aware of instance tags.
+A user can maintain multiple concurrent OTR conversations with a buddy
+who is logged in multiple times. Only one of the buddy's sessions can be
+a client who is running OTR protocol version 2. When a user has a
+conversation with a buddy who is running OTR protocol version 2, the
+conversation is associated with a ConnContext that lists
+"their_instance" as OTRL_INSTAG_MASTER (which has a value of 0). Each
+version 3 conversation with the same buddy will have its own
+ConnContext, which you can differentiate by the value in the
+"their_instance" field.
 
-In the linked list of ConnContexts, the master context for a buddy is always
-listed immediately before its children. Fingerprints are only stored with the
-master context. Given a ConnContext associated to a conversation with a buddy,
-you can easily iterate over all the contexts for that buddy by doing the
-following:
+In the linked list of ConnContexts, the master context for a buddy is
+always listed immediately before its children. Fingerprints are only
+stored with the master context. Given a ConnContext associated to a
+conversation with a buddy, you can easily iterate over all the contexts
+for that buddy by doing the following:
 
 void example_something_happened(ConnContext * context) {
     ConnContext * context_iter = context->m_context;
@@ -324,13 +336,13 @@ void example_something_happened(ConnContext * context) {
 	context_iter = context_iter->next;
     }
 
-If a user has multiple OTR sessions with the same buddy, your application will
-likely want to provide some way for the user to select which instance to send
-outgoing messages to. You can detect when a user has multiple OTR sessions with
-the same buddy by iterating over the ConnContexts of a buddy when a
-conversation has gone secure and checking whether more than one is not in
-plaintext state. You specify which instance outgoing messages are directed to
-in otrl_message_sending:
+If a user has multiple OTR sessions with the same buddy, your
+application will likely want to provide some way for the user to select
+which instance to send outgoing messages to. You can detect when a user
+has multiple OTR sessions with the same buddy by iterating over the
+ConnContexts of a buddy when a conversation has gone secure and checking
+whether more than one is not in plaintext state. You specify which
+instance outgoing messages are directed to in otrl_message_sending:
 
 gcry_error_t otrl_message_sending(OtrlUserState us,
 	const OtrlMessageAppOps *ops,
@@ -341,9 +353,9 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 	void (*add_appdata)(void *data, ConnContext *context),
 	void *data);
 
-Instead of an actual instance tag, you can specify a meta instance tag (e.g.,
-if the user has not made an explicit selection). Here are the list of meta
-instance tags, as defined in instag.h:
+Instead of an actual instance tag, you can specify a meta instance tag
+(e.g., if the user has not made an explicit selection). Here are the
+list of meta instance tags, as defined in instag.h:
 
 #define OTRL_INSTAG_BEST 1 /* Most secure, based on: conv status,
                             * then fingerprint status, then most recent. */
@@ -352,23 +364,25 @@ instance tags, as defined in instag.h:
 #define OTRL_INSTAG_RECENT_SENT 4
 
 OTRL_INSTAG_BEST choses the instance that has the best conv status, then
-fingerprint status (in the event of a tie), then most recent (similarly in the
-event of a tie). When calculating how recent an instance has been active,
-OTRL_INSTAG_BEST is limited by a one second resolution. OTRL_INSTAG_RECENT*
-does not have this limitation, but due to inherent uncertainty in some networks,
-libotr's notion of the most recent may not always agree with the remote network.
-It is important to understand this limitation due to the issue noted in the next
-paragraph.
+fingerprint status (in the event of a tie), then most recent (similarly
+in the event of a tie). When calculating how recent an instance has been
+active, OTRL_INSTAG_BEST is limited by a one second resolution.
+OTRL_INSTAG_RECENT* does not have this limitation, but due to inherent
+uncertainty in some networks, libotr's notion of the most recent may not
+always agree with the remote network.  It is important to understand
+this limitation due to the issue noted in the next paragraph.
 
-Note that instances do add some uncertainty when dealing with networks that only
-deliver messages to the most recently active session for a buddy who is logged
-in multiple times. If you have a particular instance selected, and the IM
-network is simply not going to deliver to that particular instance, there isn't
-too much libotr can do. In this case, you may want your application to warn when
-a user has selected an instance that is not the most recent.
+Note that instances do add some uncertainty when dealing with networks
+that only deliver messages to the most recently active session for a
+buddy who is logged in multiple times. If you have a particular instance
+selected, and the IM network is simply not going to deliver to that
+particular instance, there isn't too much libotr can do. In this case,
+you may want your application to warn when a user has selected an
+instance that is not the most recent.
 
 To explicitly specify the destination instance of a protocol version 2
-conversation with a particular buddy, the instag value is OTRL_INSTAG_MASTER.
+conversation with a particular buddy, the instag value is
+OTRL_INSTAG_MASTER.
 
 To look up a ConnContext associated with a particular instance (or meta-
 instance), specify the instance in otrl_context_find():
@@ -378,25 +392,25 @@ ConnContext * otrl_context_find(OtrlUserState us, const char *user,
 	otrl_instag_t their_instance, int add_if_missing, int *addedp,
 	void (*add_app_data)(void *data, ConnContext *context), void *data)
 
-If your application persists instance tags, when it starts up, it should call
-one the following functions to read the persisted instance tags:
+If your application persists instance tags, when it starts up, it should
+call one the following functions to read the persisted instance tags:
 
 gcry_error_t otrl_instag_read(OtrlUserState us, const char *filename);
 gcry_error_t otrl_instag_read_FILEp(OtrlUserState us, FILE *instf);
 
-It would make sense to do this immediately after your application has read
-stored privkeys and fingerprints.
+It would make sense to do this immediately after your application has
+read stored privkeys and fingerprints.
 
 3.3. Fragmentation Changes
 
-In libotr version 3.2.0, you would need to call otrl_message_sending() to
-receive an encrypted message, and then call fragment_and_send() to get libotr
-to fragment and inject that message. In libotr 4.0.0, the functionality of
-fragment_and_send() has been integrated into otrl_message_sending(). Simply
-specify an OtrlFragmentPolicy to otrl_message_sending(). The fragmentation
-policies are the same as before, and an addition policy
-"OTRL_FRAGMENT_SEND_SKIP" has been added for cases when fragmentation is not
-desired.
+In libotr version 3.2.0, you would need to call otrl_message_sending()
+to create an encrypted message, and then call fragment_and_send() to
+get libotr to fragment and inject that message. In libotr 4.0.0, the
+functionality of fragment_and_send() has been integrated into
+otrl_message_sending(). Simply specify an OtrlFragmentPolicy to
+otrl_message_sending(). The fragmentation policies are the same as
+before, and an addition policy "OTRL_FRAGMENT_SEND_SKIP" has been added
+for cases when fragmentation is not desired.
 
 3.4. Asynchronous Private Key Generation
 
@@ -413,8 +427,8 @@ following method:
 gcry_error_t otrl_privkey_generate_start(OtrlUserState us,
         const char *accountname, const char *protocol, void **newkeyp)
 
-A background thread can call the following method with the structure that was
-passed into "newkeyp" above:
+A background thread can call the following method with the structure
+that was passed into "newkeyp" above:
 
 /* Do the private key generation calculation.  You may call this from a
  * background thread.  When it completes, call
