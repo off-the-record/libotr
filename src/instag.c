@@ -251,8 +251,8 @@ gcry_error_t otrl_instag_write_FILEp(OtrlUserState us, FILE *instf)
     OtrlInsTag *p;
     /* This line should be ignored when read back in, since there are no
     tabs. */
-    fprintf(instf, "%s\n", "#WARNING! You shouldn't copy this file to another"
-    " computer. It is unnecessary and can cause problems.");
+    fprintf(instf, "# WARNING! You shouldn't copy this file to another"
+    " computer. It is unnecessary and can cause problems.\n");
     for(p=us->instag_root; p; p=p->next) {
 	fprintf(instf, "%s\t%s\t%08x\n", p->accountname, p->protocol,
 		p->instag);

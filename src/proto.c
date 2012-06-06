@@ -440,7 +440,7 @@ gcry_error_t otrl_proto_instance(const char *otrmsg,
 	goto invval;
     }
 
-    if (strlen(otrtag) < 21 ) return err;
+    if (strlen(otrtag) < 21 ) goto invval;
 
     /* Decode and extract instance tag */
     bufp = malloc(9);
@@ -450,9 +450,9 @@ gcry_error_t otrl_proto_instance(const char *otrmsg,
     read_int(*instance_to);
     free(bufp_head);
     return gcry_error(GPG_ERR_NO_ERROR);
-    invval:
-	err = gcry_error(GPG_ERR_INV_VALUE);
-	return err;
+invval:
+    err = gcry_error(GPG_ERR_INV_VALUE);
+    return err;
 }
 
 /* Create an OTR Data message.  Pass the plaintext as msg, and an

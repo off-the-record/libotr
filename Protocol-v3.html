@@ -620,7 +620,7 @@ client to abort the protocol.  The associated length should be zero and
 the associated value should be empty.  If you receive a TLV of this type,
 you should change the SMP state to SMP_EXPECT1 (see below).</dd>
 <dt>Type 7: SMP Message 1Q</dt>
-<dd>Like a SMP Message 1, but whose value begins with a NULL-terminated
+<dd>Like a SMP Message 1, but whose value begins with a NUL-terminated
 user-specified question.</dd>
 <dt>Type 8: Extra symmetric key</dt>
 <dd>The value begins with a 4-byte indication of what this symmetric key
@@ -816,7 +816,7 @@ to Alice.</dd>
 <dd>Verify Alice's zero-knowledge proofs for g<sub>2a</sub> and
 g<sub>3a</sub>:
 <ol>
-<li>Check that both g<sub>2a</sub> and g<sub>3a</sub> &gt;= 2 and
+<li>Check that both g<sub>2a</sub> and g<sub>3a</sub> are &gt;= 2 and
 &lt;= modulus-2.</li>
 <li>Check that c2 = SHA256(1, g<sub>1</sub><sup>D2</sup> 
 g<sub>2a</sub><sup>c2</sup>).</li>
@@ -1432,7 +1432,7 @@ are any combination of the following boolean flags:</p>
 <dl>
 <dt>ALLOW_V1</dt>
 <dd>Allow version 1 of the OTR protocol to be used (in general this
-document will not address OTR protocol version 1, see previous
+document will not address OTR protocol version 1; see previous
 protocol documents for these details).</dd>
 <dt>ALLOW_V2</dt>
 <dd>Allow version 2 of the OTR protocol to be used.</dd>
