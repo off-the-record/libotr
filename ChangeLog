@@ -1,9 +1,12 @@
+2012-06-07
+
+	* Release 4.0.0-beta1
+
 2012-05-08:
 
 	* src/instag.c:
 	* src/message.c: Returning proper gcry types to avoid 
 	compile warnings.
-
 
 2012-05-03:
 
