@@ -179,7 +179,7 @@ ConnContext * otrl_context_find(OtrlUserState us, const char *user,
 		(protocmp = strcmp((*curp)->protocol, protocol)) > 0) ||
 		(usercmp == 0 && acctcmp == 0 && protocmp == 0
 		&& (their_instance < OTRL_MIN_VALID_INSTAG || 
-		    (their_instance <= (*curp)->their_instance))))
+		    ((*curp)->their_instance >= their_instance))))
 	    /* We're at the right place in the list.  We've either found
 	     * it, or gone too far. */
 	    break;
