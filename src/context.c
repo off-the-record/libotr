@@ -123,7 +123,9 @@ ConnContext * otrl_context_find_recent_secure_instance(ConnContext * context)
 
 	if (cresult->msgstate == curp->msgstate) {
 	    msgstate_improved = 0;
-	} else if (curp->msgstate == OTRL_MSGSTATE_ENCRYPTED) {
+	} else if (curp->msgstate == OTRL_MSGSTATE_ENCRYPTED ||
+		(cresult->msgstate == OTRL_MSGSTATE_PLAINTEXT &&
+		curp->msgstate == OTRL_MSGSTATE_FINISHED)) {
 	    msgstate_improved = 1;
 	} else {
 	    continue;

@@ -1,3 +1,8 @@
+2012-06-21
+
+	* src/context.c: A couple bug fixes.
+	* Release 4.0.0-beta2
+
 2012-06-07
 
 	* Release 4.0.0-beta1
