@@ -37,7 +37,7 @@
 
 #define debug_int(t,b) do { const unsigned char *data = (b); \
 	unsigned int v = \
-	    (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]; \
+	    (((unsigned int)data[0]) << 24) | (data[1] << 16) | (data[2] << 8) | data[3]; \
 	fprintf(stderr, "%s: %u (0x%x)\n", (t), v, v); \
     } while(0)
 
@@ -67,7 +67,7 @@
 
 #define read_int(x) do { \
 	require_len(4); \
-	(x) = (bufp[0] << 24) | (bufp[1] << 16) | (bufp[2] << 8) | bufp[3]; \
+	(x) = (((unsigned int)bufp[0]) << 24) | (bufp[1] << 16) | (bufp[2] << 8) | bufp[3]; \
 	bufp += 4; lenp -= 4; \
     } while(0)
 

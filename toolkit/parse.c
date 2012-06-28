@@ -86,7 +86,7 @@ static unsigned char *decode(const char *msg, size_t *lenp)
 #define require_len(l) do { if (lenp < (l)) goto inv; } while(0)
 #define read_int(x) do { \
 	require_len(4); \
-	(x) = (bufp[0] << 24) | (bufp[1] << 16) | (bufp[2] << 8 ) | bufp[3]; \
+	(x) = (((unsigned int)bufp[0]) << 24) | (bufp[1] << 16) | (bufp[2] << 8 ) | bufp[3]; \
 	bufp += 4; lenp -= 4; \
     } while(0)
 #define read_mpi(x) do { \
