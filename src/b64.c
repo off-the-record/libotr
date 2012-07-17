@@ -237,7 +237,7 @@ int otrl_base64_otr_decode(const char *msg, unsigned char **bufp,
     }
 
     /* Base64-decode the message */
-    rawlen = ((msglen-5) / 4) * 3;   /* maximum possible */
+    rawlen = ((msglen-5+3) / 4) * 3;   /* maximum possible */
     rawmsg = malloc(rawlen);
     if (!rawmsg && rawlen > 0) {
 	return -1;
