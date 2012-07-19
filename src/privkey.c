@@ -871,7 +871,7 @@ gcry_error_t otrl_privkey_sign(unsigned char **sigp, size_t *siglenp,
 	return gcry_error(GPG_ERR_INV_VALUE);
 
     *sigp = malloc(40);
-    if (sigp == NULL) return gcry_error(GPG_ERR_ENOMEM);
+    if (*sigp == NULL) return gcry_error(GPG_ERR_ENOMEM);
     *siglenp = 40;
 
     if (len) {
