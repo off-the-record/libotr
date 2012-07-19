@@ -662,6 +662,7 @@ gcry_error_t otrl_sm_step2a(OtrlSMBobState *bstate, const unsigned char* input,
 
     if (check_group_elem(msg1[0]) || check_expon(msg1[2]) ||
 	    check_group_elem(msg1[3]) || check_expon(msg1[5])) {
+	otrl_sm_msg_free(&msg1, SM_MSG1_LEN);
 	return gcry_error(GPG_ERR_INV_VALUE);
     }
 
@@ -671,6 +672,7 @@ gcry_error_t otrl_sm_step2a(OtrlSMBobState *bstate, const unsigned char* input,
     /* Verify Alice's proofs */
     if (otrl_sm_check_know_log(msg1[1], msg1[2], bstate->g1, msg1[0], 1) ||
 	otrl_sm_check_know_log(msg1[4], msg1[5], bstate->g1, msg1[3], 2)) {
+	otrl_sm_msg_free(&msg1, SM_MSG1_LEN);
 	return gcry_error(GPG_ERR_INV_VALUE);
     }
 
@@ -683,6 +685,8 @@ gcry_error_t otrl_sm_step2a(OtrlSMBobState *bstate, const unsigned char* input,
     gcry_mpi_powm(bstate->g3, msg1[3], bstate->x3, SM_MODULUS);
 
     bstate->sm_prog_state = OTRL_SMP_PROG_OK;
+
+    otrl_sm_msg_free(&msg1, SM_MSG1_LEN);
     return gcry_error(GPG_ERR_NO_ERROR);
 }
 
@@ -772,6 +776,7 @@ gcry_error_t otrl_sm_step3(OtrlSMAliceState *astate, const unsigned char* input,
 	    check_group_elem(msg2[6]) || check_group_elem(msg2[7]) ||
 	    check_expon(msg2[2]) || check_expon(msg2[5]) ||
 	    check_expon(msg2[9]) || check_expon(msg2[10])) {
+	otrl_sm_msg_free(&msg2, SM_MSG2_LEN);
 	return gcry_error(GPG_ERR_INV_VALUE);
     }
 
@@ -780,9 +785,11 @@ gcry_error_t otrl_sm_step3(OtrlSMAliceState *astate, const unsigned char* input,
     /* Store Bob's g3a value for later in the protocol */
     gcry_mpi_set(astate->g3o, msg2[3]);
 
-    /* Verify Bob's knowledge of discreet log proofs */
+    /* Verify Bob's knowledge of discrete log proofs */
     if (otrl_sm_check_know_log(msg2[1], msg2[2], astate->g1, msg2[0], 3) ||
-	otrl_sm_check_know_log(msg2[4], msg2[5], astate->g1, msg2[3], 4)) {
+	    otrl_sm_check_know_log(msg2[4], msg2[5], astate->g1, msg2[3], 4)) {
+	otrl_sm_msg_free(&msg2, SM_MSG2_LEN);
+	otrl_sm_msg_free(&msg3, SM_MSG3_LEN);
 	return gcry_error(GPG_ERR_INV_VALUE);
     }
 
@@ -792,8 +799,11 @@ gcry_error_t otrl_sm_step3(OtrlSMAliceState *astate, const unsigned char* input,
 
     /* Verify Bob's coordinate equality proof */
     if (otrl_sm_check_equal_coords(msg2[8], msg2[9], msg2[10], msg2[6], msg2[7],
-	    astate, 5))
+	    astate, 5)) {
+	otrl_sm_msg_free(&msg2, SM_MSG2_LEN);
+	otrl_sm_msg_free(&msg3, SM_MSG3_LEN);
 	return gcry_error(GPG_ERR_INV_VALUE);
+    }
 
     /* Calculate P and Q values for Alice */
     r = randomExponent();
@@ -861,13 +871,18 @@ gcry_error_t otrl_sm_step4(OtrlSMBobState *bstate, const unsigned char* input,
     if (check_group_elem(msg3[0]) || check_group_elem(msg3[1]) ||
 	    check_group_elem(msg3[5]) || check_expon(msg3[3]) ||
 	    check_expon(msg3[4]) || check_expon(msg3[7]))  {
+	otrl_sm_msg_free(&msg3, SM_MSG3_LEN);
+	otrl_sm_msg_free(&msg4, SM_MSG4_LEN);
 	return gcry_error(GPG_ERR_INV_VALUE);
     }
 
     /* Verify Alice's coordinate equality proof */
     if (otrl_sm_check_equal_coords(msg3[2], msg3[3], msg3[4], msg3[0], msg3[1],
-	    bstate, 6))
+	    bstate, 6)) {
+	otrl_sm_msg_free(&msg3, SM_MSG3_LEN);
+	otrl_sm_msg_free(&msg4, SM_MSG4_LEN);
 	return gcry_error(GPG_ERR_INV_VALUE);
+    }
 
     /* Find Pa/Pb and Qa/Qb */
     inv = gcry_mpi_new(SM_MOD_LEN_BITS);
@@ -877,8 +892,12 @@ gcry_error_t otrl_sm_step4(OtrlSMBobState *bstate, const unsigned char* input,
     gcry_mpi_mulm(bstate->qab, msg3[1], inv, SM_MODULUS);
 
     /* Verify Alice's log equality proof */
-    if (otrl_sm_check_equal_logs(msg3[6], msg3[7], msg3[5], bstate, 7))
+    if (otrl_sm_check_equal_logs(msg3[6], msg3[7], msg3[5], bstate, 7)) {
+	otrl_sm_msg_free(&msg3, SM_MSG3_LEN);
+	otrl_sm_msg_free(&msg4, SM_MSG4_LEN);
+	gcry_mpi_release(inv);
 	return gcry_error(GPG_ERR_INV_VALUE);
+    }
 
     /* Calculate Rb and proof */
     gcry_mpi_powm(msg4[0], bstate->qab, bstate->x3, SM_MODULUS);
@@ -924,12 +943,15 @@ gcry_error_t otrl_sm_step5(OtrlSMAliceState *astate, const unsigned char* input,
     if (err != gcry_error(GPG_ERR_NO_ERROR)) return err;
 
     if (check_group_elem(msg4[0]) || check_expon(msg4[2])) {
+	otrl_sm_msg_free(&msg4, SM_MSG4_LEN);
 	return gcry_error(GPG_ERR_INV_VALUE);
     }
 
     /* Verify Bob's log equality proof */
-    if (otrl_sm_check_equal_logs(msg4[1], msg4[2], msg4[0], astate, 8))
+    if (otrl_sm_check_equal_logs(msg4[1], msg4[2], msg4[0], astate, 8)) {
+	otrl_sm_msg_free(&msg4, SM_MSG4_LEN);
 	return gcry_error(GPG_ERR_INV_VALUE);
+    }
 
     /* Calculate Rab and verify that secrets match */
     rab = gcry_mpi_new(SM_MOD_LEN_BITS);
