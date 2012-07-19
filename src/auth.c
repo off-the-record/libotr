@@ -1110,6 +1110,8 @@ gcry_error_t otrl_auth_handle_signature(OtrlAuthInfo *auth,
 	case OTRL_AUTHSTATE_V1_SETUP:
 	    /* Ignore this message */
 	    *havemsgp = 0;
+	    free(buf);
+	    buf = NULL;
 	    break;
     }
 
