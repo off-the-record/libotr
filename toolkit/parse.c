@@ -100,9 +100,11 @@ static unsigned char *decode(const char *msg, size_t *lenp)
 	bufp += mpilen; lenp -= mpilen; \
     } while(0)
 #define read_raw(b, l) do { \
-	require_len(l); \
-	memmove((b), bufp, (l)); \
-	bufp += (l); lenp -= (l); \
+	if (l) { \
+	  require_len(l); \
+	  memmove((b), bufp, (l)); \
+	  bufp += (l); lenp -= (l); \
+	} \
     } while(0)
 #define write_int(x) do { \
 	bufp[0] = ((x) >> 24) & 0xff; \
