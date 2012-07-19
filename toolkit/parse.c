@@ -65,6 +65,7 @@ static unsigned char *decode(const char *msg, size_t *lenp)
 {
     const char *header, *footer;
     unsigned char *raw;
+    size_t rawlen;
 
     /* Find the header */
     header = strstr(msg, "?OTR:");
@@ -76,8 +77,10 @@ static unsigned char *decode(const char *msg, size_t *lenp)
     footer = strchr(header, '.');
     if (!footer) footer = header + strlen(header);
 
-    raw = malloc((footer-header) / 4 * 3);
-    if (raw == NULL && (footer-header >= 4)) return NULL;
+    rawlen = OTRL_B64_MAX_DECODED_SIZE(footer-header);
+
+    raw = malloc(rawlen);
+    if (raw == NULL && rawlen > 0) return NULL;
     *lenp = otrl_base64_decode(raw, header, footer-header);
 
     return raw;
