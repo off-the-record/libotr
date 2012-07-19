@@ -436,7 +436,7 @@ gcry_error_t otrl_proto_instance(const char *otrmsg,
     unsigned char *bufp_head = NULL;
     size_t lenp;
 
-    if (strncmp(otrtag, "?OTR:AAM", 8)) {
+    if (!otrtag || strncmp(otrtag, "?OTR:AAM", 8)) {
 	goto invval;
     }
 
