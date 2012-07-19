@@ -141,8 +141,11 @@ ConnContext * otrl_context_find(OtrlUserState us, const char *user,
 	otrl_instag_t their_instance, int add_if_missing, int *addedp,
 	void (*add_app_data)(void *data, ConnContext *context), void *data);
 
-/* This method gets called after sending or receiving a message, to update the
- * master context's "recent context" pointers. */
+/* Return true iff the given fingerprint is marked as trusted. */
+int otrl_context_is_fingerprint_trusted(Fingerprint *fprint);
+
+/* This method gets called after sending or receiving a message, to
+ * update the master context's "recent context" pointers. */
 void otrl_context_update_recent_child(ConnContext *context,
 	unsigned int sent_msg);
 

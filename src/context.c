@@ -29,9 +29,6 @@
 #include "context.h"
 #include "instag.h"
 
-static void set_instance_fingerprint_next(OtrlUserState us,
-	ConnContext *context);
-
 /* Create a new connection context. */
 static ConnContext * new_context(const char * user, const char * accountname,
 	const char * protocol)
@@ -254,10 +251,13 @@ ConnContext * otrl_context_find(OtrlUserState us, const char *user,
     return NULL;
 }
 
+/* Return true iff the given fingerprint is marked as trusted. */
 int otrl_context_is_fingerprint_trusted(Fingerprint *fprint) {
     return fprint && fprint->trust && fprint->trust[0] != '\0';
 }
 
+/* This method gets called after sending or receiving a message, to
+ * update the master context's "recent context" pointers. */
 void otrl_context_update_recent_child(ConnContext *context,
 	unsigned int sent_msg) {
     ConnContext *m_context = context->m_context;
