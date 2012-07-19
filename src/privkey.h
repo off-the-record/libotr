@@ -25,13 +25,20 @@
 #include "privkey-t.h"
 #include "userstate.h"
 
+/* The length of a string representing a human-readable version of a
+ * fingerprint (including the trailing NUL) */
+#define OTRL_PRIVKEY_FPRINT_HUMAN_LEN 45
+
 /* Convert a 20-byte hash value to a 45-byte human-readable value */
-void otrl_privkey_hash_to_human(char human[45], const unsigned char hash[20]);
+void otrl_privkey_hash_to_human(
+	char human[OTRL_PRIVKEY_FPRINT_HUMAN_LEN],
+	const unsigned char hash[20]);
 
 /* Calculate a human-readable hash of our DSA public key.  Return it in
  * the passed fingerprint buffer.  Return NULL on error, or a pointer to
  * the given buffer on success. */
-char *otrl_privkey_fingerprint(OtrlUserState us, char fingerprint[45],
+char *otrl_privkey_fingerprint(OtrlUserState us,
+	char fingerprint[OTRL_PRIVKEY_FPRINT_HUMAN_LEN],
 	const char *accountname, const char *protocol);
 
 /* Calculate a raw hash of our DSA public key.  Return it in the passed
