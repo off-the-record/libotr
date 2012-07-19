@@ -194,7 +194,10 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
     int convert_called = 0;
     char *converted_msg = NULL;
 
-    *messagep = NULL;
+    if (messagep) {
+	*messagep = NULL;
+    }
+
     err = gcry_error(GPG_ERR_NO_ERROR);	/* Default to no error */
 
     if (contextp) {
@@ -203,7 +206,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 
     if (!accountname || !protocol || !recipient ||
 		!original_msg || !messagep) {
-	err = gcry_error(GPG_ERR_NO_ERROR);
+	err = gcry_error(GPG_ERR_INV_VALUE);
 	goto fragment;
     }
 
@@ -244,9 +247,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 	if (bettermsg) {
 	    *messagep = bettermsg;
 	}
-	if (context) {
-	    context->otr_offer = OFFER_SENT;
-	}
+	context->otr_offer = OFFER_SENT;
 	err = gcry_error(GPG_ERR_NO_ERROR);
 	goto fragment;
     }
@@ -314,9 +315,7 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
 				    + v2taglen, OTRL_MESSAGE_TAG_V3);
 			}
 			*messagep = taggedmsg;
-			if (context) {
-			    context->otr_offer = OFFER_SENT;
-			}
+			context->otr_offer = OFFER_SENT;
 		    }
 		}
 	    }
@@ -605,6 +604,8 @@ static void maybe_resend(EncrData *edata)
 		strcpy(msg_to_send, resent_prefix);
 		strcat(msg_to_send, " ");
 		strcat(msg_to_send, edata->context->context_priv->lastmessage);
+	    } else {
+		return;  /* Out of memory; don't try to resend */
 	    }
 	    if (used_ops_resentmp) {
 		edata->ops->resent_msg_prefix_free(edata->opdata,
@@ -617,7 +618,7 @@ static void maybe_resend(EncrData *edata)
 	/* Re-encrypt the message with the new keys */
 	err = otrl_proto_create_data(&resendmsg,
 		edata->context, msg_to_send, NULL, 0, NULL);
-	if (resending && msg_to_send) {
+	if (resending) {
 		free(msg_to_send);
 	}
 	if (!err) {
@@ -974,7 +975,10 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
     }
     /* Check the to and from instance tags */
     if (version == 3) {
-	err = otrl_proto_instance(otrtag, &their_instance, &our_instance);
+	err = gcry_error(GPG_ERR_INV_VALUE);
+	if (otrtag) {
+	    err = otrl_proto_instance(otrtag, &their_instance, &our_instance);
+	}
 	if (!err) {
 	    if ((msgtype == OTRL_MSGTYPE_DH_COMMIT && our_instance &&
 		    context->our_instance != our_instance) ||
@@ -992,10 +996,12 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		context = otrl_context_find(us, sender, accountname,
 			protocol, their_instance, 1, &context_added,
 			add_appdata, data);
-	    } else {
-		message_malformed(ops, opdata, context);
-		return 1;
 	    }
+	}
+
+	if (err || their_instance < OTRL_MIN_VALID_INSTAG) {
+	    message_malformed(ops, opdata, context);
+	    return 1;
 	}
 
 	if (context_added) {
@@ -1829,6 +1835,7 @@ static void disconnect_context(OtrlUserState us, const OtrlMessageAppOps *ops,
 			context->protocol, context->username, encmsg);
 	    }
 	    free(encmsg);
+	    otrl_tlv_free(tlv);
 	}
     }
 
@@ -1915,6 +1922,7 @@ gcry_error_t otrl_message_symkey(OtrlUserState us,
 		    context->protocol, context->username, encmsg);
 	}
 	free(encmsg);
+	otrl_tlv_free(tlv);
 
 	return err;
     }
