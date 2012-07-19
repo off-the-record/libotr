@@ -1,3 +1,8 @@
+2012-07-19
+
+	* src/b64.[ch], src/proto.c: Clean up the previous b64 patch
+	and apply it to all places where otrl_base64_decode() is called.
+
 2012-07-17
 
 	* src/b64.c: Use ceil instead of floor to compute the size

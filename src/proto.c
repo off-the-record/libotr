@@ -443,7 +443,7 @@ gcry_error_t otrl_proto_instance(const char *otrmsg,
     if (strlen(otrtag) < 21 ) goto invval;
 
     /* Decode and extract instance tag */
-    bufp = malloc(9);
+    bufp = malloc(OTRL_B64_MAX_DECODED_SIZE(12));
     bufp_head = bufp;
     lenp = otrl_base64_decode(bufp, otrtag+9, 12);
     read_int(*instance_from);
@@ -649,13 +649,17 @@ gcry_error_t otrl_proto_data_read_flags(const char *datamsg,
 	msglen = strlen(otrtag);
     }
 
+    /* Skip over the "?OTR:" */
+    otrtag += 5;
+    msglen -= 5;
+
     /* Base64-decode the message */
-    rawlen = ((msglen-5) / 4) * 3;   /* maximum possible */
+    rawlen = OTRL_B64_MAX_DECODED_SIZE(msglen);   /* maximum possible */
     rawmsg = malloc(rawlen);
     if (!rawmsg && rawlen > 0) {
 	return gcry_error(GPG_ERR_ENOMEM);
     }
-    rawlen = otrl_base64_decode(rawmsg, otrtag+5, msglen-5);  /* actual size */
+    rawlen = otrl_base64_decode(rawmsg, otrtag, msglen);  /* actual size */
 
     bufp = rawmsg;
     lenp = rawlen;
@@ -721,14 +725,18 @@ gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
 	msglen = strlen(otrtag);
     }
 
+    /* Skip over the "?OTR:" */
+    otrtag += 5;
+    msglen -= 5;
+
     /* Base64-decode the message */
-    rawlen = ((msglen-5) / 4) * 3;   /* maximum possible */
+    rawlen = OTRL_B64_MAX_DECODED_SIZE(msglen);   /* maximum possible */
     rawmsg = malloc(rawlen);
     if (!rawmsg && rawlen > 0) {
 	err = gcry_error(GPG_ERR_ENOMEM);
 	goto err;
     }
-    rawlen = otrl_base64_decode(rawmsg, otrtag+5, msglen-5);  /* actual size */
+    rawlen = otrl_base64_decode(rawmsg, otrtag, msglen);  /* actual size */
 
     bufp = rawmsg;
     lenp = rawlen;

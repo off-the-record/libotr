@@ -56,7 +56,7 @@ VERSION HISTORY:
 \******************************************************************* */
 
 /* system headers */
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 /* libotr headers */
@@ -148,8 +148,9 @@ static size_t decode(unsigned char *out, const char *in, size_t b64len)
  * base64 decode data.  Skip non-base64 chars, and terminate at the
  * first '=', or the end of the buffer.
  *
- * The buffer data must contain at least (base64len / 4) * 3 bytes of
- * space.  This function will return the number of bytes actually used.
+ * The buffer data must contain at least ((base64len+3) / 4) * 3 bytes
+ * of space.  This function will return the number of bytes actually
+ * used.
  */
 size_t otrl_base64_decode(unsigned char *data, const char *base64data,
 	size_t base64len)
@@ -236,14 +237,18 @@ int otrl_base64_otr_decode(const char *msg, unsigned char **bufp,
 	return -2;
     }
 
+    /* Skip over the "?OTR:" */
+    otrtag += 5;
+    msglen -= 5;
+
     /* Base64-decode the message */
-    rawlen = ((msglen-5+3) / 4) * 3;   /* maximum possible */
+    rawlen = OTRL_B64_MAX_DECODED_SIZE(msglen);   /* maximum possible */
     rawmsg = malloc(rawlen);
     if (!rawmsg && rawlen > 0) {
 	return -1;
     }
 
-    rawlen = otrl_base64_decode(rawmsg, otrtag+5, msglen-5);  /* actual size */
+    rawlen = otrl_base64_decode(rawmsg, otrtag, msglen);  /* actual size */
 
     *bufp = rawmsg;
     *lenp = rawlen;
