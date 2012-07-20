@@ -394,7 +394,7 @@ fragment:
 	return err;
     } else {
 	/* Fragment and send according to policy */
-	if (!err && *messagep) {
+	if (!err && messagep && *messagep) {
 	    if (context) {
 		err = fragment_and_send(ops, NULL, context, *messagep,
 			fragPolicy, messagep);
