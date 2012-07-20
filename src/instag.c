@@ -207,10 +207,8 @@ gcry_error_t otrl_instag_generate_FILEp(OtrlUserState us, FILE *instf,
     if (!accountname || !protocol) return gcry_error(GPG_ERR_NO_ERROR);
 
     p = (OtrlInsTag *)malloc(sizeof(OtrlInsTag));
-    p->accountname = malloc(strlen(accountname)+1);
-    p->protocol = malloc(strlen(protocol)+1);
-    strcpy(p->accountname, accountname);
-    strcpy(p->protocol, protocol);
+    p->accountname = strdup(accountname);
+    p->protocol = strdup(protocol);
 
     p->instag = otrl_instag_get_new();
 
