@@ -865,7 +865,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
     int fragment_assembled = 0;
     char *unfragmessage = NULL, *otrtag = NULL;
     EncrData edata;
-    otrl_instag_t our_instance, their_instance;
+    otrl_instag_t our_instance = 0, their_instance = 0;
     int version;
     gcry_error_t err;
 
