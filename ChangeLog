@@ -1,6 +1,16 @@
+2012-07-20
+
+	* src/message.c, src/instag.c, toolkit/parse.c, src/sm.c,
+	src/proto.c, src/privkey.c, src/auth.c, src/context.[ch]:
+	Fix some memory leaks, some NULL pointer handling, and
+	compilation warnings.  Thanks to Paul Wouters
+	<pwouters@redhat.com> for the report.
+
+	* src/message.c: Better handling of OTRv3 fragments.
+
 2012-07-19
 
-	* src/b64.[ch], src/proto.c, toolkir/parse.c: Clean up the
+	* src/b64.[ch], src/proto.c, toolkit/parse.c: Clean up the
 	previous b64 patch and apply it to all places where
 	otrl_base64_decode() is called.
 
