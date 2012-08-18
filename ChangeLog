@@ -1,3 +1,9 @@
+2012-08-17
+
+	* src/message.c: Don't call memchr(foo,'\0',-1) even if it has
+	no ill effects.  Thanks to George Kadianakis
+	<desnacked@riseup.net> for the report.
+
 2012-07-20
 
 	* src/message.c, src/instag.c, toolkit/parse.c, src/sm.c,

@@ -1350,7 +1350,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 
 		    tlv = otrl_tlv_find(tlvs, OTRL_TLV_SMP1Q);
 		    if (tlv) {
-			if (nextMsg == OTRL_SMP_EXPECT1) {
+			if (nextMsg == OTRL_SMP_EXPECT1 && tlv->len > 0) {
 			    /* We can only do the verification half now.
 			     * We must wait for the secret to be entered
 			     * to continue. */
