@@ -1,3 +1,8 @@
+2012-08-24
+
+	* README:
+	* configure.ac: Release 4.0.0
+
 2012-08-22
 
 	* configure.ac: Use gcc and ld hardening flags, where possible.
