@@ -149,6 +149,11 @@ if test x$enable_gcc_hardening != xno; then
     if test "$bwin32" = "false"; then
        OTR_CHECK_CFLAGS(-fPIE)
        OTR_CHECK_LDFLAGS(-pie, "$all_ldflags_for_check", "$all_libs_for_check")
+    else
+        OTR_CHECK_CFLAGS(-fPIE)
+        OTR_CHECK_LDFLAGS(-pie, "$all_ldflags_for_check", "$all_libs_for_check")
+        OTR_CHECK_LDFLAGS(--dynamicbase, "$all_ldflags_for_check", "$all_libs_for_check")
+        OTR_CHECK_LDFLAGS(--nxcompat, "$all_ldflags_for_check", "$all_libs_for_check")
     fi
 fi
 
