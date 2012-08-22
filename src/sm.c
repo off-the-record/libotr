@@ -71,10 +71,12 @@ static gcry_mpi_t SM_MODULUS_MINUS_2 = NULL;
 void otrl_sm_init(void)
 {
     gcry_check_version(NULL);
-    gcry_mpi_scan(&SM_MODULUS, GCRYMPI_FMT_HEX, SM_MODULUS_S, 0, NULL);
-    gcry_mpi_scan(&SM_ORDER, GCRYMPI_FMT_HEX, SM_ORDER_S, 0, NULL);
-    gcry_mpi_scan(&SM_GENERATOR, GCRYMPI_FMT_HEX, SM_GENERATOR_S,
-	    0, NULL);
+    gcry_mpi_scan(&SM_MODULUS, GCRYMPI_FMT_HEX,
+	(const unsigned char *)SM_MODULUS_S, 0, NULL);
+    gcry_mpi_scan(&SM_ORDER, GCRYMPI_FMT_HEX,
+	(const unsigned char *)SM_ORDER_S, 0, NULL);
+    gcry_mpi_scan(&SM_GENERATOR, GCRYMPI_FMT_HEX,
+	(const unsigned char *)SM_GENERATOR_S, 0, NULL);
     SM_MODULUS_MINUS_2 = gcry_mpi_new(SM_MOD_LEN_BITS);
     gcry_mpi_sub_ui(SM_MODULUS_MINUS_2, SM_MODULUS, 2);
 }
@@ -345,8 +347,8 @@ static gcry_error_t serialize_mpi_array(unsigned char **buffer, int *buflen,
 static gcry_error_t unserialize_mpi_array(gcry_mpi_t **mpis,
 	unsigned int expcount, const unsigned char *buffer, const int buflen)
 {
-    int i;
-    int lenp = buflen;
+    unsigned int i;
+    size_t lenp = buflen;
     unsigned int thecount = 0;
     const unsigned char* bufp = buffer;
     *mpis = NULL;

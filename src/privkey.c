@@ -208,7 +208,7 @@ gcry_error_t otrl_privkey_read_FILEp(OtrlUserState us, FILE *privf)
     size_t tokenlen;
     gcry_error_t err;
     gcry_sexp_t allkeys;
-    size_t i;
+    int i;
 
     if (!privf) return gcry_error(GPG_ERR_NO_ERROR);
 

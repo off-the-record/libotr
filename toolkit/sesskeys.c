@@ -48,8 +48,10 @@ void sesskeys_gen(unsigned char sessionid[20], unsigned char sendenc[16],
     unsigned char hash[20];
     int is_high;
 
-    gcry_mpi_scan(&modulus, GCRYMPI_FMT_HEX, DH1536_MODULUS_S, 0, NULL);
-    gcry_mpi_scan(&generator, GCRYMPI_FMT_HEX, DH1536_GENERATOR_S, 0, NULL);
+    gcry_mpi_scan(&modulus, GCRYMPI_FMT_HEX,
+	(const unsigned char *)DH1536_MODULUS_S, 0, NULL);
+    gcry_mpi_scan(&generator, GCRYMPI_FMT_HEX,
+	(const unsigned char *)DH1536_GENERATOR_S, 0, NULL);
     *our_yp = gcry_mpi_new(0);
     gcry_mpi_powm(*our_yp, generator, our_x, modulus);
     secretv = gcry_mpi_new(0);

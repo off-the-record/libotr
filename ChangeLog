@@ -1,3 +1,16 @@
+2012-08-22
+
+	* configure.ac: Use gcc and ld hardening flags, where possible.
+	* configure.ac:
+	* src/auth.c:
+	* src/dh.c:
+	* src/mem.c:
+	* src/privkey.c:
+	* src/proto.c:
+	* src/sm.c:
+	* toolkit/sesskey.c: Build cleanly with -Wall -Wextra
+	-Wformat-security -Wno-unused-parameter
+
 2012-08-17
 
 	* src/message.c: Don't call memchr(foo,'\0',-1) even if it has

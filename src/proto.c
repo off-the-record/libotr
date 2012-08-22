@@ -908,7 +908,7 @@ OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
 	    size_t newsize = fraglen + 1;
 	    free(context->context_priv->fragment);
 	    context->context_priv->fragment = NULL;
-	    if (newsize > fraglen) {  /* Check for overflow */
+	    if (newsize >= 1) {  /* Check for overflow */
 		context->context_priv->fragment = malloc(newsize);
 	    }
 	    if (context->context_priv->fragment) {
@@ -928,7 +928,8 @@ OtrlFragmentResult otrl_proto_fragment_accumulate(char **unfragmessagep,
 	    int fraglen = end - start - 1;
 	    char *newfrag = NULL;
 	    size_t newsize = context->context_priv->fragment_len + fraglen + 1;
-	    if (newsize > fraglen) {  /* Check for overflow */
+	    /* Check for overflow */
+	    if (newsize > context->context_priv->fragment_len) {
 		newfrag = realloc(context->context_priv->fragment, newsize);
 	    }
 	    if (newfrag) {

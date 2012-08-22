@@ -46,7 +46,7 @@
 /* libotr headers */
 #include "mem.h"
 
-static int header_size;
+static size_t header_size;
 
 static void *otrl_mem_malloc(size_t n)
 {

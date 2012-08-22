@@ -51,9 +51,10 @@ static gcry_mpi_t DH1536_GENERATOR = NULL;
  */
 void otrl_dh_init(void)
 {
-    gcry_mpi_scan(&DH1536_MODULUS, GCRYMPI_FMT_HEX, DH1536_MODULUS_S, 0, NULL);
-    gcry_mpi_scan(&DH1536_GENERATOR, GCRYMPI_FMT_HEX, DH1536_GENERATOR_S,
-	    0, NULL);
+    gcry_mpi_scan(&DH1536_MODULUS, GCRYMPI_FMT_HEX,
+	(const unsigned char *)DH1536_MODULUS_S, 0, NULL);
+    gcry_mpi_scan(&DH1536_GENERATOR, GCRYMPI_FMT_HEX,
+	(const unsigned char *)DH1536_GENERATOR_S, 0, NULL);
     DH1536_MODULUS_MINUS_2 = gcry_mpi_new(DH1536_MOD_LEN_BITS);
     gcry_mpi_sub_ui(DH1536_MODULUS_MINUS_2, DH1536_MODULUS, 2);
 }

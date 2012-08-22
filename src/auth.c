@@ -751,7 +751,8 @@ gcry_error_t otrl_auth_handle_key(OtrlAuthInfo *auth, const char *keymsg,
     unsigned char *buf = NULL, *bufp = NULL;
     size_t buflen, lenp;
     gcry_mpi_t incoming_pub = NULL;
-    int res, msg_version;
+    int res;
+    unsigned int msg_version;
 
     *havemsgp = 0;
 
