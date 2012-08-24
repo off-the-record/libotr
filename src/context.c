@@ -29,6 +29,85 @@
 #include "context.h"
 #include "instag.h"
 
+#if OTRL_DEBUGGING
+#include <stdio.h>
+
+void otrl_auth_dump(FILE *f, const OtrlAuthInfo *auth);
+void otrl_sm_dump(FILE *f, const OtrlSMState *sm);
+
+/* Dump the contents of a context to the FILE *f. */
+void otrl_context_dump(FILE *f, const ConnContext *context)
+{
+    const Fingerprint *fing;
+
+    fprintf(f, "Context %p:\n\n", context);
+
+    fprintf(f, "  Username: %s\n", context->username);
+    fprintf(f, "  Accountname: %s\n", context->accountname);
+    fprintf(f, "  Protocol: %s\n\n", context->protocol);
+    fprintf(f, "  Master context: %p%s\n", context->m_context,
+	    context->m_context == context ? " IS MASTER" : "");
+    fprintf(f, "  Recent recv child: %p\n", context->recent_rcvd_child);
+    fprintf(f, "  Recent sent child: %p\n", context->recent_sent_child);
+    fprintf(f, "  Recent child: %p\n\n", context->recent_child);
+    fprintf(f, "  Our instance:   %08x\n", context->our_instance);
+    fprintf(f, "  Their instance: %08x\n\n", context->their_instance);
+    fprintf(f, "  Msgstate: %d (%s)\n\n", context->msgstate,
+	context->msgstate == OTRL_MSGSTATE_PLAINTEXT ? "PLAINTEXT" :
+	context->msgstate == OTRL_MSGSTATE_ENCRYPTED ? "ENCRYPTED" :
+	context->msgstate == OTRL_MSGSTATE_FINISHED ? "FINISHED" :
+	"INVALID");
+    otrl_auth_dump(f, &context->auth);
+    fprintf(f, "\n  Fingerprints:\n");
+    for (fing = context->fingerprint_root.next; fing; fing = fing->next) {
+	fprintf(f, "    %p ", fing);
+	if (fing->fingerprint == NULL) {
+	    fprintf(f, "(null)");
+	} else {
+	    int i;
+	    for (i=0;i<20;++i) {
+		fprintf(f, "%02x", fing->fingerprint[i]);
+	    }
+	}
+	fprintf(f, " %p", fing->context);
+	if (fing->trust && fing->trust[0]) {
+	    fprintf(f, " %s", fing->trust);
+	}
+	fprintf(f, "\n");
+    }
+    fprintf(f, "\n  Active fingerprint: %p\n\n", context->active_fingerprint);
+    fprintf(f, "  Protocol version: %d\n", context->protocol_version);
+    fprintf(f, "  OTR offer: %d (%s)\n\n", context->otr_offer,
+	context->otr_offer == OFFER_NOT ? "NOT" :
+	context->otr_offer == OFFER_SENT ? "SENT" :
+	context->otr_offer == OFFER_REJECTED ? "REJECTED" :
+	context->otr_offer == OFFER_ACCEPTED ? "ACCEPTED" :
+	"INVALID");
+
+    fprintf(f, "  Application data: %p\n", context->app_data);
+    if (context->smstate == NULL) {
+	fprintf(f, "  SM state: NULL\n");
+    } else {
+	otrl_sm_dump(f, context->smstate);
+    }
+    fprintf(f, "\n");
+}
+
+/* Dump the master context of this context, and all of its children. */
+void otrl_context_siblings_dump(FILE *f, const ConnContext *context)
+{
+    const ConnContext *citer;
+    for (citer = context->m_context;
+	    citer && citer->m_context == context->m_context;
+	    citer = citer->next) {
+	if (citer == context) {
+	    fprintf(f, "*** ");
+	}
+	otrl_context_dump(f, citer);
+    }
+}
+#endif
+
 /* Create a new connection context. */
 static ConnContext * new_context(const char * user, const char * accountname,
 	const char * protocol)

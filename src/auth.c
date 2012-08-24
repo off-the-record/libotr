@@ -31,6 +31,38 @@
 #include "proto.h"
 #include "context.h"
 
+#if OTRL_DEBUGGING
+#include <stdio.h>
+
+/* Dump the contents of an OtrlAuthInfo to the FILE *f. */
+void otrl_auth_dump(FILE *f, const OtrlAuthInfo *auth)
+{
+    int i;
+
+    fprintf(f, "  Auth info %p:\n", auth);
+    fprintf(f, "    State: %d (%s)\n", auth->authstate,
+	auth->authstate == OTRL_AUTHSTATE_NONE ? "NONE" :
+	auth->authstate == OTRL_AUTHSTATE_AWAITING_DHKEY ? "AWAITING_DHKEY" :
+	auth->authstate == OTRL_AUTHSTATE_AWAITING_REVEALSIG ?
+	    "AWAITING_REVEALSIG" :
+	auth->authstate == OTRL_AUTHSTATE_AWAITING_SIG ? "AWAITING_SIG" :
+	auth->authstate == OTRL_AUTHSTATE_V1_SETUP ? "V1_SETUP" :
+	"INVALID");
+    fprintf(f, "    Context: %p\n", auth->context);
+    fprintf(f, "    Our keyid:   %u\n", auth->our_keyid);
+    fprintf(f, "    Their keyid: %u\n", auth->their_keyid);
+    fprintf(f, "    Their fingerprint: ");
+    for (i=0;i<20;++i) {
+	fprintf(f, "%02x", auth->their_fingerprint[i]);
+    }
+    fprintf(f, "\n    Initiated = %d\n", auth->initiated);
+    fprintf(f, "\n    Proto version = %d\n", auth->protocol_version);
+    fprintf(f, "\n    Lastauthmsg = %s\n",
+	auth->lastauthmsg ? auth->lastauthmsg : "(nil)");
+}
+
+#endif
+
 /*
  * Initialize the fields of an OtrlAuthInfo (already allocated).
  */

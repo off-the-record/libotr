@@ -30,6 +30,30 @@
 #include "sm.h"
 #include "serial.h"
 
+#if OTRL_DEBUGGING
+
+/* Dump the contents of an SMState to the FILE *f. */
+void otrl_sm_dump(FILE *f, const OtrlSMState *sm)
+{
+    fprintf(f, "  SM state:\n");
+    fprintf(f, "    Next expected: %d (%s)\n", sm->nextExpected,
+	sm->nextExpected == OTRL_SMP_EXPECT1 ? "EXPECT1" :
+	sm->nextExpected == OTRL_SMP_EXPECT2 ? "EXPECT2" :
+	sm->nextExpected == OTRL_SMP_EXPECT3 ? "EXPECT3" :
+	sm->nextExpected == OTRL_SMP_EXPECT4 ? "EXPECT4" :
+	sm->nextExpected == OTRL_SMP_EXPECT5 ? "EXPECT5" :
+	"INVALID");
+    fprintf(f, "    Received_Q: %d\n", sm->received_question);
+    fprintf(f, "    Progress state: %d (%s)\n", sm->sm_prog_state,
+	sm->sm_prog_state == OTRL_SMP_PROG_OK ? "OK" :
+	sm->sm_prog_state == OTRL_SMP_PROG_CHEATED ? "CHEATED" :
+	sm->sm_prog_state == OTRL_SMP_PROG_FAILED ? "FAILED" :
+	sm->sm_prog_state == OTRL_SMP_PROG_SUCCEEDED ? "SUCCEEDED" :
+	"INVALID");
+}
+
+#endif
+
 static const int SM_MSG1_LEN = 6;
 static const int SM_MSG2_LEN = 11;
 static const int SM_MSG3_LEN = 8;
