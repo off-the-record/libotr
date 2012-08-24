@@ -3,6 +3,12 @@
 	* README:
 	* configure.ac: Release 4.0.0
 
+2012-08-24
+
+	* src/message.c: Consider copying the master auth context to the
+	child, even if the child is already in ENCRYPTED, because we
+	might be trying to refresh a private conversation.
+
 2012-08-22
 
 	* configure.ac: Use gcc and ld hardening flags, where possible.

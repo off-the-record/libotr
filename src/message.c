@@ -1027,8 +1027,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    if (ops->update_context_list) {
 		ops->update_context_list(opdata);
 	    }
-	} else if (m_context != context && (context->msgstate !=
-		OTRL_MSGSTATE_ENCRYPTED || context->otr_offer == OFFER_SENT)) {
+	} else if (m_context != context) {
 	    /* Switching from m_context to existing instance context */
 	    if (msgtype == OTRL_MSGTYPE_DH_KEY && m_context->auth.authstate
 		    == OTRL_AUTHSTATE_AWAITING_DHKEY &&
