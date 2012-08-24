@@ -106,6 +106,17 @@ void otrl_context_siblings_dump(FILE *f, const ConnContext *context)
 	otrl_context_dump(f, citer);
     }
 }
+
+/* Dump all contexts. */
+void otrl_context_all_dump(FILE *f, OtrlUserState us)
+{
+    const ConnContext *citer;
+    unsigned int ctxnum = 1;
+    for (citer = us->context_root; citer; citer = citer->next, ++ctxnum) {
+	fprintf(f, "%u. ", ctxnum);
+	otrl_context_dump(f, citer);
+    }
+}
 #endif
 
 /* Create a new connection context. */
