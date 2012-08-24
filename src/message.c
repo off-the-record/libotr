@@ -40,7 +40,7 @@
 
 /* If OTRL_DEBUGGING is on, and the user types this string, the current
  * context and its siblings will be dumped to stderr. */
-#define OTRL_DEBUGGING_DEBUGSTR "?OTR!"
+const char *OTRL_DEBUGGING_DEBUGSTR = "?OTR!";
 
 void otrl_context_siblings_dump(FILE *f, const ConnContext *context);
 #endif
