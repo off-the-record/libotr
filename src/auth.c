@@ -298,6 +298,9 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
     size_t buflen, lenp, enclen, hashlen;
     int res;
 
+    /* Are we the auth for the master context? */
+    int is_master = (auth->context->m_context == auth->context);
+
     res = otrl_base64_otr_decode(commitmsg, &buf, &buflen);
     if (res == -1) goto memerr;
     if (res == -2) goto invval;
@@ -358,8 +361,13 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
 
 	case OTRL_AUTHSTATE_AWAITING_DHKEY:
 	    /* We sent a D-H Commit Message, and we also received one
-	     * back.  Compare the hashgx values to see which one wins. */
-	    if (memcmp(auth->hashgx, hashbuf, 32) > 0) {
+	     * back.  If we're the master context, then the keypair in here
+	     * is probably stale; we just kept it around for a little
+	     * while in case some other logged in instance of our buddy
+	     * replied with a DHKEY message.  In that case, use the
+	     * incoming parameters.  Otherwise, compare the hashgx
+	     * values to see which one wins. */
+	    if (!is_master && memcmp(auth->hashgx, hashbuf, 32) > 0) {
 		/* Ours wins.  Ignore the message we received, and just
 		 * resend the same D-H Commit message again. */
 		free(encbuf);
