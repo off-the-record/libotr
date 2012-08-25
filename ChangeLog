@@ -1,7 +1,17 @@
+2012-08-25
+
+	* src/sm.c:
+	* src/context.c:
+	* src/auth.c:
+	* src/message.c: If OTRL_DEBUGGING is non-zero, then a message
+	containing a special debug string ("?OTR!") will cause debug
+	info to be printed to stderr.  (This #define should *not* be set
+	in release code.)
+
 2012-08-24
 
 	* README:
-	* configure.ac: Release 4.0.0
+	* configure.ac: Prepare for release 4.0.0
 
 2012-08-24
 
