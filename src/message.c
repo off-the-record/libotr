@@ -1045,8 +1045,8 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		context->auth.protocol_version = 3;
 		context->protocol_version = 3;
 		otrl_auth_copy_on_commit(&(m_context->auth), &(context->auth));
-		}
 	    }
+	}
     }
 
     if (contextp) {
