@@ -13,6 +13,10 @@
 	* src/message.c: Correct the logic for handling incoming COMMIT
 	messages when we've recently sent our own COMMIT message.
 
+	* src/message.c: Don't update the recent_sent_child field to
+	point to the master context just becuase we sent a version 3
+	COMMIT message (which has no destination instance).
+
 2012-08-24
 
 	* README:
