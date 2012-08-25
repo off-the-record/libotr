@@ -8,6 +8,11 @@
 	info to be printed to stderr.  (This #define should *not* be set
 	in release code.)
 
+	* src/auth.c:
+	* src/auth.h:
+	* src/message.c: Correct the logic for handling incoming COMMIT
+	messages when we've recently sent our own COMMIT message.
+
 2012-08-24
 
 	* README:
