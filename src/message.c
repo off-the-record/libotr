@@ -1051,11 +1051,9 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		context->msgstate = m_context->msgstate;
 	    }
 
-	    if (msgtype == OTRL_MSGTYPE_DH_COMMIT) {
-		otrl_auth_copy_on_commit(&(m_context->auth), &(context->auth));
-	    } else if (msgtype == OTRL_MSGTYPE_DH_KEY) {
+	    if (msgtype == OTRL_MSGTYPE_DH_KEY) {
 		otrl_auth_copy_on_key(&(m_context->auth), &(context->auth));
-	    } else {
+	    } else if (msgtype != OTRL_MSGTYPE_DH_COMMIT) {
 		return 1;  /* Ignore unexpected message */
 	    }
 
@@ -1073,14 +1071,6 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		context->auth.protocol_version = 3;
 		context->protocol_version = 3;
 		otrl_auth_copy_on_key(&(m_context->auth), &(context->auth));
-	    } else if (msgtype == OTRL_MSGTYPE_DH_COMMIT &&
-		    m_context->auth.authstate == OTRL_AUTHSTATE_AWAITING_DHKEY
-		    && !(context->auth.authstate ==
-		    OTRL_AUTHSTATE_AWAITING_DHKEY)) {
-		context->msgstate = m_context->msgstate;
-		context->auth.protocol_version = 3;
-		context->protocol_version = 3;
-		otrl_auth_copy_on_commit(&(m_context->auth), &(context->auth));
 	    }
 	}
     }

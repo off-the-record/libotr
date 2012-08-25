@@ -1428,41 +1428,6 @@ err:
 
 /*
  * Copy relevant information from the master OtrlAuthInfo to an
- * instance OtrlAuthInfo in response to a D-H Commit with a new
- * instance. The fields copied will depend on the state of the
- * master auth.
- */
-void otrl_auth_copy_on_commit(OtrlAuthInfo *m_auth, OtrlAuthInfo *auth)
-{
-    switch(m_auth->authstate) {
-	case OTRL_AUTHSTATE_NONE:
-	case OTRL_AUTHSTATE_AWAITING_REVEALSIG:
-	    auth->authstate = OTRL_AUTHSTATE_NONE;
-	    break;
-	case OTRL_AUTHSTATE_AWAITING_DHKEY:
-	    /* We sent a D-H Commit Message, and we also received one.
-	     *  Copy our D_H Commit and auth state */
-	    otrl_dh_keypair_free(&(auth->our_dh));
-	    auth->initiated = m_auth->initiated;
-	    otrl_dh_keypair_copy(&(auth->our_dh), &(m_auth->our_dh));
-	    auth->our_keyid = m_auth->our_keyid;
-	    memmove(auth->r, m_auth->r, 16);
-	    if (auth->encgx) free(auth->encgx);
-	    auth->encgx = malloc(m_auth->encgx_len);
-	    memmove(auth->encgx, m_auth->encgx, m_auth->encgx_len);
-	    memmove(auth->hashgx, m_auth->hashgx, 32);
-
-	    auth->authstate = OTRL_AUTHSTATE_AWAITING_DHKEY;
-	    break;
-
-	default:
-	    /* This bad state will be detected and handled later */
-	    break;
-    }
-}
-
-/*
- * Copy relevant information from the master OtrlAuthInfo to an
  * instance OtrlAuthInfo in response to a D-H Key with a new
  * instance. The fields copied will depend on the state of the
  * master auth.
