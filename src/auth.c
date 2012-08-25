@@ -59,6 +59,8 @@ void otrl_auth_dump(FILE *f, const OtrlAuthInfo *auth)
     fprintf(f, "\n    Proto version = %d\n", auth->protocol_version);
     fprintf(f, "\n    Lastauthmsg = %s\n",
 	auth->lastauthmsg ? auth->lastauthmsg : "(nil)");
+    fprintf(f, "\n    Commit sent time = %ld\n",
+	(long) auth->commit_sent_time);
 }
 
 #endif
@@ -90,6 +92,7 @@ void otrl_auth_new(struct context *context)
     memset(auth->secure_session_id, 0, 20);
     auth->secure_session_id_len = 0;
     auth->lastauthmsg = NULL;
+    auth->commit_sent_time = 0;
     auth->context = context;
 }
 
@@ -128,6 +131,7 @@ void otrl_auth_clear(OtrlAuthInfo *auth)
     auth->secure_session_id_len = 0;
     free(auth->lastauthmsg);
     auth->lastauthmsg = NULL;
+    auth->commit_sent_time = 0;
 }
 
 /*

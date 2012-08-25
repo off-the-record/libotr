@@ -451,13 +451,22 @@ static gcry_error_t send_or_error_auth(const OtrlMessageAppOps *ops,
 	if (msg && *msg) {
 	    fragment_and_send(ops, opdata, context, msg,
 		    OTRL_FRAGMENT_SEND_ALL, NULL);
+	    time_t now = time(NULL);
 	    /* Update the "last sent" fields, unless this is a version 3
 	     * message typing to update the master context (as happens
 	     * when sending a v3 COMMIT message, for example). */
 	    if (context != context->m_context ||
 		    context->auth.protocol_version != 3) {
-		context->context_priv->lastsent = time(NULL);
+		context->context_priv->lastsent = now;
 		otrl_context_update_recent_child(context, 1);
+	    }
+
+	    /* If this is a master context, and we're sending a COMMIT
+	     * message, update the commit_sent_time timestamp, so we can
+	     * expire it. */
+	    if (context == context->m_context &&
+		context->auth.authstate == OTRL_AUTHSTATE_AWAITING_DHKEY) {
+		context->auth.commit_sent_time = now;
 	    }
 	}
     } else {

@@ -22,6 +22,7 @@
 #define __AUTH_H__
 
 #include <gcrypt.h>
+#include <time.h>
 #include "dh.h"
 
 
@@ -75,6 +76,12 @@ typedef struct {
 					     (base-64 encoded) we sent,
 					     in case we need to
 					     retransmit it. */
+
+    time_t commit_sent_time;              /* The time we last sent the
+                                             lastauthmsg, if it was a
+					     COMMIT message, and this is
+					     a master context.  0
+					     otherwise. */
 } OtrlAuthInfo;
 
 #include "privkey-t.h"
