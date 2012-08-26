@@ -8,6 +8,10 @@
 	functions to start with otrl_.  Thanks to David Goulet
 	<dgoulet@ev0ke.net> for noticing it.
 
+	* Protocol-v3.html: Document the v3 whitespace tag, and better
+	document the extra symmetric key.  Thanks to Kjell Braden
+	<kb@pentabarf.de> for noticing the omission.
+
 2012-08-25
 
 	* src/sm.c:

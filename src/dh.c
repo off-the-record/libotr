@@ -205,7 +205,6 @@ gcry_error_t otrl_dh_session(DH_sesskeys *sess, const DH_keypair *kp,
 
     /* Calculate the extra key (used if applications wish to extract a
      * symmetric key for transferring files, or something like that) */
-    /* XXX: Document this in the protocol spec */
     gabdata[0] = 0xff;
     gcry_md_hash_buffer(GCRY_MD_SHA256, sess->extrakey, gabdata, gablen+5);
 
