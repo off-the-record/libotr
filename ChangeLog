@@ -1,3 +1,13 @@
+2012-08-26
+
+	* src/context.c:
+	* src/context_priv.c:
+	* src/context_priv.h: libotr was exporting exactly two functions
+	without the otrl_ prefix: context_priv_new and
+	context_priv_force_finished.  Change the names of these
+	functions to start with otrl_.  Thanks to David Goulet
+	<dgoulet@ev0ke.net> for noticing it.
+
 2012-08-25
 
 	* src/sm.c:

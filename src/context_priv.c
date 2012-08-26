@@ -29,7 +29,7 @@
 #include "context_priv.h"
 
 /* Create a new private connection context */
-ConnContextPriv *context_priv_new()
+ConnContextPriv *otrl_context_priv_new()
 {
 	ConnContextPriv *context_priv;
 	context_priv = malloc(sizeof(*context_priv));
@@ -67,7 +67,7 @@ ConnContextPriv *context_priv_new()
 /* Resets the appropriate variables when a context
  * is being force finished
  */
-void context_priv_force_finished(ConnContextPriv *context_priv)
+void otrl_context_priv_force_finished(ConnContextPriv *context_priv)
 {
 	free(context_priv->fragment);
 	context_priv->fragment = NULL;

@@ -154,7 +154,7 @@ static ConnContext * new_context(const char * user, const char * accountname,
     context->otr_offer = OFFER_NOT;
     context->app_data = NULL;
     context->app_data_free = NULL;
-    context->context_priv = context_priv_new();
+    context->context_priv = otrl_context_priv_new();
     assert(context->context_priv != NULL);
     context->next = NULL;
     context->m_context = context;
@@ -420,7 +420,7 @@ void otrl_context_force_finished(ConnContext *context)
     context->sessionid_len = 0;
     context->protocol_version = 0;
     otrl_sm_state_free(context->smstate);
-    context_priv_force_finished(context->context_priv);
+    otrl_context_priv_force_finished(context->context_priv);
 }
 
 /* Force a context into the OTRL_MSGSTATE_PLAINTEXT state. */

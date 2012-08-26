@@ -86,9 +86,9 @@ typedef struct context_priv {
 } ConnContextPriv;
 
 /* Create a new private connection context. */
-ConnContextPriv *context_priv_new();
+ConnContextPriv *otrl_context_priv_new();
 
-/* Frees up memory that was used in context_priv_new */
-void context_priv_force_finished(ConnContextPriv *context_priv);
+/* Frees up memory that was used in otrl_context_priv_new */
+void otrl_context_priv_force_finished(ConnContextPriv *context_priv);
 
 #endif
