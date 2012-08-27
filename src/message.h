@@ -255,6 +255,43 @@ typedef struct s_OtrlMessageAppOps {
      /* Deallocate a string returned by convert_msg. */
     void (*convert_free)(void *opdata, ConnContext *context, char *dest);
 
+    /* When timer_control is called, turn off any existing periodic
+     * timer.
+     * 
+     * Additionally, if interval > 0, set a new periodic timer
+     * to go off every interval seconds.  When that timer fires, you
+     * must call otrl_message_poll(userstate, uiops, uiopdata); from the
+     * main libotr thread.
+     * 
+     * The timing does not have to be exact; this timer is used to
+     * provide forward secrecy by cleaning up stale private state that
+     * may otherwise stick around in memory.  Note that the
+     * timer_control callback may be invoked from otrl_message_poll
+     * itself, possibly to indicate that interval == 0 (that is, that
+     * there's no more periodic work to be done at this time).
+     * 
+     * If you set this callback to NULL, then you must ensure that your
+     * application calls otrl_message_poll(userstate, uiops, uiopdata);
+     * from the main libotr thread every definterval seconds (where
+     * definterval can be obtained by calling
+     * definterval = otrl_message_poll_get_default_interval(userstate);
+     * right after creating the userstate).  The advantage of
+     * implementing the timer_control callback is that the timer can be
+     * turned on by libotr only when it's needed.
+     * 
+     * It is not a problem (except for a minor performance hit) to call
+     * otrl_message_poll more often than requested, whether
+     * timer_control is implemented or not.
+     * 
+     * If you fail to implement the timer_control callback, and also
+     * fail to periodically call otrl_message_poll, then you open your
+     * users to a possible forward secrecy violation: an attacker that
+     * compromises the user's computer may be able to decrypt a handful
+     * of long-past messages (the first messages of an OTR
+     * conversation).
+     */
+    void (*timer_control)(void *opdata, unsigned int interval);
+
 } OtrlMessageAppOps;
 
 /* Deallocate a message allocated by other otrl_message_* routines. */
@@ -384,5 +421,19 @@ gcry_error_t otrl_message_symkey(OtrlUserState us,
 	const OtrlMessageAppOps *ops, void *opdata, ConnContext *context,
 	unsigned int use, const unsigned char *usedata, size_t usedatalen,
 	unsigned char *symkey);
+
+/* If you do _not_ define a timer_control callback function, set a timer
+ * to go off every definterval =
+ * otrl_message_poll_get_default_interval(userstate) seconds, and call
+ * otrl_message_poll every time the timer goes off. */
+unsigned int otrl_message_poll_get_default_interval(OtrlUserState us);
+
+/* Call this function every so often, either as directed by the
+ * timer_control callback, or every definterval =
+ * otrl_message_poll_get_default_interval(userstate) seconds if you have
+ * no timer_control callback.  This function must be called from the
+ * main libotr thread.*/
+void otrl_message_poll(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata);
 
 #endif

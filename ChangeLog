@@ -1,3 +1,20 @@
+2012-08-27
+
+	* src/auth.h:
+	* src/auth.c:
+	* src/message.c: Record the time the last COMMIT was sent from a
+	master context.  This will be used to clear the committed key
+	from the master context once we don't expect any more instances
+	of our buddy to respond with a DHKEY message.
+
+	* UPGRADING:
+	* src/userstate.h:
+	* src/userstate.c:
+	* src/message.h:
+	* src/message.c: Add a timer_control callback to
+	OtrlMessageAppOps in order to actually clear out the above stale
+	committed keys.
+
 2012-08-26
 
 	* src/context.c:

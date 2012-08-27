@@ -32,6 +32,7 @@ struct s_OtrlUserState {
     OtrlPrivKey *privkey_root;
     OtrlInsTag *instag_root;
     OtrlPendingPrivKey *pending_root;
+    int timer_running;
 };
 
 /* Create a new OtrlUserState.  Most clients will only need one of
@@ -43,7 +44,8 @@ struct s_OtrlUserState {
  * OtrlUserState. */
 OtrlUserState otrl_userstate_create(void);
 
-/* Free a OtrlUserState */
+/* Free a OtrlUserState.  If you have a timer running for this userstate,
+stop it before freeing the userstate. */
 void otrl_userstate_free(OtrlUserState us);
 
 #endif

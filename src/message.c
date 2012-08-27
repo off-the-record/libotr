@@ -56,6 +56,15 @@ extern unsigned int otrl_api_version;
  * resending in response to a rekey? */
 #define RESEND_INTERVAL 60
 
+/* How long should we wait for the last of the logged-in instances of
+ * our buddy to respond before marking our private key as a candidate
+ * for wiping (in seconds)? */
+#define MAX_AKE_WAIT_TIME 60
+
+/* How frequently should we check our ConnContexts for wipeable private
+ * keys (and wipe them) (in seconds)? */
+#define POLL_DEFAULT_INTERVAL 70
+
 /* Send a message to the network, fragmenting first if necessary.
  * All messages to be sent to the network should go through this
  * method immediately before they are sent, ie after encryption. */
@@ -444,7 +453,8 @@ fragment:
  * appropriate user.  Otherwise, display an appripriate error dialog.
  * Return the value of err that was passed. */
 static gcry_error_t send_or_error_auth(const OtrlMessageAppOps *ops,
-	void *opdata, gcry_error_t err, ConnContext *context)
+	void *opdata, gcry_error_t err, ConnContext *context,
+	OtrlUserState us)
 {
     if (!err) {
 	const char *msg = context->auth.lastauthmsg;
@@ -461,12 +471,19 @@ static gcry_error_t send_or_error_auth(const OtrlMessageAppOps *ops,
 		otrl_context_update_recent_child(context, 1);
 	    }
 
-	    /* If this is a master context, and we're sending a COMMIT
+	    /* If this is a master context, and we're sending a v3 COMMIT
 	     * message, update the commit_sent_time timestamp, so we can
 	     * expire it. */
 	    if (context == context->m_context &&
-		context->auth.authstate == OTRL_AUTHSTATE_AWAITING_DHKEY) {
+		    context->auth.authstate == OTRL_AUTHSTATE_AWAITING_DHKEY &&
+		    context->auth.protocol_version == 3) {
 		context->auth.commit_sent_time = now;
+		/* If there's not already a timer running to clean up
+		 * this private key, try to start one. */
+		if (us->timer_running == 0 && ops && ops->timer_control) {
+		    ops->timer_control(opdata, POLL_DEFAULT_INTERVAL);
+		    us->timer_running = 1;
+		}
 	    }
 	}
     } else {
@@ -1129,11 +1146,11 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    switch(otrl_proto_query_bestversion(message, policy)) {
 		case 3:
 		    err = otrl_auth_start_v23(&(context->auth), 3);
-		    send_or_error_auth(ops, opdata, err, context);
+		    send_or_error_auth(ops, opdata, err, context, us);
 		    break;
 		case 2:
 		    err = otrl_auth_start_v23(&(context->auth), 2);
-		    send_or_error_auth(ops, opdata, err, context);
+		    send_or_error_auth(ops, opdata, err, context, us);
 		    break;
 		case 1:
 		    /* Get our private key */
@@ -1151,7 +1168,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		    if (privkey) {
 			err = otrl_auth_start_v1(&(context->auth), our_dh,
 				our_keyid, privkey);
-			send_or_error_auth(ops, opdata, err, context);
+			send_or_error_auth(ops, opdata, err, context, us);
 		    }
 		    break;
 		default:
@@ -1164,7 +1181,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 
 	case OTRL_MSGTYPE_DH_COMMIT:
 	    err = otrl_auth_handle_commit(&(context->auth), otrtag, version);
-	    send_or_error_auth(ops, opdata, err, context);
+	    send_or_error_auth(ops, opdata, err, context, us);
 
 	    if (edata.ignore_message == -1) edata.ignore_message = 1;
 	    break;
@@ -1186,7 +1203,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		err = otrl_auth_handle_key(&(context->auth), otrtag,
 			&haveauthmsg, privkey);
 		if (err || haveauthmsg) {
-		    send_or_error_auth(ops, opdata, err, context);
+		    send_or_error_auth(ops, opdata, err, context, us);
 		}
 	    }
 
@@ -1211,7 +1228,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			otrtag, &haveauthmsg, privkey, go_encrypted,
 			&edata);
 		if (err || haveauthmsg) {
-		    send_or_error_auth(ops, opdata, err, context);
+		    send_or_error_auth(ops, opdata, err, context, us);
 		    maybe_resend(&edata);
 		}
 	    }
@@ -1223,7 +1240,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    err = otrl_auth_handle_signature(&(context->auth),
 		    otrtag, &haveauthmsg, go_encrypted, &edata);
 	    if (err || haveauthmsg) {
-		send_or_error_auth(ops, opdata, err, context);
+		send_or_error_auth(ops, opdata, err, context, us);
 		maybe_resend(&edata);
 	    }
 
@@ -1258,7 +1275,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			message, &haveauthmsg, privkey, our_dh, our_keyid,
 			go_encrypted, &edata);
 		if (err || haveauthmsg) {
-		    send_or_error_auth(ops, opdata, err, context);
+		    send_or_error_auth(ops, opdata, err, context, us);
 		    maybe_resend(&edata);
 		}
 	    }
@@ -1778,11 +1795,11 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 		switch(bestversion) {
 		    case 3:
 			err = otrl_auth_start_v23(&(context->auth), 3);
-			send_or_error_auth(ops, opdata, err, context);
+			send_or_error_auth(ops, opdata, err, context, us);
 			break;
 		    case 2:
 			err = otrl_auth_start_v23(&(context->auth), 2);
-			send_or_error_auth(ops, opdata, err, context);
+			send_or_error_auth(ops, opdata, err, context, us);
 			break;
 		    case 1:
 			/* Get our private key */
@@ -1802,7 +1819,7 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 			if (privkey) {
 			    err = otrl_auth_start_v1(&(context->auth), NULL, 0,
 				    privkey);
-			    send_or_error_auth(ops, opdata, err, context);
+			    send_or_error_auth(ops, opdata, err, context, us);
 			}
 			break;
 		    default:
@@ -1969,4 +1986,55 @@ gcry_error_t otrl_message_symkey(OtrlUserState us,
 
     /* We weren't in an encrypted session. */
     return gcry_error(GPG_ERR_INV_VALUE);
+}
+
+/* If you do _not_ define a timer_control callback function, set a timer
+ * to go off every definterval =
+ * otrl_message_poll_get_default_interval(userstate) seconds, and call
+ * otrl_message_poll every time the timer goes off. */
+unsigned int otrl_message_poll_get_default_interval(OtrlUserState us)
+{
+    return POLL_DEFAULT_INTERVAL;
+}
+
+/* Call this function every so often, either as directed by the
+ * timer_control callback, or every definterval =
+ * otrl_message_poll_get_default_interval(userstate) seconds if you have
+ * no timer_control callback.  This function must be called from the
+ * main libotr thread.*/
+void otrl_message_poll(OtrlUserState us, const OtrlMessageAppOps *ops,
+	void *opdata)
+{
+    /* Wipe private keys last sent before this time */
+    time_t expire_before = time(NULL) - MAX_AKE_WAIT_TIME;
+
+    ConnContext *contextp;
+
+    /* Is there a context still waiting for a DHKEY message, even after
+     * we wipe the stale ones? */
+    int still_waiting = 0;
+
+    if (us == NULL) return;
+    
+    for (contextp = us->context_root; contextp; contextp = contextp->next) {
+	/* If this is a master context, and it's still waiting for a
+	 * v3 DHKEY message, see if it's waited long enough. */
+	if (contextp->m_context == contextp &&
+		contextp->auth.authstate == OTRL_AUTHSTATE_AWAITING_DHKEY &&
+		contextp->auth.protocol_version == 3 &&
+		contextp->auth.commit_sent_time > 0) {
+	    if (contextp->auth.commit_sent_time < expire_before) {
+		otrl_auth_clear(&contextp->auth);
+	    } else {
+		/* Not yet expired */
+		still_waiting = 1;
+	    }
+	}
+    }
+
+    /* If there's nothing more to wait for, stop the timer, if possible. */
+    if (still_waiting == 0 && ops && ops->timer_control) {
+	ops->timer_control(opdata, 0);
+	us->timer_running = 0;
+    }
 }
