@@ -102,12 +102,15 @@ typedef enum {
 
 /* Initialize the OTR library.  Pass the version of the API you are
  * using. */
-void otrl_init(unsigned int ver_major, unsigned int ver_minor,
+gcry_error_t otrl_init(unsigned int ver_major, unsigned int ver_minor,
 	unsigned int ver_sub);
 
 /* Shortcut */
 #define OTRL_INIT do { \
-	otrl_init(OTRL_VERSION_MAJOR, OTRL_VERSION_MINOR, OTRL_VERSION_SUB); \
+	if (otrl_init(OTRL_VERSION_MAJOR, OTRL_VERSION_MINOR, \
+		OTRL_VERSION_SUB)) { \
+	    exit(1); \
+	} \
     } while(0)
 
 /* Return a pointer to a static string containing the version number of

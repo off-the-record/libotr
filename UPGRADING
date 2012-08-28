@@ -15,6 +15,7 @@ Table of Contents
 3.2. Instance Tags
 3.3. Fragmentation Changes
 3.4. Asynchronous Private Key Generation
+3.5. Library Initialization
 
 1. Introduction
 
@@ -499,5 +500,16 @@ If the privkey generation was cancelled, the application should call:
 void otrl_privkey_generate_cancelled(OtrlUserState us, void *newkey)
 
 
+3.5. Library Initialization
 
+If you currently initialize libotr with the recommended OTRL_INIT;
+macro, you do not need to change anything.
+
+If you call otrl_init(ver_major, ver_minor, ver_sub) directly, then know
+that this function no longer returns void.  Previously, if the
+application requested version numbers incompatible with those of the
+library, the library would exit(1).  Now, the otrl_init call will return
+a non-zero error code.  You must check the return value of otrl_init (a
+gcry_error_t), and if it is non-zero, your application's expected
+API/ABI does not match the installed libotr, and libotr cannot be used.
 

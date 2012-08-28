@@ -48,7 +48,7 @@ unsigned int otrl_api_version = 0;
 
 /* Initialize the OTR library.  Pass the version of the API you are
  * using. */
-void otrl_init(unsigned int ver_major, unsigned int ver_minor,
+gcry_error_t otrl_init(unsigned int ver_major, unsigned int ver_minor,
 	unsigned int ver_sub)
 {
     unsigned int api_version;
@@ -60,7 +60,7 @@ void otrl_init(unsigned int ver_major, unsigned int ver_minor,
 		"with actual version %u.%u.%u.  Aborting.\n",
 		ver_major, ver_minor, ver_sub,
 		OTRL_VERSION_MAJOR, OTRL_VERSION_MINOR, OTRL_VERSION_SUB);
-	exit(1);
+	return gcry_error(GPG_ERR_INV_VALUE);
     }
 
     /* Set the API version.  If we get called multiple times for some
@@ -84,6 +84,8 @@ void otrl_init(unsigned int ver_major, unsigned int ver_minor,
     fprintf(stderr, "\nlibotr debugging is available.  Type %s in a message\n"
 	    "  to see debug info.\n\n", OTRL_DEBUGGING_DEBUGSTR);
 #endif
+
+    return gcry_error(GPG_ERR_NO_ERROR);
 }
 
 /* Return a pointer to a static string containing the version number of

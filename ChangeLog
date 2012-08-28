@@ -1,3 +1,14 @@
+2012-08-28
+
+	* UPGRADING:
+	* src/proto.h:
+	* src/proto.c: Don't have otrl_init call exit(1) if the
+	application's requested version number differs from libotr's.
+	Rather, return a non-zero error code, and have the application
+	clean up gracefully.  The OTRL_INIT macro now checks the error
+	code and does an exit(1) as the default behaviour, but the
+	application can do what it likes.
+
 2012-08-27
 
 	* src/auth.h:
