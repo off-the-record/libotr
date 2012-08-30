@@ -898,10 +898,10 @@ static void message_malformed(const OtrlMessageAppOps *ops,
  * "context->app" field, for example.  If you don't need to do this, you
  * can pass NULL for the last two arguments of otrl_message_receiving.
  *
- * If non-NULL, ops->convert_msg will be called after a data message is 
+ * If non-NULL, ops->convert_msg will be called after a data message is
  * decrypted.
  *
- * If "contextp" is not NULL, it will be set to the ConnContext used for 
+ * If "contextp" is not NULL, it will be set to the ConnContext used for
  * receiving the message.
  *
  * If otrl_message_receiving returns 1, then the message you received
@@ -1929,7 +1929,7 @@ void otrl_message_disconnect_all_instances(OtrlUserState us,
     ConnContext *context;
 
     if (!username || !accountname || !protocol) return;
-    
+
     context = otrl_context_find(us, username, accountname,
 	    protocol, OTRL_INSTAG_MASTER, 0, NULL, NULL, NULL);
 
@@ -2015,7 +2015,7 @@ void otrl_message_poll(OtrlUserState us, const OtrlMessageAppOps *ops,
     int still_waiting = 0;
 
     if (us == NULL) return;
-    
+
     for (contextp = us->context_root; contextp; contextp = contextp->next) {
 	/* If this is a master context, and it's still waiting for a
 	 * v3 DHKEY message, see if it's waited long enough. */

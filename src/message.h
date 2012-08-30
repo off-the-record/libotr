@@ -257,19 +257,19 @@ typedef struct s_OtrlMessageAppOps {
 
     /* When timer_control is called, turn off any existing periodic
      * timer.
-     * 
+     *
      * Additionally, if interval > 0, set a new periodic timer
      * to go off every interval seconds.  When that timer fires, you
      * must call otrl_message_poll(userstate, uiops, uiopdata); from the
      * main libotr thread.
-     * 
+     *
      * The timing does not have to be exact; this timer is used to
      * provide forward secrecy by cleaning up stale private state that
      * may otherwise stick around in memory.  Note that the
      * timer_control callback may be invoked from otrl_message_poll
      * itself, possibly to indicate that interval == 0 (that is, that
      * there's no more periodic work to be done at this time).
-     * 
+     *
      * If you set this callback to NULL, then you must ensure that your
      * application calls otrl_message_poll(userstate, uiops, uiopdata);
      * from the main libotr thread every definterval seconds (where
@@ -278,11 +278,11 @@ typedef struct s_OtrlMessageAppOps {
      * right after creating the userstate).  The advantage of
      * implementing the timer_control callback is that the timer can be
      * turned on by libotr only when it's needed.
-     * 
+     *
      * It is not a problem (except for a minor performance hit) to call
      * otrl_message_poll more often than requested, whether
      * timer_control is implemented or not.
-     * 
+     *
      * If you fail to implement the timer_control callback, and also
      * fail to periodically call otrl_message_poll, then you open your
      * users to a possible forward secrecy violation: an attacker that
@@ -350,10 +350,10 @@ gcry_error_t otrl_message_sending(OtrlUserState us,
  * "context->app" field, for example.  If you don't need to do this, you
  * can pass NULL for the last two arguments of otrl_message_receiving.
  *
- * If non-NULL, ops->convert_msg will be called after a data message is 
+ * If non-NULL, ops->convert_msg will be called after a data message is
  * decrypted.
  *
- * If "contextp" is not NULL, it will be set to the ConnContext used for 
+ * If "contextp" is not NULL, it will be set to the ConnContext used for
  * receiving the message.
  *
  * If otrl_message_receiving returns 1, then the message you received

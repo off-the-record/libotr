@@ -443,7 +443,7 @@ static gcry_error_t otrl_sm_proof_know_log(gcry_mpi_t *c, gcry_mpi_t *d,
 }
 
 /*
- * Verify a proof of knowledge of a discrete logarithm. 
+ * Verify a proof of knowledge of a discrete logarithm.
  * Checks that c = h(g^d x^c)
  */
 static int otrl_sm_check_know_log(const gcry_mpi_t c, const gcry_mpi_t d,

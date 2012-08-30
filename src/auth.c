@@ -194,7 +194,7 @@ gcry_error_t otrl_auth_start_v23(OtrlAuthInfo *auth, int version)
     enc = NULL;
 
     /* Now serialize the message */
-    lenp = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4 
+    lenp = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4
 	    + auth->encgx_len + 4 + 32;
     bufp = malloc(lenp);
     if (bufp == NULL) goto memerr;
@@ -652,7 +652,7 @@ static gcry_error_t create_revealsig_message(OtrlAuthInfo *auth,
 	    auth->our_dh.pub, auth->their_pub, privkey, auth->our_keyid);
     if (err) goto err;
 
-    buflen = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4 + 16 
+    buflen = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4 + 16
 	    + 4 + authlen + 20;
     buf = malloc(buflen);
     if (buf == NULL) goto memerr;
@@ -731,7 +731,7 @@ static gcry_error_t create_signature_message(OtrlAuthInfo *auth,
 	    auth->our_keyid);
     if (err) goto err;
 
-    buflen = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4 
+    buflen = OTRL_HEADER_LEN + (auth->protocol_version == 3 ? 8 : 0) + 4
 	    + authlen + 20;
     buf = malloc(buflen);
     if (buf == NULL) goto memerr;
