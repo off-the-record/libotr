@@ -159,8 +159,8 @@ if test x$enable_gcc_hardening != xno; then
     else
         OTR_CHECK_CFLAGS(-fPIE)
         OTR_CHECK_LDFLAGS(-pie, "$all_ldflags_for_check", "$all_libs_for_check")
-        OTR_CHECK_LDFLAGS(--dynamicbase, "$all_ldflags_for_check", "$all_libs_for_check")
-        OTR_CHECK_LDFLAGS(--nxcompat, "$all_ldflags_for_check", "$all_libs_for_check")
+        OTR_CHECK_LDFLAGS([-Wl,--dynamicbase], "$all_ldflags_for_check", "$all_libs_for_check")
+        OTR_CHECK_LDFLAGS([-Wl,--nxcompat], "$all_ldflags_for_check", "$all_libs_for_check")
     fi
 fi
 
