@@ -1078,9 +1078,14 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 	    /* Copy information from m_context to the new instance context */
 	    context->auth.protocol_version = 3;
 	    context->protocol_version = 3;
+	    context->msgstate = m_context->msgstate;
 
-	    if (context_added) {
-		context->msgstate = m_context->msgstate;
+	    if (m_context->context_priv->may_retransmit) {
+		gcry_free(context->context_priv->lastmessage);
+		context->context_priv->lastmessage = m_context->context_priv->lastmessage;
+		m_context->context_priv->lastmessage = NULL;
+		context->context_priv->may_retransmit = m_context->context_priv->may_retransmit;
+		m_context->context_priv->may_retransmit = 0;
 	    }
 
 	    if (msgtype == OTRL_MSGTYPE_DH_KEY) {
