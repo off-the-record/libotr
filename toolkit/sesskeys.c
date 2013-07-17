@@ -32,6 +32,7 @@ static const char* DH1536_MODULUS_S = "0x"
     "C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F"
     "83655D23DCA3AD961C62F356208552BB9ED529077096966D"
     "670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF";
+static const int DH1536_MOD_LEN_BITS = 1536;
 static const char *DH1536_GENERATOR_S = "0x02";
 
 /* Generate the session id and the two encryption keys from our private
@@ -52,9 +53,9 @@ void sesskeys_gen(unsigned char sessionid[20], unsigned char sendenc[16],
 	(const unsigned char *)DH1536_MODULUS_S, 0, NULL);
     gcry_mpi_scan(&generator, GCRYMPI_FMT_HEX,
 	(const unsigned char *)DH1536_GENERATOR_S, 0, NULL);
-    *our_yp = gcry_mpi_new(0);
+    *our_yp = gcry_mpi_new(DH1536_MOD_LEN_BITS);
     gcry_mpi_powm(*our_yp, generator, our_x, modulus);
-    secretv = gcry_mpi_new(0);
+    secretv = gcry_mpi_new(DH1536_MOD_LEN_BITS);
     gcry_mpi_powm(secretv, their_y, our_x, modulus);
     gcry_mpi_release(generator);
     gcry_mpi_release(modulus);
