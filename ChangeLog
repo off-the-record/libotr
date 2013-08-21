@@ -1,3 +1,44 @@
+2013-08-08
+
+	* Protocol-v3.html: Random exponents in SMP should be 1536 bits.
+	The spec (but not the code) incorrectly said "128 bits" before.
+
+2013-07-28
+
+	* packaging/fedora/libotr.spec: Fedora spec file for 4.x from
+	Paul Wouters <paul@cypherpunks.ca>
+
+2013-07-17
+
+	* toolkit/sesskeys.c: Workaround for a crash bug in libgcrypt
+	affecting otr_sesskeys.  Passing a private key value of 0 to
+	otr_sesskeys would cause libgcrypt to crash in gcry_mpi_powm.
+	We reported this libgcrypt bug and it was then fixed in
+	http://lists.gnupg.org/pipermail/gcrypt-devel/2013-July/002251.html
+	but the workaround is simply to use
+	gcry_mpi_new(DH1536_MOD_LEN_BITS) instead of gcry_mpi_new(0).
+	Note that this only affected the otr_sesskeys toolkit program,
+	and not libotr itself.
+	Thanks to the Mayhem Team at CMU (Alexandre Rebert, Thanassis
+	Avgerinos, Sang Kil Cha, David Brumley, Manuel Egele) for the
+	report.
+
+2013-01-19
+
+	* src/message.c: pass opdata when sending message fragment
+	The inject_message callback was missing the opdata when sending
+	message fragments.  Thanks to David Goulet <dgoulet@ev0ke.net>
+	for the report.
+
+2012-12-18
+
+	* src/message.c: Copy lastmessage to the newly created context.
+	This fixes a case where the first user message gets lost when
+	OTRL_POLICY_REQUIRE_ENCRYPTION policy is set because after
+	establishing the encryption lastmessage remains with the master
+	context and will not be resent.  Thanks to Andreas Schlick
+	<schlick@lavabit.com> for the report.
+
 2012-09-09
 
 	* configure.ac: Make linker hardening [DEP, ALSR] work on
