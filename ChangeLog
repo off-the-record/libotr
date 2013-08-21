@@ -1,3 +1,11 @@
+2013-08-21
+
+	* src/proto.c: Fix warning from clang in proto.c. Before, trying
+	to fragment a message into more than 65535 pieces would cause
+	incorrect fragments to be output.  Now, it just returns an error
+	(as that is disallowed by the spec).  Thanks to Teemu Huovila
+	<thuovila@cs.helsinki.fi> for reporting the issue.
+
 2013-08-08
 
 	* Protocol-v3.html: Random exponents in SMP should be 1536 bits.

@@ -990,13 +990,19 @@ gcry_error_t otrl_proto_fragment_create(int mms, int fragment_count,
 {
     char *fragdata;
     int fragdatalen = 0;
-    unsigned short curfrag = 0;
+    int curfrag = 0;
     int index = 0;
     int msglen = strlen(message);
     /* Should vary by number of msgs */
     int headerlen = context->protocol_version == 3 ? 37 : 19;
 
-    char **fragmentarray = malloc(fragment_count * sizeof(char*));
+    char **fragmentarray;
+
+    if (fragment_count < 1 || fragment_count > 65535) {
+	return gcry_error(GPG_ERR_INV_VALUE);
+    }
+
+    fragmentarray = malloc(fragment_count * sizeof(char*));
     if(!fragmentarray) return gcry_error(GPG_ERR_ENOMEM);
 
     /*
@@ -1034,13 +1040,15 @@ gcry_error_t otrl_proto_fragment_create(int mms, int fragment_count,
 	 */
 	if (context->auth.protocol_version != 3) {
 	    snprintf(fragmentmsg, fragdatalen + headerlen,
-		    "?OTR,%05hu,%05hu,%s,", curfrag, fragment_count, fragdata);
+		    "?OTR,%05hu,%05hu,%s,", (unsigned short)curfrag,
+			    (unsigned short)fragment_count, fragdata);
 	} else {
 	    /* V3 messages require instance tags in the header */
 	    snprintf(fragmentmsg, fragdatalen + headerlen,
 		    "?OTR|%08x|%08x,%05hu,%05hu,%s,",
-		    context->our_instance, context->their_instance, curfrag,
-		    fragment_count, fragdata);
+		    context->our_instance, context->their_instance,
+		    (unsigned short)curfrag, (unsigned short)fragment_count,
+		    fragdata);
 	}
 	fragmentmsg[fragdatalen + headerlen] = 0;
 
