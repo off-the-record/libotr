@@ -220,7 +220,7 @@ human-readable information after this initial string.
 Example:
 
 ?OTR?\nYour client does not support the OTR Private Messaging
-Protocol.\nSee http://www.cypherpunks.ca/otr/ for more information.
+Protocol.\nSee https://otr.cypherpunks.ca/ for more information.
 
 OTR Key Exchange
 ----------------

@@ -242,10 +242,10 @@ char *otrl_proto_default_query_msg(const char *ourname, OtrlPolicy policy)
      * get passed to the main IM application for processing (and
      * free()ing). */
     const char *format = "?OTR%s\n<b>%s</b> has requested an "
-	    "<a href=\"http://otr.cypherpunks.ca/\">Off-the-Record "
+	    "<a href=\"https://otr.cypherpunks.ca/\">Off-the-Record "
 	    "private conversation</a>.  However, you do not have a plugin "
-	    "to support that.\nSee <a href=\"http://otr.cypherpunks.ca/\">"
-	    "http://otr.cypherpunks.ca/</a> for more information.";
+	    "to support that.\nSee <a href=\"https://otr.cypherpunks.ca/\">"
+	    "https://otr.cypherpunks.ca/</a> for more information.";
 
     /* Figure out the version tag */
     v1_supported = (policy & OTRL_POLICY_ALLOW_V1);

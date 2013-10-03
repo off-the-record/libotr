@@ -5,8 +5,8 @@ Version: 4.0.0
 Release: 1%{?dist}
 License: GPLv2 and LGPLv2
 Group: System Environment/Libraries
-Source0: http://otr.cypherpunks.ca/%{name}-%{version}.tar.gz
-Url: http://otr.cypherpunks.ca/
+Source0: https://otr.cypherpunks.ca/%{name}-%{version}.tar.gz
+Url: https://otr.cypherpunks.ca/
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Provides: libotr-toolkit = %{version}
 Obsoletes: libotr-toolkit < %{version}
