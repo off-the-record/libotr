@@ -294,13 +294,16 @@ unsigned int otrl_proto_query_bestversion(const char *otrquerymsg,
 
 
     otrtag = strstr(otrquerymsg, "?OTR");
+    if (!otrtag) {
+	return 0;
+    }
     otrtag += 4;
 
-    if (otrtag && *otrtag == '?') {
+    if (*otrtag == '?') {
 	query_versions = (1<<0);
 	++otrtag;
     }
-    if (otrtag && *otrtag == 'v') {
+    if (*otrtag == 'v') {
 	for(++otrtag; *otrtag && *otrtag != '?'; ++otrtag) {
 	    switch(*otrtag) {
 		case '2':

@@ -1,3 +1,10 @@
+2013-10-13
+
+	* src/proto.c: Return 0 instead of crashing from
+	otrl_proto_query_bestversion if passed an illegal input.
+	Thanks to Conrad Hoffmann <ch@bitfehler.net> for the report and
+	the patch.
+
 2013-08-21
 
 	* src/proto.c: Fix warning from clang in proto.c. Before, trying
