@@ -826,7 +826,8 @@ gcry_error_t otrl_proto_accept_data(char **plaintextp, OtrlTLV **tlvsp,
 
     gcry_md_reset(sess->rcvmac);
     gcry_md_write(sess->rcvmac, macstart, macend-macstart);
-    if (memcmp(givenmac, gcry_md_read(sess->rcvmac, GCRY_MD_SHA1), 20)) {
+    if (otrl_mem_differ(givenmac, gcry_md_read(sess->rcvmac, GCRY_MD_SHA1),
+	    20)) {
 	/* The MACs didn't match! */
 	goto conflict;
     }

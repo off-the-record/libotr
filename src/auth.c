@@ -30,6 +30,7 @@
 #include "serial.h"
 #include "proto.h"
 #include "context.h"
+#include "mem.h"
 
 #if OTRL_DEBUGGING
 #include <stdio.h>
@@ -976,7 +977,9 @@ gcry_error_t otrl_auth_handle_revealsig(OtrlAuthInfo *auth,
 	    /* Check the hash */
 	    gcry_md_hash_buffer(GCRY_MD_SHA256, hashbuf, gxbuf,
 		    auth->encgx_len);
-	    if (memcmp(hashbuf, auth->hashgx, 32)) goto decfail;
+	    /* This isn't comparing secret data, but may as well use the
+	     * constant-time version. */
+	    if (otrl_mem_differ(hashbuf, auth->hashgx, 32)) goto decfail;
 
 	    /* Extract g^x */
 	    bufp = gxbuf;
@@ -1005,7 +1008,7 @@ gcry_error_t otrl_auth_handle_revealsig(OtrlAuthInfo *auth,
 	    gcry_md_reset(auth->mac_m2);
 	    gcry_md_write(auth->mac_m2, authstart, authend - authstart);
 
-	    if (memcmp(macstart,
+	    if (otrl_mem_differ(macstart,
 			gcry_md_read(auth->mac_m2, GCRY_MD_SHA256),
 			20)) goto invval;
 
@@ -1121,7 +1124,7 @@ gcry_error_t otrl_auth_handle_signature(OtrlAuthInfo *auth,
 	    /* Check the MAC */
 	    gcry_md_reset(auth->mac_m2p);
 	    gcry_md_write(auth->mac_m2p, authstart, authend - authstart);
-	    if (memcmp(macstart,
+	    if (otrl_mem_differ(macstart,
 			gcry_md_read(auth->mac_m2p, GCRY_MD_SHA256),
 			20)) goto invval;
 

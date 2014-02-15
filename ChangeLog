@@ -1,3 +1,11 @@
+2014-02-15
+
+	* src/proto.c:
+	* src/auth.c:
+	* src/mem.c:
+	* src/mem.h: Use a constant-time memory comparison for safety.
+	Thanks to jvoisin <julien.voisin@dustri.org> for the suggestion.
+
 2013-10-13
 
 	* src/proto.c: Return 0 instead of crashing from
