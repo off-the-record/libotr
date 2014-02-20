@@ -466,6 +466,7 @@ gcry_error_t otrl_proto_instance(const char *otrmsg,
     free(bufp_head);
     return gcry_error(GPG_ERR_NO_ERROR);
 invval:
+    free(bufp_head);
     err = gcry_error(GPG_ERR_INV_VALUE);
     return err;
 }
