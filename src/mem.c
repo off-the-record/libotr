@@ -169,12 +169,11 @@ void otrl_mem_init(void)
 int otrl_mem_differ(const unsigned char *buf1, const unsigned char *buf2,
     size_t len)
 {
-    unsigned char diff = 0;
-    while (len) {
-	diff |= ((*buf1) ^ (*buf2));
-	++buf1;
-	++buf2;
-	--len;
+    volatile unsigned char diff = 0;
+    size_t i;
+
+    for (i = 0; i < len; ++i) {
+        diff |= (buf1[i] ^ buf2[i]);
     }
     return (diff != 0);
 }
