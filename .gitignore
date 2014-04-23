@@ -15,6 +15,8 @@ Makefile.in
 *.info
 *.gz
 *.tar
+*.gcda
+*.gcno
 .dirstamp
 configure
 aclocal.m4
@@ -38,3 +40,17 @@ libotr.pc
 /toolkit/otr_readforge
 /toolkit/otr_remac
 /toolkit/otr_sesskeys
+
+/tests/regression/client/client
+
+/tests/unit/test_auth
+/tests/unit/test_proto
+/tests/unit/test_dh
+/tests/unit/test_b64
+/tests/unit/test_context
+/tests/unit/test_userstate
+/tests/unit/test_tlv
+/tests/unit/test_mem
+/tests/unit/test_sm
+/tests/unit/test_instag
+/tests/unit/test_privkey

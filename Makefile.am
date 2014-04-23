@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I config
 
-SUBDIRS = src toolkit
+SUBDIRS = src toolkit tests
 
 EXTRA_DIST = Protocol-v3.html UPGRADING packaging libotr.m4 libotr.pc.in
 
