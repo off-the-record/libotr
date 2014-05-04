@@ -18,7 +18,7 @@ COMPILING
 If you're got a CVS copy, you will need to regenerate the configure
 script using:
 
-    autoreconf -s -i
+    ./bootstrap
 
 Once you have the configure script (which comes with the source
 deistribution), run it with the "--with-pic" option, as well as any
