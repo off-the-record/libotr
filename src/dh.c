@@ -138,7 +138,7 @@ gcry_error_t otrl_dh_session(DH_sesskeys *sess, const DH_keypair *kp,
     }
 
     /* Calculate the shared secret MPI */
-    gab = gcry_mpi_new(DH1536_MOD_LEN_BITS);
+    gab = gcry_mpi_snew(DH1536_MOD_LEN_BITS);
     gcry_mpi_powm(gab, y, kp->priv, DH1536_MODULUS);
 
     /* Output it in the right format */
@@ -256,7 +256,7 @@ gcry_error_t otrl_dh_compute_v2_auth_keys(const DH_keypair *our_dh,
     }
 
     /* Calculate the shared secret MPI */
-    s = gcry_mpi_new(DH1536_MOD_LEN_BITS);
+    s = gcry_mpi_snew(DH1536_MOD_LEN_BITS);
     gcry_mpi_powm(s, their_pub, our_dh->priv, DH1536_MODULUS);
 
     /* Output it in the right format */
@@ -381,7 +381,7 @@ gcry_error_t otrl_dh_compute_v1_session_id(const DH_keypair *our_dh,
     }
 
     /* Calculate the shared secret MPI */
-    s = gcry_mpi_new(DH1536_MOD_LEN_BITS);
+    s = gcry_mpi_snew(DH1536_MOD_LEN_BITS);
     gcry_mpi_powm(s, their_pub, our_dh->priv, DH1536_MODULUS);
 
     /* Output it in the right format */

@@ -133,7 +133,7 @@ void otrl_sm_state_new(OtrlSMState *smst)
 void otrl_sm_state_init(OtrlSMState *smst)
 {
     otrl_sm_state_free(smst);
-    smst->secret = gcry_mpi_new(SM_MOD_LEN_BITS);
+    smst->secret = gcry_mpi_snew(SM_MOD_LEN_BITS);
     smst->x2 = NULL;
     smst->x3 = NULL;
     smst->g1 = gcry_mpi_copy(SM_GENERATOR);
@@ -431,7 +431,7 @@ static gcry_error_t otrl_sm_proof_know_log(gcry_mpi_t *c, gcry_mpi_t *d,
 	const gcry_mpi_t g, const gcry_mpi_t x, int version)
 {
     gcry_mpi_t r = randomExponent();
-    gcry_mpi_t temp = gcry_mpi_new(SM_MOD_LEN_BITS);
+    gcry_mpi_t temp = gcry_mpi_snew(SM_MOD_LEN_BITS);
     gcry_mpi_powm(temp, g, r, SM_MODULUS);
     otrl_sm_hash(c, version, temp, NULL);
     gcry_mpi_mulm(temp, x, *c, SM_ORDER);

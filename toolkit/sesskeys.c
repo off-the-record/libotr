@@ -53,9 +53,9 @@ void sesskeys_gen(unsigned char sessionid[20], unsigned char sendenc[16],
 	(const unsigned char *)DH1536_MODULUS_S, 0, NULL);
     gcry_mpi_scan(&generator, GCRYMPI_FMT_HEX,
 	(const unsigned char *)DH1536_GENERATOR_S, 0, NULL);
-    *our_yp = gcry_mpi_new(DH1536_MOD_LEN_BITS);
+    *our_yp = gcry_mpi_snew(DH1536_MOD_LEN_BITS);
     gcry_mpi_powm(*our_yp, generator, our_x, modulus);
-    secretv = gcry_mpi_new(DH1536_MOD_LEN_BITS);
+    secretv = gcry_mpi_snew(DH1536_MOD_LEN_BITS);
     gcry_mpi_powm(secretv, their_y, our_x, modulus);
     gcry_mpi_release(generator);
     gcry_mpi_release(modulus);
