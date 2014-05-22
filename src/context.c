@@ -248,7 +248,7 @@ ConnContext * otrl_context_find_recent_secure_instance(ConnContext * context)
  * add_app_data(data, context) so that app_data and app_data_free can be
  * filled in by the application, and set *addedp to 1.
  * In the 'their_instance' field note that you can also specify a 'meta-
- * instance' value such as OTRL_INSTAG_MASTER, OTRL_INSTAL_RECENT,
+ * instance' value such as OTRL_INSTAG_MASTER, OTRL_INSTAG_RECENT,
  * OTRL_INSTAG_RECENT_RECEIVED and OTRL_INSTAG_RECENT_SENT. */
 ConnContext * otrl_context_find(OtrlUserState us, const char *user,
 	const char *accountname, const char *protocol,

@@ -37,7 +37,7 @@ You will also need an OtrlUserState.  An OtrlUserState encapsulates the
 list of known fingerprints and the list of private keys, so it should be
 "one per user".  Many OTR-enabled programs (such as IM clients) only have a 
 single user, so for them, you can just create a single one, and use it
-thoughout.  Create an OtrlUserState as follows:
+throughout.  Create an OtrlUserState as follows:
 
     userstate = otrl_userstate_create();
 
