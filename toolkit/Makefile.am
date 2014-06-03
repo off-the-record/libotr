@@ -1,4 +1,4 @@
-INCLUDES = -I$(includedir) -I../src @LIBGCRYPT_CFLAGS@
+AM_CPPFLAGS = -I$(includedir) -I../src @LIBGCRYPT_CFLAGS@
 
 noinst_HEADERS = aes.h ctrmode.h parse.h sesskeys.h readotr.h sha1hmac.h
 

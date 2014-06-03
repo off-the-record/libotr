@@ -1,9 +1,5 @@
 dnl Process this file with autoconf to produce configure.
 
-AC_INIT(toolkit/parse.c)
-
-AM_CONFIG_HEADER(config.h)
-
 dnl Notes on version numbering:
 dnl   For an implementation-only change:
 dnl     Change the libotr package version from a.b.c to a.b.(c+1)
@@ -15,16 +11,22 @@ dnl       [Note that this does *not* change the major number of the .so.]
 dnl   For a backwards-incompatible API change (e.g. changing data structures):
 dnl     Change the libotr package version from a.b.c to (a+1).0.0
 dnl     Change the libotr libtool version from x:y:z to (x+1):0:0
+AC_INIT([libotr],[4.0.0],[otr@cypherpunks.ca],[],[https://otr.cypherpunks.ca])
 
-AM_INIT_AUTOMAKE(libotr, 4.0.0)
+AM_CONFIG_HEADER(config.h)
+AC_CONFIG_AUX_DIR([config])
+
+AM_INIT_AUTOMAKE
 LIBOTR_LIBTOOL_VERSION="5:0:0"
+
+AC_CONFIG_MACRO_DIR([config])
+# Silent compilation so warnings can be spotted.
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_SUBST(LIBOTR_LIBTOOL_VERSION)
 
 AC_PROG_CC
-
-
-AM_PROG_LIBTOOL
+LT_INIT
 
 AM_PATH_LIBGCRYPT(1:1.2.0,,AC_MSG_ERROR(libgcrypt 1.2.0 or newer is required.))
 
@@ -168,4 +170,11 @@ if test x$enable_linker_hardening != xno; then
     OTR_CHECK_LDFLAGS(-z relro -z now, "$all_ldflags_for_check", "$all_libs_for_check")
 fi
 
-AC_OUTPUT([Makefile src/Makefile toolkit/Makefile libotr.pc])
+AC_CONFIG_FILES([
+	Makefile
+	src/Makefile
+	toolkit/Makefile
+	libotr.pc
+])
+
+AC_OUTPUT
