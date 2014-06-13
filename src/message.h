@@ -230,7 +230,7 @@ typedef struct s_OtrlMessageAppOps {
      *      Received a general OTR error. The argument 'message' will
      *      also be passed and it will contain the OTR error message.
      * - OTRL_MSGEVENT_RCVDMSG_UNENCRYPTED
-     *      Received an unencrypted message. The argument 'smessage' will
+     *      Received an unencrypted message. The argument 'message' will
      *      also be passed and it will contain the plaintext message.
      * - OTRL_MSGEVENT_RCVDMSG_UNRECOGNIZED
      *      Cannot recognize the type of OTR message received.
