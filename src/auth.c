@@ -371,7 +371,11 @@ gcry_error_t otrl_auth_handle_commit(OtrlAuthInfo *auth,
 	     * while in case some other logged in instance of our buddy
 	     * replied with a DHKEY message.  In that case, use the
 	     * incoming parameters.  Otherwise, compare the hashgx
-	     * values to see which one wins. */
+	     * values to see which one wins.
+	     *
+	     * This does NOT use constant time comparison because these
+	     * are two public values thus don't need it. Also, this checks
+	     * which pubkey is larger and not if they are the same. */
 	    if (!is_master && memcmp(auth->hashgx, hashbuf, 32) > 0) {
 		/* Ours wins.  Ignore the message we received, and just
 		 * resend the same D-H Commit message again. */
