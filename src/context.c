@@ -483,7 +483,7 @@ int otrl_context_forget(ConnContext *context)
 	for (c_iter = context; c_iter &&
 		c_iter->m_context == context->m_context;
 		c_iter = c_iter->next) {
-	    if (context->msgstate != OTRL_MSGSTATE_PLAINTEXT) return 1;
+	    if (c_iter->msgstate != OTRL_MSGSTATE_PLAINTEXT) return 1;
 	}
 
 	c_iter = context->next;
