@@ -441,8 +441,15 @@ fragment:
 	/* Fragment and send according to policy */
 	if (!err && messagep && *messagep) {
 	    if (context) {
+		char *rmessagep = NULL;
 		err = fragment_and_send(ops, opdata, context, *messagep,
-			fragPolicy, messagep);
+					fragPolicy, &rmessagep);
+		if (rmessagep) {
+		    /* Free the current message pointer and return back the
+		     * returned fragmented one. */
+		    free(*messagep);
+		    *messagep = rmessagep;
+		}
 	    }
 	}
 	return err;
