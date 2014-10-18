@@ -1,6 +1,7 @@
 /*
  *  Off-the-Record Messaging Toolkit
- *  Copyright (C) 2004-2012  Ian Goldberg, Chris Alexander, Nikita Borisov
+ *  Copyright (C) 2004-2014  Ian Goldberg, David Goulet, Chris Alexander,
+ *                           Nikita Borisov
  *                           <otr@cypherpunks.ca>
  *
  *  This program is free software; you can redistribute it and/or modify

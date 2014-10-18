@@ -309,8 +309,9 @@ The Off-the-Record Messaging library (in the src directory) is
 covered by the following (LGPL) license:
 
     Off-the-Record Messaging library
-    Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
-    			      Willy Lew, Lisa Du, Nikita Borisov
+    Copyright (C) 2004-2014  Ian Goldberg, David Goulet, Rob Smits,
+                             Chris Alexander, Willy Lew, Lisa Du,
+			     Nikita Borisov
 			     <otr@cypherpunks.ca>
 
     This library is free software; you can redistribute it and/or
@@ -331,8 +332,8 @@ The Off-the-Record Messaging Toolkit (in the toolkit directory) is covered
 by the following (GPL) license:
 
     Off-the-Record Messaging Toolkit
-    Copyright (C) 2004-2012  Ian Goldberg, Rob Smits, Chris Alexander,
-                             Nikita Borisov
+    Copyright (C) 2004-2014  Ian Goldberg, David Goulet, Rob Smits,
+                             Chris Alexander, Nikita Borisov
 		             <otr@cypherpunks.ca>
 
     This program is free software; you can redistribute it and/or modify
@@ -354,7 +355,8 @@ CONTACT
 To report problems, comments, suggestions, patches, etc., you can email
 the authors:
 
-Ian Goldberg, Rob Smits, Chris Alexander, Lisa Du, Nikita Borisov
+Ian Goldberg, David Goulet, Rob Smits, Chris Alexander, Lisa Du,
+Nikita Borisov
 <otr@cypherpunks.ca>
 
 For more information on Off-the-Record Messaging, visit
