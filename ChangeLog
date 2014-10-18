@@ -1,3 +1,72 @@
+2014-10-13
+
+	* src/context.h: Add API functions
+	otrl_context_find_recent_instance and
+	otrl_context_find_recent_secure_instance.
+
+2014-10-13
+
+	* src/context.c (otrl_context_forget): Correct check for
+	children contexts' state being OTRL_MSGSTATE_PLAINTEXT.  Thanks
+	to k007k <k007k@wp.pl> for the report.
+
+2014-10-13
+
+	* src/message.c (otrl_message_receiving): Fix memory leak in
+	fragment reassembly.  Thanks to Matthew D. Green
+	<matthewdgreen@gmail.com> for the report and David Goulet
+	<dgoulet@ev0ke.net> for the patch.
+
+2014-10-13
+
+	* src/message.c (otrl_message_sending): Fix possible memory
+	leak.
+
+2014-07-13
+
+	* src/auth.c (otrl_auth_handle_commit): Add a clarifying
+	comment.
+
+2014-06-12
+
+	* src/message.h: Typo fix.
+
+2014-06-03
+
+	* Makefile.am:
+	* configure.ac: Modernize autoconf build system.  Thanks to
+	David Goulet <dgoulet@ev0ke.net> for the patch.
+
+2014-05-22
+
+	* README:
+	* src/context.c: Typo fixes.
+
+2014-05-04
+
+	* INSTALL:
+	* bootstrap: Add bootstrap script to set up the build system.
+	Thanks to David Goulet <dgoulet@ev0ke.net> for the patch.
+
+2014-05-04
+
+	* src/dh.c:
+	* src/sm.c:
+	* toolkit/sesskeys.c: Use gcrypt secure memory allocation.
+	Thanks to Julien Voisin <julien.voisin@dustri.org> for the
+	patch.
+
+2014-04-21
+
+	* src/mem.c (otrl_mem_differ): Simplify otrl_mem_differ.  Thanks
+	to Julien Voisin <julien.voisin@dustri.org> for the patch.
+
+2014-02-20
+
+	* src/proto.c (otrl_proto_instance): Fix a memory leak when
+	receiving an invalid instance tag.  Thanks to Julien Voisin
+	<julien.voisin@dustri.org> for the patch.
+
 2014-02-15
 
 	* src/proto.c:
