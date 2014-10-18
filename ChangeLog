@@ -1,3 +1,9 @@
+2014-10-18
+
+	* Protocol-v3.html: Correctly count the number of actions an OTR
+	client must handle.  Thanks to Fred Yontz <fred@ridersite.org>
+	for the report.
+
 2014-10-13
 
 	* src/context.h: Add API functions
