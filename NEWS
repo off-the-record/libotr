@@ -1,3 +1,17 @@
+18 Oct 2014:
+- Release 4.1.0
+- Modernized autoconf build system
+- Use constant-time comparisons where needed
+- Use gcrypt secure memory allocation
+- Correctly reject attempts to fragment a message into too many pieces
+- Fix a missing opdata when sending message fragments
+- Don't lose the first user message when REQUIRE_ENCRYPTION is set
+- Fix some memory leaks
+- Correct check for children contexts' state when forgetting a context
+- API Changes:
+  - Added API functions otrl_context_find_recent_instance and
+    otrl_context_find_recent_secure_instance.
+
 24 Aug 2012:
 - Release 4.0.0
 - Support v3 of the OTR protocol
