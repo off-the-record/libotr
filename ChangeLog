@@ -1,5 +1,11 @@
 2014-10-18
 
+	* README:
+	* configure.ac:
+	* src/version.h: Bump version number to 4.1.0
+
+2014-10-18
+
 	* Protocol-v3.html: Correctly count the number of actions an OTR
 	client must handle.  Thanks to Fred Yontz <fred@ridersite.org>
 	for the report.

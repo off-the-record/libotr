@@ -11,13 +11,13 @@ dnl       [Note that this does *not* change the major number of the .so.]
 dnl   For a backwards-incompatible API change (e.g. changing data structures):
 dnl     Change the libotr package version from a.b.c to (a+1).0.0
 dnl     Change the libotr libtool version from x:y:z to (x+1):0:0
-AC_INIT([libotr],[4.0.0],[otr@cypherpunks.ca],[],[https://otr.cypherpunks.ca])
+AC_INIT([libotr],[4.1.0],[otr@cypherpunks.ca],[],[https://otr.cypherpunks.ca])
 
 AM_CONFIG_HEADER(config.h)
 AC_CONFIG_AUX_DIR([config])
 
 AM_INIT_AUTOMAKE
-LIBOTR_LIBTOOL_VERSION="5:0:0"
+LIBOTR_LIBTOOL_VERSION="6:0:1"
 
 AC_CONFIG_MACRO_DIR([config])
 # Silent compilation so warnings can be spotted.
