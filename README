@@ -291,16 +291,16 @@ MAILING LISTS
 There are three mailing lists pertaining to Off-the-Record Messaging:
 
 otr-announce:
-    http://lists.cypherpunks.ca/mailman/listinfo/otr-announce/
+    https://lists.cypherpunks.ca/mailman/listinfo/otr-announce/
     *** All users of OTR software should join this. ***  It is used to
     announce new versions of OTR software, and other important information.
 
 otr-users:
-    http://lists.cypherpunks.ca/mailman/listinfo/otr-users/
+    https://lists.cypherpunks.ca/mailman/listinfo/otr-users/
     Discussion of usage issues related to OTR Messaging software.
 
 otr-dev:
-    http://lists.cypherpunks.ca/mailman/listinfo/otr-dev/
+    https://lists.cypherpunks.ca/mailman/listinfo/otr-dev/
     Discussion of OTR Messaging software development.
 
 LICENSE
