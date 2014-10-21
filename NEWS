@@ -7,7 +7,7 @@
 - Fix a missing opdata when sending message fragments
 - Don't lose the first user message when REQUIRE_ENCRYPTION is set
 - Fix some memory leaks
-- Correct check for children contexts' state when forgetting a context
+- Correctly check for children contexts' state when forgetting a context
 - API Changes:
   - Added API functions otrl_context_find_recent_instance and
     otrl_context_find_recent_secure_instance.
