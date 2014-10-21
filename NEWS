@@ -1,4 +1,4 @@
-18 Oct 2014:
+21 Oct 2014:
 - Release 4.1.0
 - Modernized autoconf build system
 - Use constant-time comparisons where needed
