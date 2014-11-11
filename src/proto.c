@@ -490,7 +490,6 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     DH_sesskeys *sess = &(context->context_priv->sesskeys[1][0]);
     gcry_error_t err;
     size_t reveallen = 20 * context->context_priv->numsavedkeys;
-    size_t base64len;
     char *base64buf = NULL;
     unsigned char *msgbuf = NULL;
     enum gcry_mpi_format format = GCRYMPI_FMT_USG;
@@ -605,16 +604,11 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     assert(lenp == 0);
 
     /* Make the base64-encoding. */
-    base64len = ((buflen + 2) / 3) * 4;
-    base64buf = malloc(5 + base64len + 1 + 1);
+    base64buf = otrl_base64_otr_encode(buf, buflen);
     if (base64buf == NULL) {
 	err = gcry_error(GPG_ERR_ENOMEM);
 	goto err;
     }
-    memmove(base64buf, "?OTR:", 5);
-    otrl_base64_encode(base64buf+5, buf, buflen);
-    base64buf[5 + base64len] = '.';
-    base64buf[5 + base64len + 1] = '\0';
 
     free(buf);
     gcry_free(msgbuf);

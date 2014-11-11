@@ -1,3 +1,13 @@
+2014-11-11
+
+	* b64.c (otrl_base64_otr_encode): In case some future code path
+	tries to call otrl_base64_otr_encode with a buffer more than
+	3/4 the size of all addressable memory, return NULL rather than
+	causing an integer overflow and a heap overrun.  Thanks to
+	David Remahl <david@remahl.se> for the report.
+	* proto.c (otrl_proto_create_data): Tiny refactor to call
+	otrl_base64_otr_encode instead of duplicating the code here.
+
 2014-10-18
 
 	* README:

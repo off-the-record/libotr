@@ -197,6 +197,16 @@ char *otrl_base64_otr_encode(const unsigned char *buf, size_t buflen)
 {
     char *base64buf;
     size_t base64len;
+    const size_t HALF_MAX_SIZE_T = ((size_t)-1) >> 1;
+
+    if (buflen > HALF_MAX_SIZE_T) {
+	/* You somehow have a buffer that's of size more than half of
+	 * all addressable memory, and you now want a base64 version in
+	 * a new buffer 33% larger?  Not going to happen.  Exit now,
+	 * rather in the malloc below, to avoid integer overflowing the
+	 * computation of base64len. */
+	 return NULL;
+    }
 
     /* Make the base64-encoding. */
     base64len = ((buflen + 2) / 3) * 4;
