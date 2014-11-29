@@ -1,3 +1,13 @@
+2014-11-29
+
+	* README:
+	* Makefile.am:
+	* configure.ac:
+	* tests/*: Brand new testsuite, thanks to
+	David Goulet <dgoulet@ev0ke.net> and
+	Julien Voisin <julien.voisin@dustri.org>.
+	"make check" to run it.
+
 2014-11-11
 
 	* b64.c (otrl_base64_otr_encode): In case some future code path
