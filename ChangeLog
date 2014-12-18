@@ -5,6 +5,8 @@
 	fragment a fragment.  Thanks to Hannes Mehnert
 	<hannes@mehnert.org> for the report.
 
+	* Protocol-v3.html: Remove a stray "DRAFT" from the <title> tag.
+
 2014-11-29
 
 	* README:
