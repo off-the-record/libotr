@@ -1275,13 +1275,15 @@ fragmentation on outgoing messages is optional.</p>
       OTR version 2 messages get fragmented in a similar format, but 
       without the instance tags fields:
       
-      <p>"?OTR,%hu,%hu,%s," , sender_instance, receiver_instance, 
+      <p>"?OTR,%hu,%hu,%s," ,
       k , n , piece[k]</p></li>
 
     <li>Note that k and n are unsigned short ints (2 bytes), and each has
       a maximum value of 65535.  Also, each piece[k] must be
       non-empty.</li>
-    </ul></dd>
+    </ul>
+    <p>Note that fragments are not themselves messages that can be
+    fragmented: you can't fragment a fragment.</p></dd>
 
 <dt>Receiving Fragments:</dt>
 

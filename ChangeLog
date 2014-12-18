@@ -1,3 +1,10 @@
+2014-12-18
+
+	* Protocol-v3.html: Remove "sender_instance, receiver_instance,"
+	from description of v2 fragmentation and clarify that you can't
+	fragment a fragment.  Thanks to Hannes Mehnert
+	<hannes@mehnert.org> for the report.
+
 2014-11-29
 
 	* README:
