@@ -7,6 +7,11 @@
 
 	* Protocol-v3.html: Remove a stray "DRAFT" from the <title> tag.
 
+	* Protocol-v2.html:
+	* Protocol-v3.html: Clarify the DSA computation in the protocol
+	specs.  Thanks to Adam Langley <agl@imperialviolet.org> and
+	Hannes Mehnert <hannes@mehnert.org> for the report.
+
 2014-11-29
 
 	* README:

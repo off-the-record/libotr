@@ -508,8 +508,8 @@ following data, using the key m1:<dl>
 <dt>keyid<sub>B</sub> (INT)</dt>
 <dt>sig<sub>B</sub>(M<sub>B</sub>) (SIG)</dt>
 <dd>This is the signature, using the private part of the key
-pub<sub>B</sub>, of the 32-byte M<sub>B</sub> (which does not need to be
-hashed again to produce the signature).</dd>
+pub<sub>B</sub>, of the 32-byte M<sub>B</sub> (taken modulo q instead of
+being truncated (as described in FIPS-186), and not hashed again).</dd>
 </dl></li>
 <li>Encrypt X<sub>B</sub> using AES128-CTR with key c and initial
 counter value 0.</li>
