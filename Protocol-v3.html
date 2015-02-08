@@ -148,7 +148,7 @@ that group, as indicated in the detailed description below.</p>
 <ol>
 <li>Picks the most recent of her own D-H encryption keys that Bob has
 acknowledged receiving (by using it in a Data Message, or failing that,
-in the AKE).  Let key<sub>A</sub> by that key, and let keyid<sub>A</sub>
+in the AKE).  Let key<sub>A</sub> be that key, and let keyid<sub>A</sub>
 be its serial number.</li>
 <li>If the above key is Alice's most recent key, she generates a new D-H key 
 (next_dh), to get the serial number keyid<sub>A</sub>+1.</li>
@@ -929,7 +929,7 @@ according to the protocol by setting cR = SHA256(7, g<sub>1</sub><sup>r7</sup>,
 (Q<sub>a</sub> / Q<sub>b</sub>)<sup>r7</sup>) and 
 D7 = r7 - a<sub>3</sub> cR mod q.</li>
 <li>Store the values of g<sub>3b</sub>, (P<sub>a</sub> / P<sub>b</sub>), 
-(Q<sub>a</sub> / Q<sub>b</sub>) and R<sub>a</sub> for use later in the
+(Q<sub>a</sub> / Q<sub>b</sub>) and a<sub>3</sub> for use later in the
 protocol.</li>
 <li>Send Bob a type 4 TLV (SMP message 3) containing P<sub>a</sub>, 
 Q<sub>a</sub>, cP, D5, D6, R<sub>a</sub>, cR and D7 in that order.</li>
