@@ -986,8 +986,11 @@ int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops,
 
     otrtag = strstr(message, "?OTR");
     if (otrtag) {
-	/* See if we have a V3 fragment */
-	if (strstr(message, "?OTR|")) {
+	/* See if we have a V3 fragment.  The '4' in the next line is
+	 * strlen("?OTR").  otrtag[4] is the character immediately after
+	 * the "?OTR", and is guaranteed to exist, because in the worst
+	 * case, it is the NUL terminating 'message'. */
+	if (otrtag[4] == '|') {
 	    /* Get the instance tag from fragment header*/
 	    sscanf(otrtag, "?OTR|%x|%x,", &their_instance, &our_instance);
 	    /* Ignore message if it is intended for a different instance */

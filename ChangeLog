@@ -4,6 +4,10 @@
 	<hannes@mehnert.org> and Nadim Kobeissi <nadim@nadim.computer>
 	for the reports.
 
+	* src/message.c: Be stricter about parsing v3 fragments.  Thanks
+	to Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com> for
+	the report.
+
 2014-12-18
 
 	* Protocol-v3.html: Remove "sender_instance, receiver_instance,"
