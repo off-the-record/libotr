@@ -496,6 +496,8 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
     char *msgdup;
     int version = context->protocol_version;
 
+    *encmessagep = NULL;
+
     /* Make sure we're actually supposed to be able to encrypt */
     if (context->msgstate != OTRL_MSGSTATE_ENCRYPTED ||
 	    context->context_priv->their_keyid == 0) {
@@ -509,8 +511,6 @@ gcry_error_t otrl_proto_create_data(char **encmessagep, ConnContext *context,
 	return gcry_error(GPG_ERR_ENOMEM);
     }
     strcpy(msgdup, msg);
-
-    *encmessagep = NULL;
 
     /* Header, msg flags, send keyid, recv keyid, counter, msg len, msg
      * len of revealed mac keys, revealed mac keys, MAC */
